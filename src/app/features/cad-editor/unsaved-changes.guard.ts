@@ -1,7 +1,6 @@
 import { Injector, inject } from '@angular/core';
 import { CanDeactivateFn } from '@angular/router';
 
-import { UiDialogService } from '../../shared/ui/dialog/ui-dialog.service';
 import type { CadEditorComponent } from './cad-editor';
 
 /**
@@ -16,22 +15,28 @@ import type { CadEditorComponent } from './cad-editor';
  * "Save all" aborts the navigation if any save fails or is cancelled, so a
  * failed upload never doubles as a discard.
  *
- * `DrawingPersistenceService` is reached through a dynamic import rather than a
- * top-level one: `app.routes.ts` imports this guard eagerly, and a static
- * import would pull the export/import/document stack — most of the editor —
- * into the initial bundle. By the time the guard can possibly run, the editor
- * chunk is already loaded, so the import resolves from cache.
+ * **Every dependency here is resolved through a dynamic import.** `app.routes.ts`
+ * imports this guard eagerly, so anything named at the top level lands in the
+ * initial bundle that a signed-out visitor downloads on the landing page:
+ * `DrawingPersistenceService` would pull the export/import/document stack, and
+ * `UiDialogService` pulls the CDK overlay (measured at ~65 kB together). Both
+ * are `providedIn: 'root'`, so importing the module then asking the injector
+ * for the token gives the same singleton. By the time this guard can possibly
+ * run, the user is in the editor and both chunks are already cached.
  *
  * Wire it up as `canDeactivate: [unsavedChangesGuard]` on the editor route.
  */
 export const unsavedChangesGuard: CanDeactivateFn<CadEditorComponent> = async () => {
   const injector = inject(Injector);
-  const dialog = inject(UiDialogService);
 
-  const { DrawingPersistenceService } = await import('./core/services/drawing-persistence.service');
+  const [{ DrawingPersistenceService }, { UiDialogService }] = await Promise.all([
+    import('./core/services/drawing-persistence.service'),
+    import('../../shared/ui/dialog/ui-dialog.service'),
+  ]);
   const persist = injector.get(DrawingPersistenceService);
 
   if (!persist.anyDirty()) return true;
+  const dialog = injector.get(UiDialogService);
 
   const choice = await dialog.choose({
     title: 'You have unsaved changes',

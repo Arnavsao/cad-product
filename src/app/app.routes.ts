@@ -1,7 +1,6 @@
 import { Routes, UrlMatchResult, UrlMatcher, UrlSegment } from '@angular/router';
-// `onboardingGuard` / `notOnboardedGuard` are imported for the commented-out
-// dashboard/onboarding routes below, so enabling them is uncomment-only.
 import { authGuard, guestGuard, notOnboardedGuard, onboardingGuard } from './core/auth/auth.guards';
+import { unsavedChangesGuard } from './features/cad-editor/unsaved-changes.guard';
 
 /**
  * Matches `/<prefix>` and everything beneath it as ONE route, so the same
@@ -48,39 +47,37 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/sign-up.page').then((m) => m.SignUpPage),
   },
 
-  // ── Onboarding + dashboard: uncomment once `features/onboarding` and
-  // `features/dashboard` exist (guards `onboardingGuard`/`notOnboardedGuard`
-  // are already exported from ./core/auth/auth.guards). ──────────────────
-  // {
-  //   path: 'onboarding',
-  //   title: 'Welcome · CADOnline',
-  //   canActivate: [authGuard, notOnboardedGuard],
-  //   loadComponent: () => import('./features/onboarding/onboarding.page').then((m) => m.OnboardingPage),
-  // },
-  // {
-  //   path: 'dashboard',
-  //   canActivate: [authGuard, onboardingGuard],
-  //   loadComponent: () => import('./features/dashboard/dashboard-shell.component').then((m) => m.DashboardShellComponent),
-  //   children: [
-  //     { path: '', pathMatch: 'full', title: 'Recent · CADOnline',
-  //       loadComponent: () => import('./features/dashboard/pages/recent.page').then((m) => m.RecentPage) },
-  //     { path: 'drawings', title: 'My Drawings · CADOnline',
-  //       loadComponent: () => import('./features/dashboard/pages/drawings.page').then((m) => m.DrawingsPage) },
-  //     { path: 'folders/:folderId', title: 'My Drawings · CADOnline',
-  //       loadComponent: () => import('./features/dashboard/pages/drawings.page').then((m) => m.DrawingsPage) },
-  //     { path: 'trash', title: 'Trash · CADOnline',
-  //       loadComponent: () => import('./features/dashboard/pages/trash.page').then((m) => m.TrashPage) },
-  //     // prefixMatcher: Clerk's <UserProfile> (mounted at /dashboard/settings/account) path-routes beneath it.
-  //     { matcher: prefixMatcher('settings'), title: 'Settings · CADOnline',
-  //       loadComponent: () => import('./features/dashboard/pages/settings.page').then((m) => m.SettingsPage) },
-  //   ],
-  // },
+  {
+    path: 'onboarding',
+    title: 'Welcome · CADOnline',
+    canActivate: [authGuard, notOnboardedGuard],
+    loadComponent: () => import('./features/onboarding/onboarding.page').then((m) => m.OnboardingPage),
+  },
+  {
+    path: 'dashboard',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () => import('./features/dashboard/dashboard-shell.component').then((m) => m.DashboardShellComponent),
+    children: [
+      { path: '', pathMatch: 'full', title: 'Recent · CADOnline',
+        loadComponent: () => import('./features/dashboard/pages/recent.page').then((m) => m.RecentPage) },
+      { path: 'drawings', title: 'My Drawings · CADOnline',
+        loadComponent: () => import('./features/dashboard/pages/drawings.page').then((m) => m.DrawingsPage) },
+      { path: 'folders/:folderId', title: 'My Drawings · CADOnline',
+        loadComponent: () => import('./features/dashboard/pages/drawings.page').then((m) => m.DrawingsPage) },
+      { path: 'trash', title: 'Trash · CADOnline',
+        loadComponent: () => import('./features/dashboard/pages/trash.page').then((m) => m.TrashPage) },
+      // prefixMatcher: Clerk's <UserProfile> (mounted at /dashboard/settings/account) path-routes beneath it.
+      { matcher: prefixMatcher('settings'), title: 'Settings · CADOnline',
+        loadComponent: () => import('./features/dashboard/pages/settings.page').then((m) => m.SettingsPage) },
+    ],
+  },
 
   {
     matcher: editorMatcher,
     title: 'CADOnline',
     canActivate: [authGuard],
-    // canDeactivate: [unsavedChangesGuard], // added with the cloud-save work (Save all / Discard / Cancel)
+    // Offers Save all / Discard / Cancel before navigating away with unsaved work.
+    canDeactivate: [unsavedChangesGuard],
     data: { preload: true },
     loadComponent: () => import('./features/cad-editor/cad-editor').then((m) => m.CadEditorComponent),
   },

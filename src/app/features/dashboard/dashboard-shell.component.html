@@ -1,0 +1,168 @@
+<div class="dash">
+  <div class="dash__brand">
+    <a class="brand" routerLink="/dashboard" aria-label="CADOnline dashboard">
+      <span class="brand__mark" aria-hidden="true"><ui-icon name="grid" [size]="16" /></span>
+      <span class="brand__name">{{ appName }}</span>
+    </a>
+  </div>
+
+  <header class="dash__top">
+    <div class="dash__search">
+      <ui-icon class="dash__search-icon" name="search" [size]="15" />
+      <input
+        uiInput
+        type="search"
+        class="dash__search-input"
+        placeholder="Search drawings"
+        aria-label="Search drawings"
+        [value]="search()"
+        (input)="onSearchInput($event)"
+        (keydown.enter)="onSearchEnter()"
+      />
+      @if (search()) {
+        <button
+          type="button"
+          uiButton
+          variant="ghost"
+          size="sm"
+          iconOnly
+          class="dash__search-clear"
+          aria-label="Clear search"
+          (click)="clearSearch()"
+        >
+          <ui-icon name="close" [size]="14" />
+        </button>
+      }
+    </div>
+    <app-account-button />
+  </header>
+
+  <nav class="dash__nav" aria-label="Dashboard">
+    <div class="dash__create">
+      <app-new-drawing-menu [folderId]="folderId()" (created)="onDrawingCreated()" />
+      <button type="button" uiButton class="dash__wide" (click)="pickFiles()">
+        <ui-icon name="upload" [size]="15" />
+        Upload…
+      </button>
+      <button type="button" uiButton class="dash__wide" [disabled]="creatingFolder()" (click)="newFolder()">
+        <ui-icon name="folder" [size]="15" />
+        New folder
+      </button>
+    </div>
+
+    <ul class="dash__links">
+      <li>
+        <a class="dash__link" [class.dash__link--on]="section() === 'recent'" routerLink="/dashboard">
+          <ui-icon name="clock" [size]="16" />
+          Recent
+        </a>
+      </li>
+      <li>
+        <a class="dash__link" [class.dash__link--on]="section() === 'drawings'" routerLink="/dashboard/drawings">
+          <ui-icon name="folder" [size]="16" />
+          My Drawings
+        </a>
+      </li>
+      <li>
+        <a class="dash__link" [class.dash__link--on]="section() === 'trash'" routerLink="/dashboard/trash">
+          <ui-icon name="trash" [size]="16" />
+          Trash
+        </a>
+      </li>
+    </ul>
+
+    <div class="dash__nav-foot">
+      <a class="dash__link" [class.dash__link--on]="section() === 'settings'" routerLink="/dashboard/settings">
+        <ui-icon name="settings" [size]="16" />
+        Settings
+      </a>
+
+      @if (usage(); as u) {
+        <div class="dash__usage">
+          <span class="dash__usage-main">{{ u.bytesUsed | fileSize }} used</span>
+          <span class="dash__usage-sub">{{ u.drawingCount }} {{ u.drawingCount === 1 ? 'drawing' : 'drawings' }}</span>
+        </div>
+      } @else if (!usageUnavailable()) {
+        <div class="dash__usage">
+          <ui-skeleton width="90px" height="12px" />
+          <ui-skeleton width="60px" height="10px" />
+        </div>
+      }
+    </div>
+  </nav>
+
+  <main
+    class="dash__content"
+    appUploadDropzone
+    #zone="appUploadDropzone"
+    [class.dash__content--over]="zone.over()"
+    (filesDropped)="onFilesDropped($event)"
+  >
+    <router-outlet />
+
+    @if (zone.over()) {
+      <div class="dash__drop" aria-hidden="true">
+        <div class="dash__drop-card">
+          <ui-icon name="upload" [size]="26" [strokeWidth]="1.5" />
+          <p>Drop to upload</p>
+          <span>.dxf and .dwg files</span>
+        </div>
+      </div>
+    }
+  </main>
+
+  @if (upload.tasks().length) {
+    <aside class="dash__uploads" aria-label="Uploads">
+      <header class="dash__uploads-head">
+        <span>Uploads</span>
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Clear finished uploads" (click)="upload.clearFinished()">
+          <ui-icon name="close" [size]="14" />
+        </button>
+      </header>
+      <ul>
+        @for (task of upload.tasks(); track task.id) {
+          <li class="dash__upload" [class.dash__upload--error]="task.state === 'error'">
+            <div class="dash__upload-row">
+              <ui-icon [name]="task.state === 'error' ? 'alert' : task.state === 'done' ? 'check' : 'upload'" [size]="14" />
+              <span class="dash__upload-name" [title]="task.fileName">{{ task.fileName }}</span>
+              <span class="dash__upload-state">
+                @switch (task.state) {
+                  @case ('uploading') { {{ task.progress }}% }
+                  @case ('importing') { Importing }
+                  @case ('done') { Done }
+                  @default { Failed }
+                }
+              </span>
+            </div>
+            @if (task.state === 'uploading' || task.state === 'importing') {
+              <div
+                class="dash__upload-bar"
+                role="progressbar"
+                [attr.aria-valuenow]="task.progress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                [attr.aria-label]="'Uploading ' + task.fileName"
+              >
+                <span [style.width.%]="task.progress"></span>
+              </div>
+            }
+            @if (task.message) {
+              <p class="dash__upload-msg">{{ task.message }}</p>
+            }
+          </li>
+        }
+      </ul>
+    </aside>
+  }
+
+  <input
+    #fileInput
+    type="file"
+    class="ui-visually-hidden"
+    multiple
+    tabindex="-1"
+    aria-hidden="true"
+    [accept]="uploadAccept"
+    (change)="onFileInput($event)"
+  />
+</div>
