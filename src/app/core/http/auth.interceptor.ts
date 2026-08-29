@@ -26,6 +26,11 @@ function isPublicUrl(url: string): boolean {
  * user is sent to `/sign-in?redirect_url=<where they were>` unless they are
  * already on a public route. Requests to other hosts (presigned S3 URLs, Ollama)
  * pass through untouched.
+ *
+ * The redirect is skipped entirely in embedded mode (no publishable key): there
+ * is no sign-in flow to send anyone to, and a host application supplying its own
+ * token through `AUTH_TOKEN_PROVIDER` must handle its own expiry — bouncing the
+ * user into our sign-in page would hijack the host's navigation.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   if (!isBackendRequest(req.url)) return next(req);
@@ -39,7 +44,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (error.status === 401) {
         tokens.clearToken();
         const current = router.url;
-        if (!isPublicUrl(current)) {
+        if (environment.clerkPublishableKey && !isPublicUrl(current)) {
           void router.navigateByUrl(`/sign-in?redirect_url=${encodeURIComponent(current)}`);
         }
       }
