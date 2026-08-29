@@ -1,6 +1,4 @@
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../../../../environments/environment';
+import { Injectable } from '@angular/core';
 import type { AiAuditRecord } from '../models/ai-audit.model';
 
 const IDB_DB = 'cad_ai_audit_v1';
@@ -10,33 +8,29 @@ const LOCAL_QUEUE_KEY = 'cad_ai_audit_queue_v1';
 const MAX_LOCAL_RECORDS = 500;   // cap to avoid localStorage bloat
 
 /**
- * AiAuditService — append-only audit log.
+ * AiAuditService — append-only, local-only audit log.
  *
- * Every resolved AI turn is written here.  Persistence strategy:
- *   1. Primary  — POST to the backend (`/api/v1/ai/audit`), fire-and-forget.
- *   2. Fallback — IndexedDB `cad_ai_audit_v1` (survives page reloads).
- *   3. Overflow — if IDB is unavailable, a capped queue in localStorage.
+ * Every resolved AI turn is written here so a user can review what the
+ * assistant changed. Persistence strategy:
+ *   1. Primary  — IndexedDB `cad_ai_audit_v1` (survives page reloads).
+ *   2. Fallback — if IDB is unavailable, a capped queue in localStorage.
  *
- * The backend call is a best-effort fire-and-forget (no await, no retry) so
- * it never blocks the UI.  Local storage is always written first, providing
- * an offline-capable audit trail that can be replayed later.
+ * The log deliberately never leaves the browser: CADOnline is a general-purpose
+ * CAD product and the assistant's actions are the user's own drafting history,
+ * not telemetry. (An earlier bridge-specific build mirrored records to a
+ * backend endpoint; that was removed in 1.1.0.)
  */
 @Injectable({ providedIn: 'root' })
 export class AiAuditService {
-  private http = inject(HttpClient);
   private db: IDBDatabase | null = null;
 
   constructor() {
     this._openIdb().catch(() => { /* IDB unavailable — fall back to localStorage */ });
   }
 
-  /**
-   * Write a single audit record.
-   * Local write is synchronous-like (queued to IDB); backend POST is async.
-   */
+  /** Write a single audit record (queued to IDB, or localStorage fallback). */
   write(record: AiAuditRecord): void {
     this._writeLocal(record);
-    this._postBackend(record);
   }
 
   /** Return the last N records from local IDB (or localStorage fallback). */
@@ -114,16 +108,5 @@ export class AiAuditService {
     } catch {
       return [];
     }
-  }
-
-  // ── Backend POST ───────────────────────────────────────────────────────────
-
-  private _postBackend(record: AiAuditRecord): void {
-    if (!environment.apiUrl) return; // no backend configured — local queue only
-    const url = `${environment.apiUrl.replace(/\/+$/, '')}/ai/audit`;
-    // Fire-and-forget — don't let a backend failure surface to the user.
-    this.http.post(url, record).subscribe({
-      error: () => { /* intentionally silent */ },
-    });
   }
 }

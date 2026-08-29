@@ -128,7 +128,6 @@ import { FindDialogService } from './features/find-dialog/find-dialog.service';
 import { DocumentTabsComponent } from './features/document-tabs/document-tabs.component';
 import { DocumentManagerService } from './core/services/document-manager.service';
 import { AiAgentPanelComponent } from './features/ai-agent/ai-agent-panel.component';
-import { LSectionPanelComponent } from './features/l-section/l-section-panel.component';
 import { AiToolRegistryService } from './features/ai-agent/services/ai-tool-registry.service';
 import { CursorSizeTool } from './tools/options/cursor-size-tool';
 import { PickboxTool } from './tools/options/pickbox-tool';
@@ -170,7 +169,6 @@ import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.co
     DocumentTabsComponent,
     TextEditorRibbonComponent,
     AiAgentPanelComponent,
-    LSectionPanelComponent,
     ShareDialogComponent,
     VportsDialogComponent,
     DimTextEditorOverlayComponent

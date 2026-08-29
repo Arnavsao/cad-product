@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type DrawerPanelId = 'properties' | 'layers' | 'blocks' | 'viewports' | 'library' | 'ai-agent' | 'l-section' | 'settings' | null;
+export type DrawerPanelId = 'properties' | 'layers' | 'blocks' | 'viewports' | 'library' | 'ai-agent' | 'settings' | null;
 
 @Injectable({ providedIn: 'root' })
 export class WorkspacePanelService {

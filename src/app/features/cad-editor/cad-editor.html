@@ -213,17 +213,6 @@
           </div>
           }
           }
-          <!-- L-section panel (Kept alive to preserve file inputs) -->
-          <div [style.display]="panelService.activePanel() === 'l-section' ? 'flex' : 'none'" style="flex-direction:column; height:100%;">
-            <div class="drawer-header">
-              <div class="drawer-title-row"><span>L-section DXF Gen</span></div>
-              <button class="drawer-close" type="button" (click)="setActivePanel(null)">✕</button>
-            </div>
-            <div class="drawer-body"
-              style="padding:0; overflow:hidden; display:flex; flex-direction:column; height:100%;">
-              <app-l-section-panel></app-l-section-panel>
-            </div>
-          </div>
         </div>
 
         <!-- Canvas (fills remaining space) -->

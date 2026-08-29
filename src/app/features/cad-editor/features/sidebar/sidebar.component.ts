@@ -42,11 +42,6 @@ const BUTTONS: SidebarBtn[] = [
     label: 'AI Agent',
     svg: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2 Q9 9 16 9 Q9 9 9 16 Q9 9 2 9 Q9 9 9 2z"/></svg>`
   },
-  {
-    id: 'l-section',
-    label: 'L-section',
-    svg: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 2 4 16 16 16"/></svg>`
-  },
 ];
 
 const SETTINGS_BTN: SidebarBtn = {

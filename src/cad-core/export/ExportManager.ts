@@ -61,26 +61,6 @@ export class PDFExporter implements IExporter {
     }
 }
 
-export class DXFPythonExporter implements IExporter {
-    format = 'DXF';
-    
-    async export(entities: IDraftingEntity[]): Promise<Blob> {
-        const payload = new JSONExporter().export(entities);
-        // Delegate complex R2018 DXF rendering to the ezdxf Python backend via Fast API
-        const response = await fetch('http://127.0.0.1:8000/api/dxf/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload
-        });
-        
-        if (!response.ok) {
-            throw new Error(`DXF Backend Export Failed: ${response.statusText}`);
-        }
-        
-        return await response.blob();
-    }
-}
-
 export class ExportManager {
     private exporters: Map<string, IExporter> = new Map();
 
@@ -88,7 +68,9 @@ export class ExportManager {
         this.register(new JSONExporter());
         this.register(new SVGExporter());
         this.register(new PDFExporter());
-        this.register(new DXFPythonExporter());
+        // DXF export lives in the editor's ExportService (a real writer). The old
+        // DXFPythonExporter that POSTed to a hard-coded local FastAPI server was
+        // dead code and was removed in 1.1.0.
     }
 
     public register(exporter: IExporter) {
