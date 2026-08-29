@@ -59,13 +59,8 @@ export class FileImportService {
           await this.dxfImport.loadDxfDataAsync(text, file.name);
           this.vm.zoomExtentsWhenReady(this.doc);
 
-          // Clean up: if there are any completely blank drawings (like the default Drawing1), close them
-          const allDocs = this.docManager.documents();
-          for (const d of allDocs) {
-            if (d.tabId !== this.doc.activeFileId && d.file.entities.length === 0) {
-              this.docManager.closeDocument(d.tabId, true);
-            }
-          }
+          // Drop the untouched `Drawing1` scaffolding tab the editor boots with.
+          this.docManager.closeBlankDocuments(this.doc.activeFileId);
         } catch (err) {
           console.error(`Error processing DXF data for ${file.name}:`, err);
         }

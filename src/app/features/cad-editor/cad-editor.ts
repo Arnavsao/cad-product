@@ -15,7 +15,10 @@ import {
   input
 } from '@angular/core';
 import { Location } from '@angular/common';
+import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
+import { AccountButtonComponent } from '../../shared/ui/account-button.component';
+import { relativeTime } from '../../shared/ui/pipes/relative-time.pipe';
 import { rotateEntityInPlace, snapshotEntity } from './tools/geometry-utils';
 
 import { CanvasComponent } from './features/canvas/canvas.component';
@@ -171,7 +174,8 @@ import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.co
     AiAgentPanelComponent,
     ShareDialogComponent,
     VportsDialogComponent,
-    DimTextEditorOverlayComponent
+    DimTextEditorOverlayComponent,
+    AccountButtonComponent
   ],
   templateUrl: './cad-editor.html',
   styleUrl: './cad-editor.scss',
@@ -180,6 +184,21 @@ import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.co
 export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private injector = inject(Injector);
   readonly initialDxf = input<string>(undefined);
+
+  /**
+   * Cloud drawing to open, bound from `/editor/:id` by
+   * `withComponentInputBinding()`. Undefined on a bare `/editor` (a scratch
+   * drawing that has not been saved yet).
+   */
+  readonly id = input<string>(undefined);
+
+  /**
+   * Where the header's back button goes. Embedded hosts pass `[exitUrl]="null"`
+   * to keep the browser-history behaviour they had before this app grew a
+   * dashboard of its own.
+   */
+  readonly exitUrl = input<string | null>('/dashboard');
+
   readonly save = output<string>();
   readonly close = output<void>();
 
@@ -189,9 +208,19 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   commandLine?: CommandLineComponent;
 
   private location = inject(Location);
+  private router = inject(Router);
+  private title = inject(Title);
 
-  goBack() {
-    this.location.back();
+  /**
+   * Leave the editor. `close` was declared but never emitted, so embedding
+   * hosts had no way to react; it now fires before the navigation so a host
+   * can tear its wrapper down either way.
+   */
+  goBack(): void {
+    this.close.emit();
+    const url = this.exitUrl();
+    if (url) void this.router.navigateByUrl(url);
+    else this.location.back();
   }
 
   rotateDocument() {
@@ -275,6 +304,12 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   isDraggingOverCanvas = signal<boolean>(false);
   private dragEnterCount = 0;
 
+  /** Set once `ngAfterViewInit` has run its startup sequence. */
+  private viewReady = false;
+
+  /** The `/editor/:id` value the startup sequence (or the effect) last acted on. */
+  private handledId: string | null = null;
+
   constructor() {
     // Forward DXF exports from the Plot dialog to the parent app's `save`
     // output so host integrations (parent route, embedding shell) keep
@@ -282,6 +317,33 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     effect(() => {
       const dxf = this.exportMgr.lastDxfSave();
       if (dxf) this.save.emit(dxf);
+    });
+
+    // Browser tab title tracks the active drawing, with AutoCAD's dirty dot.
+    effect(() => {
+      const docs = this.docManager.documents();
+      const activeId = this.docManager.activeTabId;
+      const doc = docs.find((d) => d.tabId === activeId);
+      const name = doc?.file.name?.trim() || 'Drawing';
+      this.title.setTitle(`${name}${doc?.isDirty ? ' •' : ''} — CADOnline`);
+    });
+
+    // Later `/editor/:id` changes (Save As rewrites the URL, the dashboard
+    // deep-links into an already-open editor). The first id is handled by
+    // `ngAfterViewInit` so it keeps its place in the startup ordering.
+    effect(() => {
+      const id = this.id();
+      if (!this.viewReady || !id || id === this.handledId) return;
+      this.handledId = id;
+      // Already showing this drawing (e.g. the URL we just rewrote after Save
+      // As) — bring its tab forward and do nothing else. Re-opening would
+      // discard the very edits that produced the id.
+      const openTab = this.persist.tabForRemoteId(id);
+      if (openTab) {
+        this.docManager.activateDocument(openTab);
+        return;
+      }
+      void this.persist.openRemote(id);
     });
   }
 
@@ -481,7 +543,23 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cmdRegistry.registerAction('pasteblock', () => this.pasteAsBlock());
   }
 
+  /**
+   * Startup sequence, in priority order: the routed cloud drawing wins, then
+   * an `initialDxf` handed in by a host component, then a drawing parked in
+   * `DrawingTransferService`.
+   */
   async ngAfterViewInit(): Promise<void> {
+
+    const routedId = this.id();
+    if (routedId) {
+      this.handledId = routedId;
+      this.isLoading.set(true);
+      try {
+        await this.persist.openRemote(routedId);
+      } finally {
+        this.isLoading.set(false);
+      }
+    }
 
     const initialDxf = this.initialDxf();
     if (initialDxf) {
@@ -510,22 +588,21 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.vm.zoomExtentsWhenReady(this.doc);
 
-        // Clean up: if there are any completely blank drawings (like the default Drawing1), close them
-        const allDocs = this.docManager.documents();
-        for (const d of allDocs) {
-          if (d.tabId !== this.doc.activeFileId && d.file.entities.length === 0) {
-            this.docManager.closeDocument(d.tabId, true);
-          }
-        }
+        // Retire the untouched `Drawing1` scaffolding tab.
+        this.docManager.closeBlankDocuments(this.doc.activeFileId);
       } catch (err) {
         console.error(`Failed to load transfer DXF ${transfer.filename}:`, err);
         this.notify.error('Failed to load drawing — the file may be in an unsupported format.', 5000);
       } finally {
+        // Consumed for good: `consume()` never cleared the hand-off, so the
+        // same drawing was re-opened on every subsequent visit to /editor.
+        this.drawingTransfer.clear();
         this.isLoading.set(false);
       }
     }
 
     this.doc.bump();
+    this.viewReady = true;
   }
 
   undo(): void { this.cmds.undo(); }
@@ -959,19 +1036,49 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * SAVE / Ctrl+S. Overwrites the bound record when this tab has already been
-   * saved; otherwise there is no name yet, so fall through to Save As.
+   * SAVE / Ctrl+S. Pushes the active drawing to the user's account, overwriting
+   * the bound cloud record; a drawing that has never been saved has no record
+   * to overwrite, so `saveActive()` opens Save As for it.
    */
   protected async saveDrawing(): Promise<void> {
-    if (!this.persist.isAvailable()) {
-      this.notify.error('Browser storage is unavailable — use Export to write a DXF file.');
-      return;
+    await this.persist.saveActive();
+  }
+
+  /**
+   * Header cloud indicator. Reads `nowTick` as well as the state signals so the
+   * relative timestamp keeps ticking — nothing else marks this zoneless
+   * component dirty as time passes.
+   */
+  protected cloudLabel(): string {
+    this.nowTick();
+    switch (this.persist.cloudState()) {
+      case 'saving':
+        return 'Saving…';
+      case 'saved': {
+        const ts = this.persist.lastCloudSaveAt();
+        return ts ? `Saved to cloud ${relativeTime(ts)}` : 'Saved to cloud';
+      }
+      case 'dirty':
+        return 'Unsaved changes';
+      case 'offline':
+        return 'Saved locally — offline';
+      case 'conflict':
+        return 'Version conflict';
+      default:
+        return '';
     }
-    if (this.persist.activeHasStoredRecord()) {
-      await this.persist.saveActive();
-    } else {
-      this.drawingBrowser.open('save');
-    }
+  }
+
+  /**
+   * Native "leave site?" prompt. The router's `unsavedChangesGuard` covers
+   * in-app navigation; this covers reloads and closing the tab, which the
+   * router never sees. Browsers ignore custom text, so only `returnValue` is set.
+   */
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(e: BeforeUnloadEvent): void {
+    if (!this.persist.anyDirty()) return;
+    e.preventDefault();
+    e.returnValue = '';
   }
 
   ngOnDestroy(): void {
@@ -992,16 +1099,17 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
    * a strong signal that the user lost work and wants it back.
    */
   private initPersistence(): void {
+    // Zoneless: nothing re-renders on its own, so drive the relative-time
+    // labels from a signal we bump ourselves. Outside the IndexedDB guard —
+    // the cloud state has to keep ticking even where local storage is blocked.
+    this.savedAgoTimer = setInterval(() => this.nowTick.update((v) => v + 1), 60_000);
+
     if (!this.persist.isAvailable()) {
-      console.warn('IndexedDB unavailable — drawings cannot be saved to this browser.');
+      console.warn('IndexedDB unavailable — crash recovery and offline caching are disabled.');
       return;
     }
 
     this.autosave.start();
-
-    // Zoneless: nothing re-renders on its own, so drive the relative-time
-    // label from a signal we bump ourselves.
-    this.savedAgoTimer = setInterval(() => this.nowTick.update((v) => v + 1), 60_000);
 
     void this.autosave.hasRecovery().then((has) => {
       if (!has) return;
@@ -1117,7 +1225,9 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
         if (this.docManager.activeDocument) {
-          this.docManager.closeDocument(this.docManager.activeDocument.tabId);
+          // Async now: answering "Save changes?" performs a real cloud save and
+          // the close waits for it. Nothing here needs the outcome.
+          void this.docManager.closeDocument(this.docManager.activeDocument.tabId);
         }
         return;
       }

@@ -170,6 +170,24 @@
       margin-left: 8px;
     }
 
+    /* Cloud save state — the account-level truth, next to the local autosave note. */
+    .hdr-cloudstate {
+      color: var(--cad-text-dim);
+      font-size: 11px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-left: 10px;
+
+      &[data-state='dirty'] { color: var(--cad-text-secondary, var(--cad-text-dim)); }
+      &[data-state='saved'] { color: var(--cad-green, #4caf82); }
+      &[data-state='offline'],
+      &[data-state='conflict'] { color: var(--cad-orange, #e0a458); }
+    }
+
+    .hdr-account {
+      margin-left: 6px;
+    }
+
     .hdr-btn {
       padding: 4px 14px;
       border-radius: var(--cad-radius-sm);

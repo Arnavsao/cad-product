@@ -20,6 +20,15 @@ export class DocumentManagerService {
 
   private closedDocuments: DrawingDocument[] = [];
 
+  /**
+   * Injected by `DrawingPersistenceService` at startup. Without it the
+   * "Save changes?" prompt in `closeDocument` had nowhere real to go and
+   * silently cleared `isDirty` instead — losing the drawing. Kept as a
+   * callback rather than a direct injection because persistence depends on
+   * this service; injecting it back would close a DI cycle.
+   */
+  private saveHandler: ((tabId: string) => Promise<boolean>) | null = null;
+
   constructor() {
     // Ensure entity IDs are generated sequentially per document
     setEntityIdGenerator(() => {
@@ -100,16 +109,41 @@ export class DocumentManagerService {
     this.vm.markContentDirty();
   }
 
-  public closeDocument(tabId: string, force = false): void {
+  /**
+   * Register the real save routine used by the close prompt. Called once by
+   * `DrawingPersistenceService`; the handler returns false when the save was
+   * cancelled or failed, which aborts the close.
+   */
+  public setSaveHandler(fn: (tabId: string) => Promise<boolean>): void {
+    this.saveHandler = fn;
+  }
+
+  /**
+   * Close a tab, offering to save it first when it is dirty.
+   *
+   * Async because answering "Yes" now performs a REAL save (through
+   * `setSaveHandler`) and the close must not proceed until it succeeds — a
+   * failed or cancelled save leaves the tab open with its work intact.
+   * Callers that do not care about the outcome may ignore the promise.
+   */
+  public async closeDocument(tabId: string, force = false): Promise<void> {
     const docToClose = this.docsSignal().find(d => d.tabId === tabId);
     if (!docToClose) return;
 
     if (!force && docToClose.isDirty) {
       const save = confirm(`Save changes to ${docToClose.file.name} before closing?`);
       if (save) {
+        // No handler (persistence never started, e.g. a bare unit-test host):
+        // fall back to the old flag-clearing behaviour rather than trapping
+        // the user in a tab they cannot close.
+        const saved = this.saveHandler ? await this.saveHandler(tabId) : true;
+        if (!saved) return;
         this.saveDocument(tabId);
       }
     }
+
+    // Re-check: the await above yielded, so the tab may already be gone.
+    if (!this.docsSignal().some(d => d.tabId === tabId)) return;
 
     // Push to closed stack
     this.closedDocuments.push(docToClose);
@@ -137,6 +171,26 @@ export class DocumentManagerService {
     }
     
     this.saveOrderToSession();
+  }
+
+  /**
+   * Close the throwaway `Drawing<N>` tabs left behind when a real drawing is
+   * opened (import, cloud open, host hand-off). The constructor always creates
+   * one so the first render has a document, and every open path used to
+   * duplicate this loop; it now lives here.
+   *
+   * A tab qualifies only when it is empty AND untouched AND still carries its
+   * generated name — an empty drawing the user deliberately named or edited is
+   * their work, not scaffolding. Forced close, so no save prompt can appear.
+   */
+  public closeBlankDocuments(exceptTabId: string): void {
+    for (const d of [...this.docsSignal()]) {
+      if (d.tabId === exceptTabId) continue;
+      if (d.isDirty) continue;
+      if (d.file.entities.length > 0) continue;
+      if (!/^Drawing\d+$/.test(d.file.name)) continue;
+      void this.closeDocument(d.tabId, true);
+    }
   }
 
   public saveDocument(tabId: string): void {

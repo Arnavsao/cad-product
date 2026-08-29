@@ -4,6 +4,7 @@ import { Component, inject, HostListener , ChangeDetectionStrategy
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { DocumentManagerService } from '../../core/services/document-manager.service';
 import { ContextMenuService } from '../../core/services/context-menu.service';
+import { DrawingPersistenceService } from '../../core/services/drawing-persistence.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,6 +17,7 @@ import { ContextMenuService } from '../../core/services/context-menu.service';
 export class DocumentTabsComponent {
   public docManager = inject(DocumentManagerService);
   private contextMenu = inject(ContextMenuService);
+  private persist = inject(DrawingPersistenceService);
 
   isMenuOpen = false;
 
@@ -51,13 +53,13 @@ export class DocumentTabsComponent {
 
   onCloseTab(tabId: string, event: MouseEvent): void {
     event.stopPropagation();
-    this.docManager.closeDocument(tabId);
+    void this.docManager.closeDocument(tabId);
   }
 
   onTabMiddleClick(tabId: string, event: MouseEvent): void {
     if (event.button === 1) { // Middle click
       event.preventDefault();
-      this.docManager.closeDocument(tabId);
+      void this.docManager.closeDocument(tabId);
     }
   }
 
@@ -80,6 +82,17 @@ export class DocumentTabsComponent {
     }
   }
 
+  /**
+   * Close tabs one at a time. Sequential on purpose: each dirty tab may raise
+   * its own "Save changes?" prompt, and firing them in parallel would stack
+   * modals and race the save handler.
+   */
+  private async closeMany(tabIds: string[]): Promise<void> {
+    for (const id of tabIds) {
+      await this.docManager.closeDocument(id);
+    }
+  }
+
   openContextMenu(event: MouseEvent, tabId: string): void {
     event.preventDefault();
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -91,23 +104,21 @@ export class DocumentTabsComponent {
         label: 'Close',
         action: () => {
           this.contextMenu.hide();
-          this.docManager.closeDocument(tabId);
+          void this.docManager.closeDocument(tabId);
         }
       },
       {
         label: 'Close Others',
         action: () => {
           this.contextMenu.hide();
-          const others = this.docManager.documents().filter(d => d.tabId !== tabId);
-          for (const d of others) this.docManager.closeDocument(d.tabId);
+          void this.closeMany(this.docManager.documents().filter(d => d.tabId !== tabId).map(d => d.tabId));
         }
       },
       {
         label: 'Close All',
         action: () => {
           this.contextMenu.hide();
-          const all = [...this.docManager.documents()];
-          for (const d of all) this.docManager.closeDocument(d.tabId);
+          void this.closeMany(this.docManager.documents().map(d => d.tabId));
         }
       },
       { label: '', separator: true, action: () => {} },
@@ -115,7 +126,9 @@ export class DocumentTabsComponent {
         label: 'Save',
         action: () => {
           this.contextMenu.hide();
-          this.docManager.saveDocument(tabId);
+          // Real cloud save. This used to call `docManager.saveDocument`,
+          // which only cleared the dirty flag — the drawing was never written.
+          void this.persist.saveTab(tabId);
         }
       },
       {

@@ -1,30 +1,71 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { last } from 'rxjs/operators';
 
-import { DrawingStoreService } from './drawing-store.service';
+import { DrawingsApiService } from '../../../../core/api/drawings-api.service';
+import { ApiError } from '../../../../core/services/http-manager.service';
+import { NotificationService } from '../../../../core/services/notification.service';
+import { UiDialogService } from '../../../../shared/ui/dialog/ui-dialog.service';
+import { DrawingBrowserService } from '../../features/drawing-browser/drawing-browser.service';
+import type { DrawingDocument } from '../models/document.model';
+import { QUOTA_EXCEEDED, type StoredDrawing } from '../models/stored-drawing.model';
 import { AutosaveService } from './autosave.service';
 import { DocumentManagerService } from './document-manager.service';
-import { ExportService } from './export.service';
+import { DrawingStoreService } from './drawing-store.service';
 import { DxfImportService } from './dxf-import.service';
-import { NotificationService } from '../../../../core/services/notification.service';
-import {
-  QUOTA_EXCEEDED,
-  newDrawingId,
-  type StoredDrawing,
-} from '../models/stored-drawing.model';
+import { ExportService } from './export.service';
+import { ThumbnailService } from './thumbnail.service';
 
 /**
- * Orchestrates SAVE / SAVEAS / OPEN against `DrawingStoreService`.
+ * Largest payload `PUT /drawings/:id/content` accepts inline. Anything bigger
+ * goes through the presign → storage PUT → complete handshake instead.
+ */
+const MAX_INLINE_BYTES = 5 * 1024 * 1024;
+
+/** Hard ceiling for a cloud save of any kind (matches the server's upload cap). */
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/** Cloud save lifecycle, surfaced in the editor header. */
+export type CloudState = 'clean' | 'dirty' | 'saving' | 'saved' | 'offline' | 'conflict';
+
+/** What an open tab is bound to on the server. */
+export interface RemoteBinding {
+  id: string;
+  /** `currentVersion` as of the last successful read/write — the `If-Match` value. */
+  version: number;
+  name: string;
+  folderId: string | null;
+}
+
+/**
+ * Cloud-first persistence for the editor: SAVE / SAVE AS / OPEN against the
+ * CADOnline API, with IndexedDB demoted to an offline cache.
  *
- * `DrawingStoreService` is deliberately dumb — it only knows how to read and
- * write records. This service owns the editor-facing semantics:
+ * Design decisions:
  *
- *  - the tab-to-record binding, so QSAVE on an already-saved drawing
- *    overwrites in place instead of spawning a duplicate;
- *  - clearing the dirty flag and the autosave recovery record after a real
- *    save, so a saved drawing is not immediately re-snapshotted;
- *  - turning a stored DXF payload back into an open document tab.
+ *  - **Cloud saves are explicit** (Ctrl+S, the header button, the close
+ *    prompts) — there is deliberately no periodic push. Every `PUT …/content`
+ *    mints a new server-side version, so a 30-second timer would burn storage
+ *    and bandwidth and would make 409s unpredictable when the same drawing is
+ *    open in two tabs. Crash safety is `AutosaveService`'s job: it keeps a
+ *    local recovery snapshot on the same cadence as before.
  *
- * Storage format is DXF text — see `stored-drawing.model.ts` for why.
+ *  - **Optimistic concurrency, not last-write-wins.** Each binding remembers
+ *    the version it loaded and sends it as `If-Match`. The server answers 409
+ *    `VERSION_CONFLICT` rather than clobbering a newer save, and the user picks
+ *    Overwrite / Save as copy / Reload. Force-saving simply omits `If-Match`.
+ *
+ *  - **Offline degrades to the cache, and stays there.** A network failure
+ *    writes the DXF to IndexedDB with `pendingSync: true` and says so. Replay
+ *    is manual (press Ctrl+S again) because an automatic background replay
+ *    would push a stale payload over whatever happened server-side while the
+ *    user was away — exactly the conflict the version check exists to prevent.
+ *
+ *  - **The `drawings` object store is keyed by the remote id.** It is now a
+ *    read-through cache of cloud drawings plus the offline queue, not a
+ *    separate local library; the dashboard owns file management (rename,
+ *    duplicate, delete), so none of that lives here any more.
  */
 @Injectable({ providedIn: 'root' })
 export class DrawingPersistenceService {
@@ -34,143 +75,481 @@ export class DrawingPersistenceService {
   private exporter = inject(ExportService);
   private importer = inject(DxfImportService);
   private notify = inject(NotificationService);
+  private api = inject(DrawingsApiService);
+  private dialog = inject(UiDialogService);
+  private router = inject(Router);
+  private browser = inject(DrawingBrowserService);
+  private thumbnails = inject(ThumbnailService);
 
   /**
-   * `DrawingDocument.tabId` → `StoredDrawing.id`.
+   * `DrawingDocument.tabId` → the drawing it is bound to on the server.
    *
-   * Held in memory only: it is a binding between an open tab and a stored
-   * record, and tabs do not survive a reload. A reloaded drawing gets rebound
-   * when it is opened through `openStored()`.
+   * In memory only: tabs do not survive a reload, and the URL (`/editor/:id`)
+   * is what re-establishes the binding on the next visit through `openRemote`.
    */
-  private tabToStored = new Map<string, string>();
+  private tabToRemote = new Map<string, RemoteBinding>();
+
+  /** Bumped on every `tabToRemote` mutation so `cloudState` re-evaluates. */
+  private bindings = signal(0);
+
+  /** Transient phase of the current operation; 'idle' defers to the dirty flag. */
+  private phase = signal<'idle' | 'saving' | 'offline' | 'conflict'>('idle');
 
   /** True while a save or open is in flight — the UI disables its buttons. */
   readonly busy = signal(false);
 
-  /** Bumped after any store mutation so an open browser dialog re-lists. */
+  /** Bumped after any store/cloud mutation so an open browser dialog re-lists. */
   readonly revision = signal(0);
 
-  /** Whether persistence is usable at all (false in private mode / no IDB). */
+  /** Epoch ms of the last successful cloud save, or null if none this session. */
+  readonly lastCloudSaveAt = signal<number | null>(null);
+
+  /**
+   * What the header shows. Derived rather than assigned so that simply drawing
+   * a line (which flips `isDirty` and re-emits the documents signal) moves the
+   * label to "Unsaved changes" without persistence having to observe edits.
+   */
+  readonly cloudState = computed<CloudState>(() => {
+    const phase = this.phase();
+    if (phase !== 'idle') return phase;
+
+    // Track both signals so tab switches and edits re-evaluate.
+    const docs = this.docManager.documents();
+    const activeId = this.docManager.activeTabId;
+    const doc = docs.find((d) => d.tabId === activeId);
+    if (!doc) return 'clean';
+    if (doc.isDirty) return 'dirty';
+
+    this.bindings();
+    if (!this.tabToRemote.has(doc.tabId)) return 'clean';
+    return this.lastCloudSaveAt() !== null ? 'saved' : 'clean';
+  });
+
+  constructor() {
+    // Close prompts used to call `DocumentManagerService.saveDocument()`, which
+    // only cleared the dirty flag — answering "Yes" silently threw the drawing
+    // away. Route it at the real save instead, and let a failed save veto the
+    // close.
+    this.docManager.setSaveHandler((tabId) => this.saveTab(tabId));
+  }
+
+  // ── bindings ────────────────────────────────────────────────────────────
+
+  /** Whether the local offline cache is usable (false in private mode / no IDB). */
   isAvailable(): boolean {
     return this.store.isAvailable();
   }
 
-  /** The stored-record id bound to a tab, or null when never saved. */
-  storedIdForTab(tabId: string | null): string | null {
+  /** The server binding for a tab, or null when the tab was never saved. */
+  remoteForTab(tabId: string | null): RemoteBinding | null {
     if (!tabId) return null;
-    return this.tabToStored.get(tabId) ?? null;
+    this.bindings();
+    return this.tabToRemote.get(tabId) ?? null;
   }
 
-  /** True when the active document has been saved at least once. */
-  activeHasStoredRecord(): boolean {
-    return this.storedIdForTab(this.docManager.activeTabId) !== null;
+  /** The remote drawing id bound to a tab, or null. */
+  remoteIdForTab(tabId: string | null): string | null {
+    return this.remoteForTab(tabId)?.id ?? null;
   }
+
+  /** True when the active document is bound to a cloud drawing. */
+  activeIsBound(): boolean {
+    return this.remoteForTab(this.docManager.activeTabId) !== null;
+  }
+
+  /** The tab currently showing `drawingId`, or null when it is not open. */
+  tabForRemoteId(drawingId: string): string | null {
+    this.bindings();
+    for (const [tabId, bound] of this.tabToRemote) {
+      if (bound.id === drawingId) return tabId;
+    }
+    return null;
+  }
+
+  /** True when any open document has unsaved edits (drives the deactivate guard). */
+  anyDirty(): boolean {
+    return this.docManager.documents().some((d) => d.isDirty);
+  }
+
+  // ── saving ──────────────────────────────────────────────────────────────
 
   /**
-   * QSAVE / Ctrl+S. Overwrites the bound record when there is one; otherwise
-   * falls back to a first save under the document's current name.
-   *
-   * Returns true on success. Never throws — failures surface as toasts.
+   * QSAVE / Ctrl+S on the active document. An unbound drawing has no server
+   * record yet, so it falls through to Save As (which resolves once the dialog
+   * is done, so callers can treat this as "did the drawing get saved?").
    */
   async saveActive(): Promise<boolean> {
     const doc = this.docManager.activeDocument;
     if (!doc) return false;
-    return this.writeActive(this.storedIdForTab(doc.tabId) ?? newDrawingId(), doc.file.name);
+
+    const bound = this.tabToRemote.get(doc.tabId);
+    if (!bound) return this.browser.openAndWait('save');
+
+    return this.pushToCloud(doc, bound, false);
   }
 
   /**
-   * SAVEAS. Always writes a NEW record under `name` and rebinds the tab to it,
-   * leaving any previously saved record untouched.
+   * Save a specific tab. Used by the tab context menu, the close prompt and
+   * `saveAll()`. Serialisation reads `doc.file` directly, so a background tab
+   * saves without being activated — except when it is unbound, where Save As
+   * needs it in front of the user.
    */
-  async saveActiveAs(name: string): Promise<boolean> {
+  async saveTab(tabId: string): Promise<boolean> {
+    const doc = this.docManager.documents().find((d) => d.tabId === tabId);
+    if (!doc) return false;
+
+    const bound = this.tabToRemote.get(tabId);
+    if (!bound) {
+      if (this.docManager.activeTabId !== tabId) this.docManager.activateDocument(tabId);
+      return this.browser.openAndWait('save');
+    }
+
+    return this.pushToCloud(doc, bound, false);
+  }
+
+  /**
+   * Save every dirty document, stopping at the first failure — the unsaved
+   * changes guard needs "did everything reach the cloud?", and continuing past
+   * a cancelled Save As would surprise the user with more dialogs.
+   */
+  async saveAll(): Promise<boolean> {
+    for (const doc of [...this.docManager.documents()]) {
+      if (!doc.isDirty) continue;
+      const ok = await this.saveTab(doc.tabId);
+      if (!ok) return false;
+    }
+    return true;
+  }
+
+  /**
+   * SAVE AS — create a brand-new cloud drawing from the active document and
+   * rebind the tab to it. The URL is rewritten in place: `/editor` and
+   * `/editor/:id` are one route (see `editorMatcher`), so `replaceUrl` binds
+   * the address to the new drawing without remounting the editor and tearing
+   * down tools, autosave and every other open tab.
+   */
+  async saveActiveAs(name: string, folderId: string | null = null): Promise<boolean> {
     const doc = this.docManager.activeDocument;
     if (!doc) return false;
+
     const clean = name.trim();
     if (!clean) {
       this.notify.error('Enter a name for the drawing.');
       return false;
     }
-    // Keep the tab label in step with the saved name, the way AutoCAD renames
-    // the document after Save As.
-    doc.file.name = clean;
-    return this.writeActive(newDrawingId(), clean);
+
+    this.busy.set(true);
+    this.phase.set('saving');
+    try {
+      const dxf = await this.serialise(doc);
+      const bytes = byteLength(dxf);
+      if (bytes > MAX_UPLOAD_BYTES) {
+        this.tooLarge(bytes);
+        return false;
+      }
+
+      // Keep the tab label in step with the saved name, the way AutoCAD
+      // renames the document after Save As.
+      doc.file.name = clean;
+
+      // Oversized payloads cannot ride along in the JSON create body; make the
+      // drawing first (server blank template) and push the real content
+      // through the staged-upload path.
+      const inline = bytes <= MAX_INLINE_BYTES;
+      const created = await this.api.create({
+        name: clean,
+        folderId,
+        ...(inline ? { initialDxf: dxf } : {}),
+      });
+
+      const bound: RemoteBinding = {
+        id: created.id,
+        version: created.currentVersion,
+        name: created.name,
+        folderId: created.folderId,
+      };
+      this.bind(doc.tabId, bound);
+
+      if (!inline) {
+        const result = await this.uploadLarge(bound.id, dxf, bytes, bound.version);
+        bound.version = result.version;
+      }
+
+      await this.afterSaved(doc, bound, dxf);
+      this.notify.success(`Saved "${bound.name}".`);
+
+      if (this.docManager.activeTabId === doc.tabId) {
+        void this.router.navigate(['/editor', bound.id], { replaceUrl: true });
+      }
+      return true;
+    } catch (e) {
+      return this.handleSaveFailure(e, doc, null);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   /**
-   * Serialise the active document and upsert it under `storedId`.
+   * Serialise `doc` and write it over its bound drawing.
    *
-   * Serialisation is synchronous and can be slow on a large drawing, so it is
-   * pushed off the current frame first — otherwise the click that triggered
-   * the save visibly janks before the toast appears.
+   * @param force omit `If-Match`, i.e. deliberately overwrite whatever version
+   *              the server currently holds (the "Overwrite" conflict answer).
    */
-  private async writeActive(storedId: string, name: string): Promise<boolean> {
-    const doc = this.docManager.activeDocument;
-    if (!doc) return false;
+  private async pushToCloud(doc: DrawingDocument, bound: RemoteBinding, force: boolean): Promise<boolean> {
+    this.busy.set(true);
+    this.phase.set('saving');
+    let dxf = '';
+    try {
+      dxf = await this.serialise(doc);
+      const bytes = byteLength(dxf);
+      if (bytes > MAX_UPLOAD_BYTES) {
+        this.tooLarge(bytes);
+        return false;
+      }
 
-    if (!this.store.isAvailable()) {
-      this.notify.error('Browser storage is unavailable — use Export to save this drawing to a file.');
-      return false;
+      const ifMatch = force ? null : bound.version;
+      const result =
+        bytes <= MAX_INLINE_BYTES
+          ? await this.api.putContent(bound.id, dxf, ifMatch)
+          : await this.uploadLarge(bound.id, dxf, bytes, ifMatch);
+
+      bound.version = result.version;
+      this.bindings.update((v) => v + 1);
+      await this.afterSaved(doc, bound, dxf);
+      this.notify.success(`Saved "${bound.name}".`);
+      return true;
+    } catch (e) {
+      return this.handleSaveFailure(e, doc, bound, dxf);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /**
+   * Staged upload for a payload too large for the inline `PUT`: reserve a
+   * staging key, push the bytes straight to storage (no bearer token — the URL
+   * is presigned), then ask the API to commit it as the next version. The
+   * `If-Match` check happens at commit time, so a conflict is still detected.
+   */
+  private async uploadLarge(id: string, dxf: string, bytes: number, ifMatch: number | null) {
+    const presigned = await this.api.presignContent(id, bytes);
+    const blob = new Blob([dxf], { type: 'text/plain; charset=utf-8' });
+    await firstValueFrom(this.api.uploadToStorage(presigned.uploadUrl, blob, 'text/plain; charset=utf-8').pipe(last()));
+    return this.api.completeContent(id, presigned.key, bytes, ifMatch);
+  }
+
+  /**
+   * Branch a save failure into conflict / offline / everything else.
+   *
+   * @param bound null for a Save As (there is nothing to conflict with yet).
+   */
+  private async handleSaveFailure(
+    e: unknown,
+    doc: DrawingDocument,
+    bound: RemoteBinding | null,
+    dxf = '',
+  ): Promise<boolean> {
+    if (bound && e instanceof ApiError && e.status === 409) {
+      return this.resolveConflict(doc, bound, dxf, e);
+    }
+    if (isOffline(e)) {
+      return this.cacheOffline(doc, bound, dxf);
     }
 
-    this.busy.set(true);
+    console.error('Cloud save failed:', e);
+    this.phase.set('idle');
+    this.notify.error(e instanceof ApiError ? e.message : 'Could not save the drawing.');
+    return false;
+  }
+
+  /**
+   * 409 `VERSION_CONFLICT` — someone saved this drawing after we loaded it.
+   * Four honest choices; nothing is decided for the user, because each option
+   * loses something different.
+   */
+  private async resolveConflict(
+    doc: DrawingDocument,
+    bound: RemoteBinding,
+    dxf: string,
+    error: ApiError,
+  ): Promise<boolean> {
+    this.phase.set('conflict');
+
+    const serverVersion = readCurrentVersion(error);
+    const choice = await this.dialog.choose({
+      title: 'This drawing changed elsewhere',
+      message:
+        `"${bound.name}" was saved from another tab or device after you opened it` +
+        (serverVersion !== null ? ` (server is now at version ${serverVersion}, you have ${bound.version})` : '') +
+        '. Choose how to continue — your edits are still here either way.',
+      actions: [
+        { id: 'overwrite', label: 'Overwrite', variant: 'danger' },
+        { id: 'reload', label: 'Reload latest', variant: 'secondary' },
+        { id: 'copy', label: 'Save as copy', variant: 'primary' },
+      ],
+    });
+
+    switch (choice) {
+      case 'overwrite':
+        return this.pushToCloud(doc, bound, true);
+
+      case 'copy': {
+        // Fork the tab onto a fresh drawing so neither side's work is lost.
+        const previousActive = this.docManager.activeTabId;
+        if (previousActive !== doc.tabId) this.docManager.activateDocument(doc.tabId);
+        return this.saveActiveAs(`${bound.name} (conflict copy)`, bound.folderId);
+      }
+
+      case 'reload':
+        return this.openRemote(bound.id, { replaceTab: doc.tabId });
+
+      default:
+        // Cancelled: leave the tab dirty and the state visibly conflicted.
+        this.notify.warning('Save cancelled — this drawing is still out of date with the server.', 6000);
+        return false;
+    }
+  }
+
+  /**
+   * No network. Keep the work in IndexedDB flagged `pendingSync` and tell the
+   * user how to push it: pressing Ctrl+S again once the connection is back
+   * runs the normal versioned save, conflict checks included.
+   */
+  private async cacheOffline(doc: DrawingDocument, bound: RemoteBinding | null, dxf: string): Promise<boolean> {
+    this.phase.set('offline');
     try {
-      await new Promise((r) => setTimeout(r, 0));
-      const dxf = this.exporter.buildDxfString(doc.file);
-
-      await this.store.save({ id: storedId, name, dxf });
-
-      this.tabToStored.set(doc.tabId, storedId);
-
-      // Clear the dirty flag and drop this tab's recovery snapshot — an
-      // explicitly saved drawing has nothing left to recover.
-      this.docManager.saveDocument(doc.tabId);
-      this.autosave.markClean(doc.tabId);
-
+      const payload = dxf || (await this.serialise(doc));
+      await this.store.save({
+        id: bound?.id ?? `offline-${doc.tabId}`,
+        remoteId: bound?.id,
+        version: bound?.version,
+        name: bound?.name ?? doc.file.name,
+        dxf: payload,
+        pendingSync: true,
+      });
       this.revision.update((v) => v + 1);
-      this.notify.success(`Saved "${name}".`);
-      return true;
+      this.notify.warning(
+        `You're offline — "${doc.file.name}" was saved locally. Press Ctrl+S again when you're back online.`,
+        9000,
+      );
     } catch (e) {
       if (e instanceof Error && e.name === QUOTA_EXCEEDED) {
         this.notify.error(
-          'Not enough browser storage to save this drawing. Delete older drawings, or export to a file.',
-          8000,
+          'You are offline and this browser is out of storage — use Export to write a DXF file before closing the tab.',
+          9000,
         );
       } else {
-        console.error('Save failed:', e);
-        this.notify.error('Could not save the drawing.');
+        console.error('Offline cache failed:', e);
+        this.notify.error('You are offline and the drawing could not be cached — use Export to write a DXF file.', 9000);
       }
-      return false;
+    }
+    // Not saved to the cloud, so the tab stays dirty and the caller sees false.
+    return false;
+  }
+
+  /** Post-save bookkeeping shared by every successful write path. */
+  private async afterSaved(doc: DrawingDocument, bound: RemoteBinding, dxf: string): Promise<void> {
+    // Clear the dirty flag and drop this tab's recovery snapshot — an
+    // explicitly saved drawing has nothing left to recover.
+    this.docManager.saveDocument(doc.tabId);
+    this.autosave.markClean(doc.tabId);
+
+    this.lastCloudSaveAt.set(Date.now());
+    this.phase.set('idle');
+    this.revision.update((v) => v + 1);
+
+    await this.cache(bound, dxf);
+    this.thumbnails.scheduleThumbnail(bound.id, doc.tabId);
+  }
+
+  /** Mirror a known-synced payload into the offline cache. Never throws. */
+  private async cache(bound: RemoteBinding, dxf: string): Promise<void> {
+    try {
+      await this.store.save({
+        id: bound.id,
+        remoteId: bound.id,
+        version: bound.version,
+        name: bound.name,
+        dxf,
+        pendingSync: false,
+      });
+    } catch (e) {
+      // A full disk must not fail a save that already reached the cloud.
+      console.warn('[DrawingPersistenceService] offline cache write failed', e);
+    }
+  }
+
+  // ── opening ─────────────────────────────────────────────────────────────
+
+  /**
+   * Open a cloud drawing in a tab.
+   *
+   * @param opts.replaceTab close this tab once the fresh copy is open (the
+   *        "Reload latest" answer to a conflict).
+   */
+  async openRemote(id: string, opts: { replaceTab?: string } = {}): Promise<boolean> {
+    if (!id) return false;
+
+    // Already open: just bring it forward rather than opening a second tab on
+    // the same drawing, which would immediately conflict with itself.
+    const existingTab = this.tabForRemoteId(id);
+    if (existingTab && existingTab !== opts.replaceTab) {
+      this.docManager.activateDocument(existingTab);
+      return true;
+    }
+
+    this.busy.set(true);
+    try {
+      const dto = await this.api.get(id);
+      const dxf = await this.api.fetchContent(dto.downloadUrl);
+
+      const bound: RemoteBinding = {
+        id: dto.id,
+        version: dto.currentVersion,
+        name: dto.name,
+        folderId: dto.folderId,
+      };
+      const ok = await this.openPayload(dxf, dto.name, bound, opts.replaceTab);
+      if (ok) await this.cache(bound, dxf);
+      return ok;
+    } catch (e) {
+      return this.handleOpenFailure(e, id, opts.replaceTab);
     } finally {
       this.busy.set(false);
     }
   }
 
-  /**
-   * Open a stored drawing in a new tab.
-   *
-   * `DxfImportService.loadDxfDataAsync` builds the `DxfFile` and opens the tab
-   * itself (via `AddFileCmd` → `DocumentManagerService.openDocument`), so this
-   * must NOT also call `openDocument`. Because that path goes through the
-   * command stack the open is undoable — and it marks the new tab dirty, which
-   * is wrong for a drawing that was just loaded from storage, so the flag is
-   * cleared afterwards.
-   */
-  async openStored(id: string): Promise<boolean> {
-    this.busy.set(true);
-    try {
-      const rec = await this.store.get(id);
-      if (!rec) {
-        this.notify.error('That drawing is no longer in storage.');
-        return false;
-      }
-      return await this.openPayload(rec.dxf, rec.name, id);
-    } catch (e) {
-      console.error('Open failed:', e);
-      this.notify.error('Could not open the drawing.');
+  private async handleOpenFailure(e: unknown, id: string, replaceTab?: string): Promise<boolean> {
+    if (e instanceof ApiError && e.status === 404) {
+      this.notify.error('That drawing no longer exists, or you do not have access to it.', 7000);
+      void this.router.navigateByUrl('/dashboard');
       return false;
-    } finally {
-      this.busy.set(false);
     }
+
+    // Anything else (offline, 5xx): fall back to the cached copy if we have
+    // one, clearly labelled, so the user can keep working on the plane.
+    const cached = await this.store.get(id);
+    if (cached) {
+      const bound: RemoteBinding = {
+        id,
+        version: cached.version ?? 0,
+        name: cached.name,
+        folderId: null,
+      };
+      const ok = await this.openPayload(cached.dxf, cached.name, bound, replaceTab);
+      if (ok) {
+        this.phase.set('offline');
+        this.notify.warning(
+          `Offline — opened the local copy of "${cached.name}". Changes will not reach the cloud until you reconnect.`,
+          9000,
+        );
+      }
+      return ok;
+    }
+
+    console.error('Open failed:', e);
+    this.notify.error(e instanceof ApiError ? e.message : 'Could not open the drawing.');
+    return false;
   }
 
   /**
@@ -198,57 +577,102 @@ export class DrawingPersistenceService {
   }
 
   /**
-   * Shared open path. `bindStoredId` is the record to bind the resulting tab
-   * to, or null to leave it unbound (recovery).
+   * Shared open path. `bound` is the drawing to bind the resulting tab to, or
+   * null to leave it unbound (recovery).
    */
-  private async openPayload(dxf: string, name: string, bindStoredId: string | null): Promise<boolean> {
-    // `loadDxfDataAsync` resolves with -1 when the payload parses to nothing;
-    // only a transport/worker failure rejects. Treat both as a failed open.
+  private async openPayload(
+    dxf: string,
+    name: string,
+    bound: RemoteBinding | null,
+    replaceTab?: string,
+  ): Promise<boolean> {
+    // `loadDxfDataAsync` resolves with -1 when the payload could not be read
+    // and with the entity count otherwise. Zero is NOT a failure: a brand-new
+    // cloud drawing is a valid, empty DXF, and testing `<= 0` here used to
+    // make every blank drawing impossible to open.
     const count = await this.importer.loadDxfDataAsync(dxf, name);
-    if (count <= 0) {
-      this.notify.error(`"${name}" could not be read — the stored drawing may be corrupt.`);
+    if (count < 0) {
+      this.notify.error(`"${name}" could not be read — the file may be corrupt.`);
       return false;
     }
 
     const opened = this.docManager.activeDocument;
-    if (opened) {
-      if (bindStoredId) {
-        this.tabToStored.set(opened.tabId, bindStoredId);
-        this.docManager.saveDocument(opened.tabId);
-        this.autosave.markClean(opened.tabId);
-      }
+    if (!opened) return false;
+
+    // Reload-latest: drop the stale tab now that its replacement is up.
+    if (replaceTab && replaceTab !== opened.tabId) {
+      this.unbind(replaceTab);
+      await this.docManager.closeDocument(replaceTab, true);
+    }
+
+    // Retire the untouched `Drawing1` the editor boots with.
+    this.docManager.closeBlankDocuments(opened.tabId);
+
+    if (bound) {
+      this.bind(opened.tabId, bound);
+      // The import went through the undoable `AddFileCmd`, which marks the new
+      // tab dirty — wrong for a drawing that was just loaded unmodified.
+      this.docManager.saveDocument(opened.tabId);
+      this.autosave.markClean(opened.tabId);
+      this.phase.set('idle');
     }
 
     this.notify.success(`Opened "${name}".`);
     return true;
   }
 
-  /** Delete a stored drawing and unbind any tab that pointed at it. */
-  async deleteStored(id: string): Promise<void> {
-    await this.store.delete(id);
-    for (const [tabId, storedId] of this.tabToStored) {
-      if (storedId === id) this.tabToStored.delete(tabId);
-    }
-    this.revision.update((v) => v + 1);
+  // ── internals ───────────────────────────────────────────────────────────
+
+  private bind(tabId: string, bound: RemoteBinding): void {
+    this.tabToRemote.set(tabId, bound);
+    this.bindings.update((v) => v + 1);
   }
 
-  /** Rename a stored drawing; keeps an open bound tab's label in step. */
-  async renameStored(id: string, name: string): Promise<void> {
-    const clean = name.trim();
-    if (!clean) return;
-    await this.store.rename(id, clean);
-
-    for (const [tabId, storedId] of this.tabToStored) {
-      if (storedId !== id) continue;
-      const doc = this.docManager.documents().find((d) => d.tabId === tabId);
-      if (doc) doc.file.name = clean;
-    }
-    this.revision.update((v) => v + 1);
+  private unbind(tabId: string): void {
+    if (this.tabToRemote.delete(tabId)) this.bindings.update((v) => v + 1);
   }
 
-  /** Duplicate a stored drawing under "<name> (copy)". */
-  async duplicateStored(id: string): Promise<void> {
-    await this.store.duplicate(id);
-    this.revision.update((v) => v + 1);
+  /**
+   * Serialise a document to DXF off the current frame. Serialisation is
+   * synchronous and O(entities); running it inline would visibly jank the
+   * click or keystroke that started the save before any feedback appears.
+   */
+  private async serialise(doc: DrawingDocument): Promise<string> {
+    await new Promise((r) => setTimeout(r, 0));
+    return this.exporter.buildDxfString(doc.file);
   }
+
+  private tooLarge(bytes: number): void {
+    this.phase.set('idle');
+    this.notify.error(
+      `This drawing is ${(bytes / 1024 / 1024).toFixed(1)} MB, over the ${MAX_UPLOAD_BYTES / 1024 / 1024} MB cloud limit — ` +
+        'use Plot → Export to write it to a DXF file instead.',
+      9000,
+    );
+  }
+}
+
+/** UTF-8 byte length — DXF text can carry non-ASCII in names and MTEXT. */
+function byteLength(text: string): number {
+  return new Blob([text]).size;
+}
+
+/** True for a request that never reached the server (dropped connection, offline). */
+function isOffline(e: unknown): boolean {
+  if (e instanceof ApiError && e.status === 0) return true;
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+/** Pull `currentVersion` out of a 409 envelope when the server supplies it. */
+function readCurrentVersion(e: ApiError): number | null {
+  const body = e.body;
+  if (!body || typeof body !== 'object') return null;
+  const direct = (body as { currentVersion?: unknown })['currentVersion'];
+  if (typeof direct === 'number') return direct;
+  const data = (body as { data?: unknown })['data'];
+  if (data && typeof data === 'object') {
+    const nested = (data as { currentVersion?: unknown })['currentVersion'];
+    if (typeof nested === 'number') return nested;
+  }
+  return null;
 }

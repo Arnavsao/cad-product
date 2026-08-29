@@ -48,6 +48,28 @@ export interface StoredDrawing {
   isRecovery?: boolean;
   /** The `DrawingDocument.tabId` this snapshot came from (recovery only). */
   tabId?: string;
+
+  // ── cloud mirror fields (drawings store only) ──────────────────────────
+  //
+  // Since the cloud-first rewrite the `drawings` store is an **offline cache
+  // keyed by the remote drawing id** rather than a standalone library, so
+  // `id === remoteId` for every record written by `DrawingPersistenceService`.
+  // `remoteId` is kept as its own field anyway: it makes the intent explicit
+  // at the call site and lets a future migration re-key the store without
+  // having to guess which ids were remote. No new index is needed for any of
+  // this, so `DRAWING_DB_VERSION` deliberately stays at 1 — bumping it would
+  // block the upgrade behind every other open tab for zero benefit.
+
+  /** The server-side `DrawingDto.id` this cache entry mirrors. */
+  remoteId?: string;
+  /** `DrawingDto.currentVersion` as of the last successful sync — the `If-Match` value. */
+  version?: number;
+  /**
+   * True when this copy is NEWER than the server's because the save happened
+   * offline. Surfaced as a "waiting to sync" hint; replay is manual (Ctrl+S
+   * again) by design — see `DrawingPersistenceService`.
+   */
+  pendingSync?: boolean;
 }
 
 /**

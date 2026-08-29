@@ -258,7 +258,9 @@ export class AddFileCmd implements ICommand {
 
   undo(): void {
     if (this.docManager) {
-      this.docManager.closeDocument(this.file.id, true);
+      // Forced close runs synchronously (no save prompt to await), so undo
+      // still completes within this turn despite the promise-returning API.
+      void this.docManager.closeDocument(this.file.id, true);
     } else {
       const idx = this.doc.files.indexOf(this.file);
       if (idx !== -1) this.doc.files.splice(idx, 1);

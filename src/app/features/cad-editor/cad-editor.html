@@ -14,6 +14,10 @@
       <span class="hdr-file">
         {{ doc.activeFile.name }}@if (docManager.activeDocument?.isDirty) {<span class="hdr-dirty" title="Unsaved changes">•</span>}
       </span>
+      @if (cloudLabel(); as cloud) {
+        <span class="hdr-cloudstate" [attr.data-state]="persist.cloudState()"
+          title="Drawings are saved to your account with Ctrl+S">{{ cloud }}</span>
+      }
       @if (autosave.status() === 'saving') {
         <span class="hdr-savestate" title="Autosaving…">Saving…</span>
       } @else if (autosave.lastSavedAt()) {
@@ -112,6 +116,9 @@
           </svg>
         </div>
       </button>
+
+      <!-- Account menu. Renders nothing when auth is disabled (embedded mode). -->
+      <app-account-button class="hdr-account"></app-account-button>
 
     </div>
   </header>

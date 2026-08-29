@@ -1,28 +1,41 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal, effect } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { DrawingsApiService } from '../../../../core/api/drawings-api.service';
+import { FoldersApiService } from '../../../../core/api/folders-api.service';
+import type { DrawingSummaryDto, FolderDto } from '../../../../core/api/api.models';
+import { ApiError } from '../../../../core/services/http-manager.service';
+import { FileSizePipe } from '../../../../shared/ui/pipes/file-size.pipe';
+import { RelativeTimePipe } from '../../../../shared/ui/pipes/relative-time.pipe';
 import { DrawingBrowserService } from './drawing-browser.service';
-import { DrawingStoreService } from '../../core/services/drawing-store.service';
 import { DrawingPersistenceService } from '../../core/services/drawing-persistence.service';
 import { AutosaveService } from '../../core/services/autosave.service';
 import { DocumentManagerService } from '../../core/services/document-manager.service';
-import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-drawing.model';
+import type { StoredDrawing } from '../../core/models/stored-drawing.model';
+
+/** Search keystrokes are cheap; `GET /drawings?q=` is not. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 /**
- * "My Drawings" — the browser-storage file browser.
+ * "My Drawings" — the in-editor file dialog, now backed by the API.
+ *
+ * It stays a modal rather than becoming a dashboard route: the editor is
+ * multi-document, and navigating away to pick a file would tear down tools,
+ * autosave and every other open tab.
  *
  * Two faces, chosen by `DrawingBrowserService.mode()`:
- *  - `open` — list saved drawings; open / rename / duplicate / delete.
- *  - `save` — the same list plus a name field, for Save As.
+ *  - `open` — search the account's drawings and open one in a new tab.
+ *  - `save` — name + destination folder for Save As.
  *
- * It also surfaces crash recovery: any autosave snapshot left behind by a tab
- * that closed without an explicit save is offered for restore at the top.
+ * File management (rename, duplicate, move, delete) deliberately lives in the
+ * dashboard only; this dialog is for getting in and out of a drawing. Crash
+ * recovery stays here and stays local — those snapshots never left the browser.
  */
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-drawing-browser',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RelativeTimePipe, FileSizePipe],
   template: `
     <div class="db-overlay" (click)="onOverlayClick($event)">
       <div class="db-modal" (click)="$event.stopPropagation()">
@@ -31,13 +44,6 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
           <h2>{{ svc.mode() === 'save' ? 'Save Drawing As' : 'My Drawings' }}</h2>
           <button type="button" class="db-x" (click)="close()" title="Close (Esc)">×</button>
         </header>
-
-        @if (!available()) {
-          <div class="db-unavailable">
-            Browser storage is unavailable — drawings cannot be saved here.
-            Use <strong>Export</strong> to write a DXF file instead.
-          </div>
-        }
 
         @if (svc.mode() === 'save') {
           <div class="db-saverow">
@@ -51,10 +57,17 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
               placeholder="Drawing name"
               autocomplete="off"
               spellcheck="false">
+            <label for="db-folder">Folder</label>
+            <select id="db-folder" class="db-input select" [(ngModel)]="saveFolderId">
+              <option [ngValue]="null">My Drawings</option>
+              @for (f of folders(); track f.id) {
+                <option [ngValue]="f.id">{{ f.name }}</option>
+              }
+            </select>
             <button
               type="button"
               class="db-btn primary"
-              [disabled]="persist.busy() || !available() || !saveName.trim()"
+              [disabled]="persist.busy() || !saveName.trim()"
               (click)="confirmSave()">Save</button>
           </div>
         }
@@ -66,14 +79,14 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
               <button type="button" class="db-link" (click)="discardRecovery()">Discard all</button>
             </div>
             <p class="db-recovery-note">
-              These drawings were autosaved but never saved explicitly — probably from a tab
-              that closed unexpectedly.
+              These drawings were autosaved in this browser but never saved to your account —
+              probably from a tab that closed unexpectedly.
             </p>
             @for (r of recovery(); track r.id) {
               <div class="db-row recovery">
                 <span class="db-name" [title]="r.name">{{ r.name }}</span>
-                <span class="db-meta">{{ relative(r.updatedAt) }}</span>
-                <span class="db-meta">{{ size(r.byteSize) }}</span>
+                <span class="db-meta">{{ r.updatedAt | relativeTime }}</span>
+                <span class="db-meta">{{ r.byteSize | fileSize }}</span>
                 <span class="db-actions">
                   <button type="button" class="db-btn" [disabled]="persist.busy()" (click)="restore(r)">Restore</button>
                 </span>
@@ -86,8 +99,9 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
           <input
             type="text"
             class="db-input search"
-            [(ngModel)]="filter"
-            placeholder="Search drawings…"
+            [ngModel]="query()"
+            (ngModelChange)="onQueryChange($event)"
+            placeholder="Search your drawings…"
             autocomplete="off"
             spellcheck="false">
           <button type="button" class="db-btn" (click)="newDrawing()">+ New drawing</button>
@@ -96,36 +110,27 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
         <div class="db-list">
           @if (loading()) {
             <div class="db-empty">Loading…</div>
-          } @else if (!visible().length) {
+          } @else if (error(); as msg) {
             <div class="db-empty">
-              @if (filter.trim()) {
-                No drawings match "{{ filter }}".
+              {{ msg }}
+              <div><button type="button" class="db-btn" (click)="refresh()">Retry</button></div>
+            </div>
+          } @else if (!drawings().length) {
+            <div class="db-empty">
+              @if (query().trim()) {
+                No drawings match "{{ query() }}".
               } @else {
-                No saved drawings yet. Use <strong>Save</strong> (Ctrl+S) to keep your work here.
+                No drawings in your account yet. Use <strong>Save</strong> (Ctrl+S) to keep your work.
               }
             </div>
           } @else {
-            @for (d of visible(); track d.id) {
+            @for (d of drawings(); track d.id) {
               <div class="db-row" [class.bound]="d.id === boundId()" (dblclick)="open(d)">
-                @if (renamingId() === d.id) {
-                  <input
-                    type="text"
-                    class="db-input rename"
-                    [value]="d.name"
-                    (blur)="commitRename(d, $any($event.target).value)"
-                    (keydown.enter)="commitRename(d, $any($event.target).value)"
-                    (keydown.escape)="renamingId.set(null)"
-                    #renameInput>
-                } @else {
-                  <span class="db-name" [title]="d.name" (dblclick)="open(d)">{{ d.name }}</span>
-                }
-                <span class="db-meta">{{ relative(d.updatedAt) }}</span>
-                <span class="db-meta">{{ size(d.byteSize) }}</span>
+                <span class="db-name" [title]="d.name">{{ d.name }}</span>
+                <span class="db-meta">{{ d.updatedAt | relativeTime }}</span>
+                <span class="db-meta">{{ d.byteSize | fileSize }}</span>
                 <span class="db-actions">
                   <button type="button" class="db-btn" [disabled]="persist.busy()" (click)="open(d)">Open</button>
-                  <button type="button" class="db-btn icon" title="Rename" (click)="startRename(d)">✎</button>
-                  <button type="button" class="db-btn icon" title="Duplicate" (click)="duplicate(d)">⧉</button>
-                  <button type="button" class="db-btn icon danger" title="Delete" (click)="remove(d)">🗑</button>
                 </span>
               </div>
             }
@@ -133,12 +138,7 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
         </div>
 
         <footer class="db-footer">
-          <span>{{ drawings().length }} drawing{{ drawings().length === 1 ? '' : 's' }}</span>
-          @if (usage(); as u) {
-            <span class="db-usage" [title]="'Browser storage used by this site'">
-              {{ size(u.usage) }} of {{ size(u.quota) }} used
-            </span>
-          }
+          <span>{{ drawings().length }} drawing{{ drawings().length === 1 ? '' : 's' }}{{ hasMore() ? '+' : '' }}</span>
           <span class="db-spacer"></span>
           <button type="button" class="db-btn" (click)="close()">Close</button>
         </footer>
@@ -177,12 +177,6 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
       padding: 0 4px;
       &:hover { color: var(--cad-text-primary, #e0e4ea); }
     }
-    .db-unavailable {
-      padding: 8px 14px;
-      background: rgba(255,180,60,0.12);
-      border-bottom: 1px solid var(--cad-border, #2c3340);
-      color: var(--cad-text-primary, #e0e4ea);
-    }
     .db-saverow, .db-toolbar {
       display: flex; align-items: center; gap: 8px;
       padding: 10px 14px;
@@ -197,7 +191,7 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
       border-radius: 3px; padding: 5px 8px; font-size: 12px; outline: none;
       &:focus { border-color: var(--cad-accent, #4f8ef7); }
       &::placeholder { color: var(--cad-text-dim, #7f8694); }
-      &.rename { flex: 1 1 auto; }
+      &.select { flex: 0 1 180px; }
     }
     .db-btn {
       background: transparent; color: var(--cad-text-primary, #e0e4ea);
@@ -207,9 +201,6 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
       &:hover:not(:disabled) { background: var(--cad-bg-hover, rgba(255,255,255,0.06)); border-color: var(--cad-accent, #4f8ef7); }
       &:disabled { opacity: 0.45; cursor: default; }
       &.primary { background: var(--cad-accent, #4f8ef7); border-color: var(--cad-accent, #4f8ef7); color: #fff; }
-      &.icon { padding: 4px 7px; color: var(--cad-text-dim, #7f8694); }
-      &.icon:hover:not(:disabled) { color: var(--cad-text-primary, #e0e4ea); }
-      &.danger:hover:not(:disabled) { color: var(--cad-red, #ff6b6b); border-color: var(--cad-red, #ff6b6b); }
     }
     .db-link {
       background: none; border: none; padding: 0; cursor: pointer;
@@ -239,7 +230,7 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
       font-family: var(--cad-font-mono, ui-monospace, monospace);
     }
     .db-actions { flex: 0 0 auto; display: flex; gap: 4px; }
-    .db-empty { padding: 28px 14px; text-align: center; color: var(--cad-text-dim, #7f8694); }
+    .db-empty { padding: 28px 14px; text-align: center; color: var(--cad-text-dim, #7f8694); display: grid; gap: 10px; }
     .db-footer {
       display: flex; align-items: center; gap: 12px;
       padding: 8px 14px;
@@ -250,25 +241,33 @@ import type { DrawingSummary, StoredDrawing } from '../../core/models/stored-dra
     .db-spacer { flex: 1; }
   `],
 })
-export class DrawingBrowserComponent implements OnInit {
+export class DrawingBrowserComponent implements OnInit, OnDestroy {
   protected svc = inject(DrawingBrowserService);
   protected persist = inject(DrawingPersistenceService);
-  private store = inject(DrawingStoreService);
+  private api = inject(DrawingsApiService);
+  private foldersApi = inject(FoldersApiService);
   private autosave = inject(AutosaveService);
   private docManager = inject(DocumentManagerService);
 
-  protected readonly drawings = signal<DrawingSummary[]>([]);
+  protected readonly drawings = signal<DrawingSummaryDto[]>([]);
+  protected readonly folders = signal<FolderDto[]>([]);
   protected readonly recovery = signal<StoredDrawing[]>([]);
-  protected readonly usage = signal<{ usage: number; quota: number } | null>(null);
   protected readonly loading = signal(true);
-  protected readonly renamingId = signal<string | null>(null);
+  protected readonly error = signal<string | null>(null);
+  protected readonly query = signal('');
+  /** True when the server had more rows than this page — the count gets a "+". */
+  protected readonly hasMore = signal(false);
 
-  protected filter = '';
   protected saveName = '';
+  protected saveFolderId: string | null = null;
+
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Discards the response of a search that was superseded while in flight. */
+  private requestSeq = 0;
 
   constructor() {
-    // Any store mutation from elsewhere (a Ctrl+S while the dialog is open)
-    // bumps `revision`; re-list so the dialog never shows stale rows.
+    // Any save from elsewhere (a Ctrl+S while the dialog is open) bumps
+    // `revision`; re-list so the dialog never shows stale rows.
     effect(() => {
       this.persist.revision();
       if (this.svc.isOpen()) void this.refresh();
@@ -278,41 +277,65 @@ export class DrawingBrowserComponent implements OnInit {
   ngOnInit(): void {
     this.saveName = this.docManager.activeDocument?.file.name ?? 'Drawing1';
     void this.refresh();
+    void this.loadFolders();
   }
 
-  protected available(): boolean {
-    return this.persist.isAvailable();
+  ngOnDestroy(): void {
+    if (this.searchTimer !== null) clearTimeout(this.searchTimer);
   }
 
   protected boundId(): string | null {
-    return this.persist.storedIdForTab(this.docManager.activeTabId);
+    return this.persist.remoteIdForTab(this.docManager.activeTabId);
   }
 
-  /** Name-filtered view of the stored list. */
-  protected visible(): DrawingSummary[] {
-    const q = this.filter.trim().toLowerCase();
-    const all = this.drawings();
-    return q ? all.filter((d) => d.name.toLowerCase().includes(q)) : all;
+  protected onQueryChange(value: string): void {
+    this.query.set(value);
+    if (this.searchTimer !== null) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => void this.refresh(), SEARCH_DEBOUNCE_MS);
   }
 
-  private async refresh(): Promise<void> {
+  protected async refresh(): Promise<void> {
+    const seq = ++this.requestSeq;
     this.loading.set(true);
+    this.error.set(null);
     try {
-      const [list, rec, use] = await Promise.all([
-        this.store.list(),
+      const q = this.query().trim();
+      const [page, rec] = await Promise.all([
+        this.api.list({ q: q || undefined, sort: 'updated', limit: 50 }),
         this.autosave.getRecoveryRecords(),
-        this.store.estimateUsage(),
       ]);
-      this.drawings.set(list);
+      if (seq !== this.requestSeq) return; // superseded by a newer search
+      this.drawings.set(page.items);
+      this.hasMore.set(page.nextCursor !== null);
       this.recovery.set(rec);
-      this.usage.set(use);
+    } catch (e) {
+      if (seq !== this.requestSeq) return;
+      this.drawings.set([]);
+      this.hasMore.set(false);
+      this.error.set(
+        e instanceof ApiError && e.isNetworkError
+          ? "You're offline — your drawings will be listed again once you reconnect."
+          : 'Could not load your drawings.',
+      );
     } finally {
-      this.loading.set(false);
+      if (seq === this.requestSeq) this.loading.set(false);
     }
   }
 
-  protected close(): void {
-    this.svc.close();
+  /**
+   * Root-level folders only: the dialog is a quick destination picker, not a
+   * file manager, and the dashboard is where a full tree belongs.
+   */
+  private async loadFolders(): Promise<void> {
+    try {
+      this.folders.set(await this.foldersApi.list());
+    } catch {
+      this.folders.set([]); // saving to "My Drawings" still works
+    }
+  }
+
+  protected close(saved = false): void {
+    this.svc.close(saved);
   }
 
   protected onOverlayClick(e: MouseEvent): void {
@@ -320,12 +343,12 @@ export class DrawingBrowserComponent implements OnInit {
   }
 
   protected async confirmSave(): Promise<void> {
-    const ok = await this.persist.saveActiveAs(this.saveName);
-    if (ok) this.close();
+    const ok = await this.persist.saveActiveAs(this.saveName, this.saveFolderId);
+    if (ok) this.close(true);
   }
 
-  protected async open(d: DrawingSummary): Promise<void> {
-    const ok = await this.persist.openStored(d.id);
+  protected async open(d: DrawingSummaryDto): Promise<void> {
+    const ok = await this.persist.openRemote(d.id);
     if (ok) this.close();
   }
 
@@ -343,55 +366,5 @@ export class DrawingBrowserComponent implements OnInit {
   protected newDrawing(): void {
     this.docManager.createDocument();
     this.close();
-  }
-
-  protected startRename(d: DrawingSummary): void {
-    this.renamingId.set(d.id);
-    setTimeout(() => {
-      const el = document.querySelector('.db-input.rename') as HTMLInputElement | null;
-      el?.focus();
-      el?.select();
-    }, 0);
-  }
-
-  protected async commitRename(d: DrawingSummary, value: string): Promise<void> {
-    if (this.renamingId() !== d.id) return; // already committed or cancelled
-    this.renamingId.set(null);
-    const clean = value.trim();
-    if (!clean || clean === d.name) return;
-    await this.persist.renameStored(d.id, clean);
-    await this.refresh();
-  }
-
-  protected async duplicate(d: DrawingSummary): Promise<void> {
-    await this.persist.duplicateStored(d.id);
-    await this.refresh();
-  }
-
-  protected async remove(d: DrawingSummary): Promise<void> {
-    if (!confirm(`Delete "${d.name}"? This cannot be undone.`)) return;
-    await this.persist.deleteStored(d.id);
-    await this.refresh();
-  }
-
-  /** "just now" / "6m ago" / "3h ago" / a date once it is older than a week. */
-  protected relative(ts: number): string {
-    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-    if (s < 45) return 'just now';
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h ago`;
-    const d = Math.floor(h / 24);
-    if (d < 7) return `${d}d ago`;
-    return new Date(ts).toLocaleDateString();
-  }
-
-  /** Bytes → a short human string. */
-  protected size(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
   }
 }
