@@ -4,16 +4,21 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ app shell        App, routes, providers, error handler        │
+│ app shell        App, routes, guards, providers, errors       │
 ├──────────────────────────────────────────────────────────────┤
+│ features/landing · auth · onboarding · dashboard              │
 │ features/cad-editor/features   UI components & dialogs        │
 │ features/cad-editor/tools      Interactive tools (commands)   │
 │ features/cad-editor/core       Document / view / command svc  │
 ├──────────────────────────────────────────────────────────────┤
-│ app/core         HTTP, auth token, uploads, notifications     │
+│ app/shared/ui    Design-system primitives (button, dialog …)  │
+├──────────────────────────────────────────────────────────────┤
+│ app/core         HTTP, API clients, Clerk auth, notifications │
 ├──────────────────────────────────────────────────────────────┤
 │ cad-core         Pure TypeScript geometry & drafting model    │
 └──────────────────────────────────────────────────────────────┘
+
+                    server/   NestJS API (own package, own container)
 ```
 
 Dependency rule: arrows point **down only**.
@@ -61,18 +66,42 @@ Every interactive tool (`tools/draw`, `tools/modify`, `tools/select`, `tools/blo
 
 * `LlmGatewayService` talks to Ollama (local) or OpenRouter directly from the browser.
 * `AiToolRegistryService` exposes editor capabilities as tool-calls; `tools/` contains the implementations.
-* `AiAuditService` keeps a local audit queue and, when `environment.apiUrl` is set, mirrors it to `POST /ai/audit`.
+* `AiAuditService` keeps an append-only audit log in IndexedDB (localStorage fallback). It is **local-only** — the
+  assistant's actions are the user's own drafting history, not telemetry.
 
-## Backend-dependent features
+## Auth
 
-Only two features need a server, both routed through `app/core/services/http-manager.service.ts` and the
-`authInterceptor`:
+Authentication is [Clerk](https://clerk.com). `ClerkService` (`app/core/auth/`) loads `@clerk/clerk-js` from a lazy
+chunk plus the `@clerk/ui` bundle from Clerk's CDN (Core 3 split the prebuilt UI out of the SDK), and exposes
+`isLoaded` / `isSignedIn` / `user` as signals. Clerk's listener fires outside Angular, so the service only ever
+*writes signals* — the one mechanism that schedules a render in a zoneless app.
 
-* **L-section** (`features/l-section`): uploads KML/DTM/survey files via pre-signed URLs
-  (`FileUploadService`, `GET /upload/presigned-url`), then calls `POST /l-section/generate` and loads the returned DXF.
-* **AI audit** (above).
+Clerk session JWTs live ~60 seconds and `session.getToken()` refreshes them transparently, so nothing is cached
+locally: `AuthTokenProvider.getToken()` may return a promise and `authInterceptor` awaits it per request. A 401
+means the session is genuinely gone, so the interceptor redirects to `/sign-in?redirect_url=…` (skipped on public
+routes to avoid a loop).
 
-Everything else — drawing, DXF import/export, plotting, library, layouts — runs entirely client-side.
+Setting `clerkPublishableKey: ''` disables auth entirely and the guards pass through — this is **embedded mode**,
+where a host application owns identity and mounts the editor directly.
+
+## Backend (`server/`)
+
+A NestJS API — its own npm package in this repository, deployed as its own container.
+
+| Area | Notes |
+| --- | --- |
+| Data | Prisma 7 + Postgres. `User`, `UserPreferences`, `Folder`, `Drawing`, `DrawingVersion`, `ShareLink`, `WebhookEvent` |
+| Files | Drawing payloads (DXF text) and thumbnails live in S3-compatible storage — MinIO in dev, R2/S3 in prod. Postgres holds metadata only |
+| Auth | `ClerkAuthGuard` verifies the session JWT (networkless when `CLERK_JWT_KEY` is set) and lazily creates the local user, so the API works before the `user.created` webhook arrives — or without webhooks at all in development |
+| Contract | Every response is `{ success, data }` / `{ success, message, code }`, which is what `HttpManagerService` unwraps |
+
+**Saving is concurrency-safe by construction.** A save reserves the next version number with a conditional
+`UPDATE … WHERE currentVersion = <expected>` plus the unique `(drawingId, version)` index, *then* writes the object.
+Two racing saves can never target the same storage key; the loser gets a 409 and the editor offers Overwrite /
+Save as copy / Reload. Clients send the version they loaded as `If-Match`.
+
+Drawing, DXF import/export, plotting, the symbol library and layouts still run entirely client-side; the API is for
+identity, file management and durability.
 
 ## Error handling
 
