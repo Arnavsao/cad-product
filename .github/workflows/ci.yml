@@ -22,3 +22,43 @@ jobs:
         with:
           name: dist
           path: dist/aagento-cad/browser
+
+  # The NestJS API in server/. Unit tests mock Prisma and storage; the e2e
+  # suite needs real Postgres + MinIO, so the same docker-compose services
+  # developers use locally are started here. Auth in e2e uses RS256 tokens
+  # minted against CLERK_JWT_KEY - no Clerk account is needed in CI.
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:4200
+      DATABASE_URL: postgresql://cad:cad@localhost:5432/cad
+      DIRECT_DATABASE_URL: postgresql://cad:cad@localhost:5432/cad
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: drawings
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Start Postgres and MinIO
+        working-directory: .
+        run: |
+          docker compose up -d --wait postgres minio
+          docker compose run --rm minio-init
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:e2e

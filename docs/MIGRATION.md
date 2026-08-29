@@ -24,8 +24,11 @@ exist before the first build.
 1. `cad-editor.ts/.html` — removed the bridge app's `<app-profile-dropdown>` (account menu) from the header;
    `GadTransferService` → `DrawingTransferService`.
 2. `features/l-section/l-section-panel.component.ts` — `FeedbackService` → `FileUploadService` (same method names).
+   **Removed in 1.1.0** along with `FileUploadService`: L-section generation is bridge-specific and CADOnline is a
+   general-purpose CAD product. The bridge repo keeps its own copy.
 3. `features/ai-agent/services/ai-audit.service.ts` — `environment.nodeApiUrl` → `environment.apiUrl`; skips the POST when
-   no backend is configured.
+   no backend is configured. **Changed in 1.1.0:** the POST was removed entirely; the audit log is local-only
+   (IndexedDB with a localStorage fallback).
 4. `features/ai-agent/models/ai-model.ts` and the AI panel — the hard-coded LAN Ollama address
    (`http://192.168.1.109:11434`) is now `environment.defaultOllamaUrl` (default `http://localhost:11434`).
 

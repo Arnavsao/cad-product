@@ -1,0 +1,31 @@
+# Production topology: nginx serves the Angular build and proxies /api/ to the
+# API container (see the `location ^~ /api/` block in nginx.conf - the upstream
+# name `api` is this service). Postgres and object storage are NOT here: in
+# production they are managed services (Neon, Cloudflare R2 / S3) configured
+# through server/.env. For a self-hosted stack, add the `postgres` and `minio`
+# services from docker-compose.yml.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+name: cadonline-prod
+
+services:
+  api:
+    build: ./server
+    env_file: ./server/.env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    restart: unless-stopped
+    # Not published: only nginx talks to it.
+    expose:
+      - "3000"
+
+  web:
+    build: .
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
