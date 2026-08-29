@@ -11,7 +11,14 @@
   <header class="cad-header">
     <div class="hdr-left">
       <span class="hdr-logo">CADOnline</span>
-      <span class="hdr-file">{{ doc.activeFile.name }}</span>
+      <span class="hdr-file">
+        {{ doc.activeFile.name }}@if (docManager.activeDocument?.isDirty) {<span class="hdr-dirty" title="Unsaved changes">•</span>}
+      </span>
+      @if (autosave.status() === 'saving') {
+        <span class="hdr-savestate" title="Autosaving…">Saving…</span>
+      } @else if (autosave.lastSavedAt()) {
+        <span class="hdr-savestate" [title]="'Last autosaved ' + savedAgo()">Autosaved {{ savedAgo() }}</span>
+      }
     </div>
     <div class="hdr-right">
       <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="goBack()" data-tooltip="Go Back">
@@ -19,6 +26,30 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7.5 3.5 L3 8 l4.5 4.5 M3 8 h10" />
+          </svg>
+        </div>
+      </button>
+
+      <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="drawingBrowser.open('open')"
+        data-tooltip="My Drawings — open a saved drawing (Ctrl+O)">
+        <div class="icon-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1.5 12.5 V4 A1.5 1.5 0 0 1 3 2.5 h3 l1.5 2 H13 A1.5 1.5 0 0 1 14.5 6" />
+            <path d="M1.5 12.5 L3.5 7 h11 l-2 5.5 z" />
+          </svg>
+        </div>
+      </button>
+
+      <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="saveDrawing()"
+        [disabled]="persist.busy()"
+        data-tooltip="Save drawing (Ctrl+S)">
+        <div class="icon-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3.5 A1.5 1.5 0 0 1 3.5 2 h7 L14 5.5 v7 A1.5 1.5 0 0 1 12.5 14 h-9 A1.5 1.5 0 0 1 2 12.5 z" />
+            <path d="M5 2 v4 h5 V2.5" />
+            <rect x="4.5" y="9" width="7" height="5" />
           </svg>
         </div>
       </button>

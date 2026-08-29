@@ -152,6 +152,24 @@
       flex-shrink: 1;
     }
 
+    /* Unsaved-changes dot, next to the drawing name. */
+    .hdr-dirty {
+      color: var(--cad-accent, #4f8ef7);
+      font-size: 16px;
+      line-height: 0;
+      margin-left: 3px;
+      vertical-align: middle;
+    }
+
+    /* "Autosaved 2m ago" - deliberately quiet; it is reassurance, not a control. */
+    .hdr-savestate {
+      color: var(--cad-text-dim);
+      font-size: 11px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+
     .hdr-btn {
       padding: 4px 14px;
       border-radius: var(--cad-radius-sm);

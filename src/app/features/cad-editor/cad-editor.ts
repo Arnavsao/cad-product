@@ -3,6 +3,7 @@ import {
   Component,
   HostListener,
   OnInit,
+  OnDestroy,
   ViewChild,
   ViewEncapsulation,
   effect,
@@ -178,7 +179,7 @@ import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.co
   styleUrl: './cad-editor.scss',
   encapsulation: ViewEncapsulation.None,
 })
-export class CadEditorComponent implements OnInit, AfterViewInit {
+export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private injector = inject(Injector);
   readonly initialDxf = input<string>(undefined);
   readonly save = output<string>();
@@ -262,6 +263,9 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
   protected autosave = inject(AutosaveService);
   protected persist = inject(DrawingPersistenceService);
   protected drawingBrowser = inject(DrawingBrowserService);
+  /** Ticks once a minute so the "Autosaved Nm ago" label stays truthful. */
+  private nowTick = signal(0);
+  private savedAgoTimer: ReturnType<typeof setInterval> | null = null;
   protected cadClipboard = inject(CadClipboardService);
   protected dimTextEditor = inject(DimTextEditorService);
   private _aiTools = inject(AiToolRegistryService);
@@ -938,6 +942,25 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Human-readable age of the last autosave, for the header indicator.
+   *
+   * Reads the `lastSavedAt` signal AND `nowTick`, so the label re-renders as
+   * time passes instead of freezing at "just now" - this app is zoneless, so
+   * nothing else would ever mark it dirty.
+   */
+  protected savedAgo(): string {
+    const ts = this.autosave.lastSavedAt();
+    this.nowTick();
+    if (!ts) return '';
+    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s < 45) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    return `${h}h ago`;
+  }
+
+  /**
    * SAVE / Ctrl+S. Overwrites the bound record when this tab has already been
    * saved; otherwise there is no name yet, so fall through to Save As.
    */
@@ -950,6 +973,16 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
       await this.persist.saveActive();
     } else {
       this.drawingBrowser.open('save');
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Autosave attaches window-level visibilitychange / beforeunload listeners
+    // and owns an interval; both must be released with the component.
+    this.autosave.stop();
+    if (this.savedAgoTimer !== null) {
+      clearInterval(this.savedAgoTimer);
+      this.savedAgoTimer = null;
     }
   }
 
@@ -967,6 +1000,10 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
     }
 
     this.autosave.start();
+
+    // Zoneless: nothing re-renders on its own, so drive the relative-time
+    // label from a signal we bump ourselves.
+    this.savedAgoTimer = setInterval(() => this.nowTick.update((v) => v + 1), 60_000);
 
     void this.autosave.hasRecovery().then((has) => {
       if (!has) return;

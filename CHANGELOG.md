@@ -12,7 +12,11 @@
 ### Changed
 * Extracted `cad-core` and the CAD editor from the bridge application (see docs/MIGRATION.md).
 * Removed the bridge account dropdown from the editor header.
-* The light/dark toggle that lived in that dropdown is now a sun/moon button in the editor header (`ThemeService.toggle()`).
+* The light/dark toggle that lived in that dropdown is now a sun/moon button in the editor header, which flips between
+  the last theme chosen for each ground.
+* Colour themes: 12 built-in schemes (8 dark, 4 light) picked from a searchable list in the Settings panel — previously
+  a stub. Themes colour the chrome, the canvas ground, the grid and the semantic accents together; the active one is
+  persisted under `localStorage['cad.theme']`.
 * The editor defaults to the dark theme when no preference is saved (`localStorage['theme']`); the OS `prefers-color-scheme` fallback was removed.
 * LAN-specific Ollama default replaced by `environment.defaultOllamaUrl`.
 

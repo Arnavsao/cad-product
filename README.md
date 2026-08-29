@@ -80,7 +80,8 @@ src/
 │       └── features/         UI: canvas, toolbar, panels, dialogs, text/table editors, AI agent, L-section
 ├── environments/             Build-time configuration
 ├── polyfills.ts              Canvas `ellipse()` negative-radius guard
-└── styles.scss, theme.scss   Global baseline + `--color-*` theme tokens (editor tokens are in cad-editor.scss)
+└── styles.scss, theme.scss   Global baseline + `--color-*` fallback tokens (themes are applied at runtime by
+                              ThemeService; editor tokens are derived in cad-editor.scss)
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layering rules and the main services.

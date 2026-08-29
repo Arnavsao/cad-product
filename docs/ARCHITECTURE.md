@@ -41,7 +41,8 @@ relative imports.
 | `DxfImportService`         | Parses DXF (in `core/workers/dxf-parser.worker.ts`) or JSON entity payloads     |
 | `ExportService` / `ExportManagerService` / `PdfExportService` | DXF, SVG, PDF plotting                      |
 | `LibraryService`           | Reusable symbol library (localStorage-backed)                                   |
-| `ThemeService`             | Light/dark toggle (header sun/moon button) persisted under `localStorage['theme']`; defaults to dark |
+| `ThemeService`             | Applies the active colour theme: CSS `--color-*` custom properties onto `<body>`, plus the canvas palette read by non-DI drawing code. Persisted under `localStorage['cad.theme']` |
+| `theme-registry.ts`        | The 12 built-in themes. Each is a ~12-colour seed expanded into UI tokens and a full `ICadCanvasPalette` |
 | `DrawingTransferService`   | Hand-off inbox for host applications (see INTEGRATION.md)                       |
 
 ## Rendering
