@@ -38,6 +38,15 @@ import { CommandStackService } from './core/services/command-stack.service';
 import { DocumentService } from './core/services/document.service';
 import { ViewModelService } from './core/services/view-model.service';
 import { SelectTool } from './tools/select/select-tool';
+import { ArrayTool } from './tools/modify/array-tool';
+import { DistTool } from './tools/inquiry/dist-tool';
+import { AreaTool } from './tools/inquiry/area-tool';
+import { IdTool } from './tools/inquiry/id-tool';
+import { ListTool } from './tools/inquiry/list-tool';
+import { AutosaveService } from './core/services/autosave.service';
+import { DrawingPersistenceService } from './core/services/drawing-persistence.service';
+import { DrawingBrowserService } from './features/drawing-browser/drawing-browser.service';
+import { DrawingBrowserComponent } from './features/drawing-browser/drawing-browser.component';
 import { PanTool } from './tools/select/pan-tool';
 import { LineTool } from './tools/draw/line-tool';
 import { CenterlineTool } from './tools/draw/centerline-tool';
@@ -156,6 +165,7 @@ import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.co
     LayoutManagerDialogComponent,
     DimStyleDialogComponent,
     FindDialogComponent,
+    DrawingBrowserComponent,
     DocumentTabsComponent,
     TextEditorRibbonComponent,
     AiAgentPanelComponent,
@@ -248,6 +258,10 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
   protected get dimStyleDialog() { return this.injector.get(DimStyleDialogService); }
   protected get findDialog() { return this.injector.get(FindDialogService); }
   protected docManager = inject(DocumentManagerService);
+  // Persistence: browser-storage save/open plus autosave crash recovery.
+  protected autosave = inject(AutosaveService);
+  protected persist = inject(DrawingPersistenceService);
+  protected drawingBrowser = inject(DrawingBrowserService);
   protected cadClipboard = inject(CadClipboardService);
   protected dimTextEditor = inject(DimTextEditorService);
   private _aiTools = inject(AiToolRegistryService);
@@ -309,6 +323,19 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
     this.toolMgr.register('join', (i) => new JoinTool(i));
     this.toolMgr.register('extend', (i) => new ExtendTool(i));
     this.toolMgr.register('matchprop', (i) => new MatchPropTool(i));
+
+    // ARRAY — one class, three modes (AutoCAD ARRAYRECT / ARRAYPOLAR / ARRAYPATH).
+    // Bare 'array' defaults to rectangular, matching AutoCAD's AR alias.
+    this.toolMgr.register('array', (i) => new ArrayTool(i, 'rect'));
+    this.toolMgr.register('arrayrect', (i) => new ArrayTool(i, 'rect'));
+    this.toolMgr.register('arraypolar', (i) => new ArrayTool(i, 'polar'));
+    this.toolMgr.register('arraypath', (i) => new ArrayTool(i, 'path'));
+
+    // Inquiry / measurement — read-only, never touch the undo stack.
+    this.toolMgr.register('dist', (i) => new DistTool(i));
+    this.toolMgr.register('area', (i) => new AreaTool(i));
+    this.toolMgr.register('id', (i) => new IdTool(i));
+    this.toolMgr.register('list', (i) => new ListTool(i));
     this.toolMgr.register('draworder', (i) => new DrawOrderTool(i));
     this.toolMgr.register('xline', (i) => new XLineTool(i));
     this.toolMgr.register('xline_hor', (i) => new XLineHorTool(i));
@@ -362,6 +389,17 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
     this.cmdRegistry.registerAction('viewports', () => this.panelService.open('viewports'));
     this.cmdRegistry.registerAction('dimstyle', () => this.dimStyleDialog.open());
     this.cmdRegistry.registerAction('find', () => this.findDialog.open());
+
+    // ── File management (browser-storage persistence) ────────────────────
+    // SAVE overwrites in place once a drawing has been saved; the first save
+    // has no name yet, so it falls through to the Save As dialog.
+    this.cmdRegistry.registerAction('save', () => void this.saveDrawing());
+    this.cmdRegistry.registerAction('saveas', () => this.drawingBrowser.open('save'));
+    this.cmdRegistry.registerAction('open', () => this.drawingBrowser.open('open'));
+    this.cmdRegistry.registerAction('drawings', () => this.drawingBrowser.open('open'));
+    this.cmdRegistry.registerAction('newdrawing', () => this.docManager.createDocument());
+
+    this.initPersistence();
     this.cmdRegistry.registerAction('bedit', () => {
       const sel = this.doc.getSelectedEntities();
       const ins = sel.find((e: any) => e.type === 'INSERT');
@@ -899,6 +937,44 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
     return false;
   }
 
+  /**
+   * SAVE / Ctrl+S. Overwrites the bound record when this tab has already been
+   * saved; otherwise there is no name yet, so fall through to Save As.
+   */
+  protected async saveDrawing(): Promise<void> {
+    if (!this.persist.isAvailable()) {
+      this.notify.error('Browser storage is unavailable — use Export to write a DXF file.');
+      return;
+    }
+    if (this.persist.activeHasStoredRecord()) {
+      await this.persist.saveActive();
+    } else {
+      this.drawingBrowser.open('save');
+    }
+  }
+
+  /**
+   * Start autosave and surface anything left over from a previous session.
+   *
+   * A recovery record only survives when a tab was dirty and never explicitly
+   * saved — i.e. the browser closed or crashed mid-edit — so its presence is
+   * a strong signal that the user lost work and wants it back.
+   */
+  private initPersistence(): void {
+    if (!this.persist.isAvailable()) {
+      console.warn('IndexedDB unavailable — drawings cannot be saved to this browser.');
+      return;
+    }
+
+    this.autosave.start();
+
+    void this.autosave.hasRecovery().then((has) => {
+      if (!has) return;
+      this.notify.warning('Unsaved work from a previous session was recovered — open My Drawings to restore it.', 9000);
+    });
+  }
+
+
   // Single merged keydown handler â€” Angular Ivy only fires ONE @HostListener per
   // event name per component class, so all keydown logic must live in one method.
   @HostListener('window:keydown', ['$event'])
@@ -964,6 +1040,25 @@ export class CadEditorComponent implements OnInit, AfterViewInit {
         }
         return;
       }
+      // ── File management ──────────────────────────────────────────────────
+      // Ctrl+S       → Save (overwrite, or Save As on a never-saved drawing)
+      // Ctrl+Shift+S → Save As
+      // Ctrl+O       → Open / My Drawings
+      // preventDefault matters here: Ctrl+S would otherwise trigger the
+      // browser's own "Save page as" dialog and Ctrl+O its file picker.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (this.drawingBrowser.isOpen()) return;
+        if (e.shiftKey) this.drawingBrowser.open('save');
+        else void this.saveDrawing();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        if (!this.drawingBrowser.isOpen()) this.drawingBrowser.open('open');
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         if (!this.plotDialog.isOpen()) this.plotDialog.open({ format: 'pdf' });

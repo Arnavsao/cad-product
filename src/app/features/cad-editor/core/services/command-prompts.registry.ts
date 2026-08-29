@@ -905,4 +905,91 @@ export const COMMAND_PROMPTS: Record<string, ICommandDef> = {
       { id: 'value', message: 'Enter pickbox size in pixels (0-50):' },
     ],
   },
+  // ── Array ─────────────────────────────────────────────────────────
+
+  arrayrect: {
+    command: 'ARRAYRECT',
+    phases: [
+      { id: 'select', message: 'Select objects to array:' },
+      {
+        id: 'config', message: 'Drag to set spacing, or', options: [
+          { key: 'R', label: 'Rows', hint: 'Enter the number of rows' },
+          { key: 'C', label: 'Columns', hint: 'Enter the number of columns' },
+          { key: 'S', label: 'Spacing', hint: 'Enter the distance between columns' },
+        ]
+      },
+    ],
+  },
+
+  arraypolar: {
+    command: 'ARRAYPOLAR',
+    phases: [
+      { id: 'select', message: 'Select objects to array:' },
+      { id: 'center', message: 'Specify center point of array:' },
+      {
+        id: 'config', message: 'Drag to set the array, or', options: [
+          { key: 'C', label: 'Count', hint: 'Enter the number of items' },
+          { key: 'F', label: 'Fill angle', hint: 'Enter the angle to fill (360 = full circle)' },
+        ]
+      },
+    ],
+  },
+
+  arraypath: {
+    command: 'ARRAYPATH',
+    phases: [
+      { id: 'select', message: 'Select objects to array:' },
+      { id: 'path', message: 'Select path curve (line, polyline, arc or circle):' },
+      {
+        id: 'config', message: 'Drag to set the array, or', options: [
+          { key: 'C', label: 'Count', hint: 'Enter the number of items along the path' },
+          { key: 'A', label: 'Align', hint: 'Toggle aligning items to the path direction' },
+        ]
+      },
+    ],
+  },
+
+  // ── Inquiry / measurement ──────────────────────────────────────────
+
+  dist: {
+    command: 'DIST',
+    phases: [
+      { id: 'first', message: 'Specify first point:' },
+      {
+        id: 'second', message: 'Specify second point or', options: [
+          { key: 'M', label: 'Multiple', hint: 'Measure a running total across several points' },
+        ]
+      },
+      { id: 'multiple', message: 'Specify next point (Enter for total):' },
+    ],
+  },
+
+  area: {
+    command: 'AREA',
+    phases: [
+      {
+        id: 'first', message: 'Specify first corner point or', options: [
+          { key: 'O', label: 'Object', hint: 'Measure the area of a single object' },
+          { key: 'A', label: 'Add area', hint: 'Add subsequent areas to a running total' },
+          { key: 'S', label: 'Subtract area', hint: 'Subtract subsequent areas from the total' },
+        ]
+      },
+      { id: 'next', message: 'Specify next point (Enter to close and total):' },
+      { id: 'object', message: 'Select object to measure:' },
+    ],
+  },
+
+  id: {
+    command: 'ID',
+    phases: [
+      { id: 'point', message: 'Specify point:' },
+    ],
+  },
+
+  list: {
+    command: 'LIST',
+    phases: [
+      { id: 'select', message: 'Select objects to list (Enter when done):' },
+    ],
+  },
 };

@@ -174,6 +174,15 @@ const MODIFY: ToolMeta[] = [
     svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M5 5V3a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v2"/></svg>`
   },
   {
+    id: 'array', title: 'Array (AR)', group: 'Modify', aliases: ['ar', 'array'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="4.5" height="4.5" rx="0.5"/><rect x="10" y="1.5" width="4.5" height="4.5" rx="0.5"/><rect x="1.5" y="10" width="4.5" height="4.5" rx="0.5"/><rect x="10" y="10" width="4.5" height="4.5" rx="0.5"/></svg>`,
+    subTools: [
+      { id: 'arrayrect', title: 'Rectangular Array', group: 'Modify', aliases: ['arrayrect', 'ar', 'array'], svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="4.5" height="4.5" rx="0.5"/><rect x="10" y="1.5" width="4.5" height="4.5" rx="0.5"/><rect x="1.5" y="10" width="4.5" height="4.5" rx="0.5"/><rect x="10" y="10" width="4.5" height="4.5" rx="0.5"/></svg>` },
+      { id: 'arraypolar', title: 'Polar Array', group: 'Modify', aliases: ['arraypolar', 'arraypol'], svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6" stroke-dasharray="2 2" opacity="0.6"/><rect x="6.5" y="0.5" width="3" height="3" rx="0.5"/><rect x="12.5" y="6.5" width="3" height="3" rx="0.5"/><rect x="6.5" y="12.5" width="3" height="3" rx="0.5"/><rect x="0.5" y="6.5" width="3" height="3" rx="0.5"/></svg>` },
+      { id: 'arraypath', title: 'Path Array', group: 'Modify', aliases: ['arraypath'], svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 12 C5 12, 5 4, 9 4 S14 8, 15 8" opacity="0.6" stroke-dasharray="2 2"/><rect x="0" y="10.5" width="3" height="3" rx="0.5"/><rect x="6" y="2.5" width="3" height="3" rx="0.5"/><rect x="12.5" y="6.5" width="3" height="3" rx="0.5"/></svg>` },
+    ]
+  },
+  {
     id: 'stretch', title: 'Stretch — Select entities first', group: 'Modify', aliases: ['stretch', 'str'],
     svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="4" width="5" height="5"/><line x1="9" y1="6.5" x2="14" y2="6.5"/><polygon points="14,6.5 11,5 11,8" fill="currentColor" stroke="none"/><line x1="6.5" y1="9" x2="6.5" y2="14"/><polygon points="6.5,14 5,11 8,11" fill="currentColor" stroke="none"/></svg>`
   },
@@ -249,6 +258,26 @@ const MODIFY: ToolMeta[] = [
 ];
 
 const SYSTEM: ToolMeta[] = [
+  {
+    id: 'save', title: 'Save (Ctrl+S)', group: 'System', aliases: ['save', 'qsave', 'ctrl+s'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7L14 5.5v7A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5z"/><path d="M5 2v4h5V2.5"/><rect x="4.5" y="9" width="7" height="5"/></svg>`
+  },
+  {
+    id: 'saveas', title: 'Save As (SAVEAS)', group: 'System', aliases: ['saveas', 'sa'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7L14 5.5v3"/><path d="M5 2v4h5V2.5"/><path d="M2 12.5V3.5"/><path d="M11 11h4M13 9v4" stroke-linecap="round"/></svg>`
+  },
+  {
+    id: 'open', title: 'Open Drawing (Ctrl+O)', group: 'System', aliases: ['open', 'ctrl+o'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M1.5 12.5V4A1.5 1.5 0 0 1 3 2.5h3l1.5 2H13A1.5 1.5 0 0 1 14.5 6v0"/><path d="M1.5 12.5 3.5 7h11l-2 5.5z"/></svg>`
+  },
+  {
+    id: 'drawings', title: 'My Drawings (DWGS)', group: 'System', aliases: ['drawings', 'dwgs', 'browse'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="5.5" y1="6" x2="5.5" y2="13.5"/></svg>`
+  },
+  {
+    id: 'newdrawing', title: 'New Drawing (NEW)', group: 'System', aliases: ['new', 'newdrawing', 'qnew'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M3 2.5h5L12.5 7v6.5a1 1 0 0 1-1 1h-8a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/><path d="M8 2.5V7h4.5"/><path d="M5.5 10.5h4M7.5 8.5v4" stroke-linecap="round"/></svg>`
+  },
   {
     id: 'layers', title: 'Layers (LA)', group: 'System', aliases: ['la', 'layer', 'layers'],
     svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8 L8 4.5 L14 8 L8 11.5 Z"/><path d="M2 11 L8 14.5 L14 11" opacity="0.5"/><path d="M2 5 L8 1.5 L14 5" opacity="0.5"/></svg>`
@@ -389,10 +418,35 @@ const SYSTEM: ToolMeta[] = [
   },
 ];
 
+
+/**
+ * Inquiry / measurement commands - AutoCAD's Home > Utilities panel.
+ * These are read-only: they never mutate entities or touch the undo stack.
+ */
+const MEASURE: ToolMeta[] = [
+  {
+    id: 'dist', title: 'Distance (DI)', group: 'Measure', aliases: ['di', 'dist', 'distance'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="2.5" y1="12" x2="13.5" y2="4"/><circle cx="2.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="13.5" cy="4" r="1.6" fill="currentColor" stroke="none"/></svg>`
+  },
+  {
+    id: 'area', title: 'Area (AA)', group: 'Measure', aliases: ['aa', 'area', 'measuregeom'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><polygon points="2,12 5,3 13,5 11,13" fill="currentColor" fill-opacity="0.18"/></svg>`
+  },
+  {
+    id: 'id', title: 'ID Point (ID)', group: 'Measure', aliases: ['id', 'idpoint'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="8" y1="1.5" x2="8" y2="14.5"/><line x1="1.5" y1="8" x2="14.5" y2="8"/><circle cx="8" cy="8" r="2.6"/></svg>`
+  },
+  {
+    id: 'list', title: 'List (LI)', group: 'Measure', aliases: ['li', 'list', 'ls'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="5.5" y1="4" x2="14" y2="4"/><line x1="5.5" y1="8" x2="14" y2="8"/><line x1="5.5" y1="12" x2="14" y2="12"/><circle cx="2.5" cy="4" r="1.1" fill="currentColor" stroke="none"/><circle cx="2.5" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="2.5" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>`
+  },
+];
+
 const SECTIONS: ToolSection[] = [
   { label: 'Draw', tools: DRAW },
   { label: 'Modify', tools: MODIFY },
   { label: 'Annotate', tools: ANNOTATE },
+  { label: 'Measure', tools: MEASURE },
 ];
 
 const ALL: ToolMeta[] = [];

@@ -47,22 +47,26 @@
         </div>
       </button>
 
-      <select class="hdr-btn" [ngModel]="theme.mode()" (ngModelChange)="theme.set($event)" style="appearance: auto; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--cad-border); font-size: 12px; cursor: pointer;" aria-label="Select Color Theme">
-        <optgroup label="Dark Themes">
-          @for (t of theme.availableThemes; track t.id) {
-            @if (t.group === 'Dark Themes') {
-              <option [value]="t.id">{{ t.name }}</option>
-            }
+      <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="theme.toggle()"
+        [attr.data-tooltip]="theme.isLight() ? 'Switch to dark theme' : 'Switch to light theme'"
+        role="switch" [attr.aria-checked]="!theme.isLight()">
+        <div class="icon-wrap">
+          @if (theme.isLight()) {
+          <!-- moon -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13.5 9.5 A5.5 5.5 0 0 1 6.5 2.5 A5.5 5.5 0 1 0 13.5 9.5 z" />
+          </svg>
+          } @else {
+          <!-- sun -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="8" r="3" />
+            <path d="M8 1.5 v1.5 M8 13 v1.5 M1.5 8 h1.5 M13 8 h1.5 M3.4 3.4 l1.1 1.1 M11.5 11.5 l1.1 1.1 M3.4 12.6 l1.1 -1.1 M11.5 4.5 l1.1 -1.1" />
+          </svg>
           }
-        </optgroup>
-        <optgroup label="Light Themes">
-          @for (t of theme.availableThemes; track t.id) {
-            @if (t.group === 'Light Themes') {
-              <option [value]="t.id">{{ t.name }}</option>
-            }
-          }
-        </optgroup>
-      </select>
+        </div>
+      </button>
 
       <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="showShareDialog = true"
         data-tooltip="Share this drawing">
@@ -266,6 +270,11 @@
 
   <!-- ==================== FIND & REPLACE DIALOG ==================== -->
   @defer (when findDialog.isOpen()) { <app-find-dialog></app-find-dialog> }
+
+  <!-- My Drawings / Save As. Deferred so IndexedDB is only touched when opened. -->
+  @defer (when drawingBrowser.isOpen()) {
+    @if (drawingBrowser.isOpen()) { <app-drawing-browser></app-drawing-browser> }
+  }
 
   <!-- ==================== DND OVERLAY ==================== -->
   @if (isDraggingFiles()) {
