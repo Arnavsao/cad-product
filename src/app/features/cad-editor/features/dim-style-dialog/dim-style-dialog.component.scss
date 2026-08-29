@@ -1,0 +1,238 @@
+/* Classic Windows UI Colors */
+$win-bg: #f0f0f0;
+$win-border-light: #ffffff;
+$win-border-shadow: #a0a0a0;
+$win-border-dark: #696969;
+$win-text: #000000;
+
+.dim-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.dim-modal-content {
+    background: $win-bg;
+    color: $win-text;
+    width: 650px;
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    font-size: 12px;
+    border: 1px solid #777;
+    overflow: hidden;
+}
+
+.dim-modal-header {
+    background: linear-gradient(to bottom, #f2f9ff, #d6e8fa);
+    padding: 6px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ccc;
+    
+    h2 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 400;
+        color: #000;
+    }
+    
+    .close-btn {
+        background: #e81123;
+        color: white;
+        border: 1px solid #a00;
+        border-radius: 2px;
+        width: 24px;
+        height: 18px;
+        line-height: 16px;
+        text-align: center;
+        padding: 0;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        
+        &:hover {
+            background: #f04040;
+        }
+    }
+}
+
+.dim-tabs {
+    display: flex;
+    padding: 6px 8px 0 8px;
+    background: $win-bg;
+    border-bottom: 1px solid $win-border-shadow;
+    
+    button {
+        background: $win-bg;
+        border: 1px solid $win-border-shadow;
+        border-bottom: none;
+        padding: 4px 8px;
+        margin-right: 2px;
+        border-top-left-radius: 3px;
+        border-top-right-radius: 3px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 12px;
+        color: $win-text;
+        position: relative;
+        top: 1px;
+        
+        &:hover {
+            background: #e5f1fb;
+        }
+        
+        &.active {
+            background: #ffffff;
+            border-top: 2px solid orange; // Mimicking AutoCAD active tab accent
+            border-left: 1px solid $win-border-shadow;
+            border-right: 1px solid $win-border-shadow;
+            padding-bottom: 5px;
+            z-index: 10;
+        }
+    }
+}
+
+.dim-tab-content {
+    background: #ffffff;
+    padding: 12px;
+    flex: 1;
+    min-height: 380px;
+    border: 1px solid $win-border-shadow;
+    border-top: none;
+    margin: 0 8px;
+    
+    .tab-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .top-section {
+        display: flex;
+        gap: 12px;
+    }
+    
+    .left-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .right-col {
+        width: 260px;
+        flex-shrink: 0;
+    }
+
+    .field-group {
+        border: 1px solid #d0d0d0;
+        border-radius: 3px;
+        padding: 12px 8px 8px;
+        position: relative;
+        margin-top: 6px;
+        
+        & > label {
+            position: absolute;
+            top: -8px;
+            left: 8px;
+            background: #ffffff;
+            padding: 0 4px;
+            color: #003399;
+            font-size: 12px;
+        }
+    }
+
+    .field-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        
+        span {
+            color: $win-text;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        select {
+            border: 1px solid $win-border-shadow;
+            background: #ffffff;
+            padding: 3px;
+            width: 130px;
+            font-size: 12px;
+            color: #000;
+            
+            &:disabled {
+                background: #f0f0f0;
+                color: #888;
+            }
+        }
+
+        &.radio-row {
+            justify-content: flex-start;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+    }
+}
+
+.dim-preview-panel {
+    border: 1px solid $win-border-shadow;
+    background: #000;
+    padding: 2px;
+    
+    .preview-canvas-placeholder {
+        background: #000;
+        height: 140px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    }
+}
+
+.dim-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px;
+    background: $win-bg;
+    gap: 8px;
+    
+    button {
+        min-width: 80px;
+        padding: 4px 16px;
+        border: 1px solid #a0a0a0;
+        background: linear-gradient(to bottom, #f0f0f0, #e0e0e0);
+        border-radius: 3px;
+        font-family: inherit;
+        font-size: 12px;
+        cursor: pointer;
+        color: #000;
+        
+        &:hover {
+            background: linear-gradient(to bottom, #e5f1fb, #cce4f7);
+            border-color: #0078d7;
+        }
+        
+        &.btn-save {
+            border-color: #0078d7;
+            box-shadow: 0 0 0 1px inset #fff;
+        }
+    }
+}

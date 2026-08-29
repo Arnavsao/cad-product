@@ -1,0 +1,286 @@
+<div class="cad-editor-root" [attr.data-cad-theme]="theme.mode()">
+
+  @if (isLoading()) {
+  <div class="cad-full-page-loader">
+    <div class="cad-spinner"></div>
+    <div class="cad-loading-text">Loading CAD drawing...</div>
+  </div>
+  }
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="cad-header">
+    <div class="hdr-left">
+      <span class="hdr-logo">CADOnline</span>
+      <span class="hdr-file">{{ doc.activeFile.name }}</span>
+    </div>
+    <div class="hdr-right">
+      <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="goBack()" data-tooltip="Go Back">
+        <div class="icon-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7.5 3.5 L3 8 l4.5 4.5 M3 8 h10" />
+          </svg>
+        </div>
+      </button>
+
+      <input #dxfInput type="file" accept=".dxf,.json,image/png,image/jpeg,image/jpg,image/svg+xml,image/webp,image/gif"
+        multiple hidden (change)="onFilesSelected($event)" />
+      <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="onUploadClick(dxfInput)"
+        data-tooltip="Import a local DXF or image file">
+        <div class="icon-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 11 V2 M4.5 5.5 L8 2 l3.5 3.5 M3 14 h10" />
+          </svg>
+        </div>
+      </button>
+
+      <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="onPlotClick()"
+        data-tooltip="Plot — export to PDF / PNG / DXF">
+        <div class="icon-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path
+              d="M4 6 V2 h8 v4 M3 6 h10 a1 1 0 0 1 1 1 v4 a1 1 0 0 1 -1 1 h-2 v3 H5 v-3 H3 a1 1 0 0 1 -1 -1 V7 a1 1 0 0 1 1 -1 z" />
+            <line x1="10" y1="9" x2="11" y2="9" />
+          </svg>
+        </div>
+      </button>
+
+      <select class="hdr-btn" [ngModel]="theme.mode()" (ngModelChange)="theme.set($event)" style="appearance: auto; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--cad-border); font-size: 12px; cursor: pointer;" aria-label="Select Color Theme">
+        <optgroup label="Dark Themes">
+          @for (t of theme.availableThemes; track t.id) {
+            @if (t.group === 'Dark Themes') {
+              <option [value]="t.id">{{ t.name }}</option>
+            }
+          }
+        </optgroup>
+        <optgroup label="Light Themes">
+          @for (t of theme.availableThemes; track t.id) {
+            @if (t.group === 'Light Themes') {
+              <option [value]="t.id">{{ t.name }}</option>
+            }
+          }
+        </optgroup>
+      </select>
+
+      <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="showShareDialog = true"
+        data-tooltip="Share this drawing">
+        <div class="icon-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="4" cy="8" r="1.5" />
+            <circle cx="12" cy="4" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <line x1="5.2" y1="7.4" x2="10.8" y2="4.6" />
+            <line x1="5.2" y1="8.6" x2="10.8" y2="11.4" />
+          </svg>
+        </div>
+      </button>
+
+    </div>
+  </header>
+
+  <!-- ==================== TOOLBAR ==================== -->
+  @if (textEditor.state() !== null || tableEditor.state() !== null) {
+  <app-text-editor-ribbon></app-text-editor-ribbon>
+  } @else {
+  <app-cad-toolbar></app-cad-toolbar>
+  }
+
+
+  <!-- ==================== DOCUMENT TABS ==================== -->
+  <app-document-tabs></app-document-tabs>
+
+  <!-- ==================== WORKSPACE ==================== -->
+  <div class="cad-workspace">
+
+    <!-- Left sidebar icon strip -->
+    <app-cad-sidebar></app-cad-sidebar>
+
+    <!-- The rest: sliding drawer + canvas -->
+    <div
+      style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; position: relative; z-index: 10;">
+      <div style="position:relative; overflow:hidden; display:flex; flex:1; min-height: 0;">
+
+        <!-- Sliding drawer -->
+        <div class="cad-drawer" [class.open]="panelService.activePanel() !== null">
+          @switch (panelService.activePanel()) {
+          <!-- Properties panel -->
+          @case ('properties') {
+          <div class="drawer-body">
+            <app-properties-panel (closeDrawer)="setActivePanel(null)"></app-properties-panel>
+          </div>
+          }
+          <!-- Layers panel -->
+          @case ('layers') {
+          <div class="drawer-header">
+            <div class="drawer-title-row">
+              <span>Layers</span>
+            </div>
+            <button class="drawer-close" type="button" (click)="setActivePanel(null)">✕</button>
+          </div>
+          <div class="drawer-body">
+            <app-layers-panel></app-layers-panel>
+          </div>
+          }
+          <!-- Blocks panel -->
+          @case ('blocks') {
+          <div class="drawer-header">
+            <div class="drawer-title-row">
+              <span>Blocks</span>
+            </div>
+            <button class="drawer-close" type="button" (click)="setActivePanel(null)">✕</button>
+          </div>
+          <div class="drawer-body">
+            <app-blocks-panel></app-blocks-panel>
+          </div>
+          }
+          <!-- Viewports panel -->
+          @case ('viewports') {
+          <div class="drawer-header">
+            <div class="drawer-title-row"><span>Viewports</span></div>
+            <button class="drawer-close" type="button" (click)="setActivePanel(null)">✕</button>
+          </div>
+          <div class="drawer-body">
+            <app-viewports-panel></app-viewports-panel>
+          </div>
+          }
+          <!-- Library panel -->
+          @case ('library') {
+          <div class="drawer-header">
+            <div class="drawer-title-row"><span>Library</span></div>
+            <button class="drawer-close" type="button" (click)="setActivePanel(null)">✕</button>
+          </div>
+          <div class="drawer-body" style="padding:0; overflow:hidden; display:flex; flex-direction:column;">
+            <app-library-panel></app-library-panel>
+          </div>
+          }
+          <!-- AI Agent panel -->
+          @case ('ai-agent') {
+          <div class="drawer-header">
+            <div class="drawer-title-row"><span>AI Agent</span></div>
+            <button class="drawer-close" type="button" (click)="setActivePanel(null)">✕</button>
+          </div>
+          <div class="drawer-body"
+            style="padding:0; overflow:hidden; display:flex; flex-direction:column; height:100%;">
+            <app-ai-agent-panel></app-ai-agent-panel>
+          </div>
+          }
+          <!-- Settings panel -->
+          @case ('settings') {
+          <div class="drawer-header">
+            <div class="drawer-title-row"><span>Settings</span></div>
+            <button class="drawer-close" type="button" (click)="setActivePanel(null)">✕</button>
+          </div>
+          <div class="drawer-body">
+            <app-settings-panel></app-settings-panel>
+          </div>
+          }
+          }
+          <!-- L-section panel (Kept alive to preserve file inputs) -->
+          <div [style.display]="panelService.activePanel() === 'l-section' ? 'flex' : 'none'" style="flex-direction:column; height:100%;">
+            <div class="drawer-header">
+              <div class="drawer-title-row"><span>L-section DXF Gen</span></div>
+              <button class="drawer-close" type="button" (click)="setActivePanel(null)">✕</button>
+            </div>
+            <div class="drawer-body"
+              style="padding:0; overflow:hidden; display:flex; flex-direction:column; height:100%;">
+              <app-l-section-panel></app-l-section-panel>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas (fills remaining space) -->
+        <main class="cad-canvas-container" [class.dnd-over]="isDraggingOverCanvas()" (dragover)="onDragOver($event)"
+          (dragenter)="onCanvasDragEnter($event)" (dragleave)="onCanvasDragLeave($event)" (drop)="onDrop($event)"
+          (contextmenu)="onCanvasContextMenu($event)" (dblclick)="onEntityActivated()">
+          <app-cad-canvas (undoRequested)="undo()" (redoRequested)="redo()"
+            (entityActivated)="onEntityActivated($event.entity, $event.sx, $event.sy)"></app-cad-canvas>
+          <app-block-editor-bar></app-block-editor-bar>
+          <app-text-editor-overlay></app-text-editor-overlay>
+          <app-dim-text-editor-overlay></app-dim-text-editor-overlay>
+          <app-table-editor-overlay></app-table-editor-overlay>
+          <app-insert-table-dialog></app-insert-table-dialog>
+          <app-symbol-picker></app-symbol-picker>
+          <app-vports-dialog></app-vports-dialog>
+
+          <!-- Canvas context menu -->
+          @if (contextMenu.state().visible) {
+          <div class="cad-ctx-menu" [style.left.px]="contextMenu.state().x" [style.top.px]="contextMenu.state().y"
+            (click)="contextMenu.hide()">
+            @for (item of contextMenu.state().items; track item.label) {
+            @if (item.separator) {
+            <div class="cad-ctx-sep"></div>
+            } @else {
+            <button class="cad-ctx-item" [class.cad-ctx-danger]="item.danger" type="button" (click)="item.action()">{{
+              item.icon ? (item.icon + ' ') : '' }}{{ item.label }}</button>
+            }
+            }
+          </div>
+          }
+
+
+          <!-- Floating Map-style Rotate Button -->
+          <button type="button" class="floating-rotate-btn tooltip-trigger tooltip-left" (click)="rotateDocument()"
+            data-tooltip="Rotate Drawing 90°">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 2v6h-6"></path>
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            </svg>
+          </button>
+        </main>
+      </div>
+
+      <div class="cad-bottom-section" style="display: flex; flex-direction: column; flex-shrink: 0; z-index: 150;">
+        <app-cad-command-line></app-cad-command-line>
+        <div style="display: flex; padding: 3px 8px; align-items: stretch; justify-content: space-between;">
+          <app-workspace-tabs style="flex: 1; min-width: 0; max-width: 50%; overflow: hidden;"></app-workspace-tabs>
+          <app-cad-status-bar
+            style="flex: 1; min-width: 0; display: flex; flex-direction: column;"></app-cad-status-bar>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PLOT DIALOG ==================== -->
+  @defer (when plotDialog.isOpen()) { <app-plot-dialog></app-plot-dialog> }
+
+  <!-- ==================== LIBRARY MODAL ==================== -->
+  @defer (when saveToLibraryModal.state().open) { <app-save-to-library-modal></app-save-to-library-modal> }
+
+  <!-- ==================== BLOCK DIALOGS ==================== -->
+  <app-create-block-dialog></app-create-block-dialog>
+  <app-insert-block-dialog></app-insert-block-dialog>
+  <app-attrib-prompt-dialog></app-attrib-prompt-dialog>
+
+  <!-- ==================== LAYOUT DIALOGS ==================== -->
+  <!-- Page Setup: configure paper size, orientation, scale, margins -->
+  @defer (when pageSetupDialog.isOpen()) { <app-page-setup-dialog></app-page-setup-dialog> }
+  <!-- Layout Manager: create, rename, duplicate, delete layouts -->
+  @defer (when layoutManagerDialog.isOpen()) { <app-layout-manager-dialog></app-layout-manager-dialog> }
+
+  <!-- ==================== DIMENSION STYLE DIALOG ==================== -->
+  @defer (when dimStyleDialog.isOpen()) { <app-dim-style-dialog #dimStyleDialog></app-dim-style-dialog> }
+
+  <!-- ==================== FIND & REPLACE DIALOG ==================== -->
+  @defer (when findDialog.isOpen()) { <app-find-dialog></app-find-dialog> }
+
+  <!-- ==================== DND OVERLAY ==================== -->
+  @if (isDraggingFiles()) {
+  <div class="dnd-overlay">
+    <div class="dnd-overlay-content">
+      <div class="dnd-icon">📂</div>
+      <h2>Drop files to import</h2>
+      <p>Supported: DXF, PNG, JPG, WEBP, SVG</p>
+    </div>
+  </div>
+  }
+
+  <!-- ==================== SHARE DIALOG ==================== -->
+  @if (showShareDialog) {
+  <app-share-dialog [fileName]="doc.activeFile.name" (close)="showShareDialog = false"></app-share-dialog>
+  }
+
+</div>

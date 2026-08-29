@@ -1,0 +1,38 @@
+<div class="doc-tabs-container" (wheel)="onWheel($event)">
+  <div class="hamburger-menu" (click)="toggleMenu($event)">
+    <span class="hamburger-icon">☰</span>
+    <div class="dropdown-menu" [class.open]="isMenuOpen">
+      @for (doc of docManager.documents(); track doc.tabId) {
+        <div class="dropdown-item"
+          (click)="onTabClick(doc.tabId); closeMenu()"
+          [class.active]="docManager.activeDocument?.tabId === doc.tabId">
+          <span class="doc-title">{{ doc.file.name }}</span>
+          @if (doc.isDirty) {
+            <span class="doc-dirty">*</span>
+          }
+        </div>
+      }
+    </div>
+  </div>
+  <div class="doc-tabs" cdkDropList cdkDropListOrientation="horizontal" (cdkDropListDropped)="drop($event)">
+    @for (doc of docManager.documents(); track doc.tabId) {
+      <div
+        class="doc-tab"
+        [class.active]="docManager.activeDocument?.tabId === doc.tabId"
+        cdkDrag
+        (click)="onTabClick(doc.tabId)"
+        (dblclick)="onTabDoubleClick(doc.tabId)"
+        (mousedown)="onTabMiddleClick(doc.tabId, $event)"
+        (contextmenu)="openContextMenu($event, doc.tabId)">
+        <div class="doc-tab-content">
+          <span class="doc-title" [title]="doc.file.name">{{ doc.file.name }}</span>
+          @if (doc.isDirty) {
+            <span class="doc-dirty">*</span>
+          }
+        </div>
+        <button class="doc-close-btn" (click)="onCloseTab(doc.tabId, $event)" title="Close">×</button>
+      </div>
+    }
+  </div>
+  <button class="doc-new-btn" (click)="onNewDrawing()" title="New Drawing">+</button>
+</div>

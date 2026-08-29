@@ -1,0 +1,100 @@
+@if (svc.isOpen()) {
+<div class="find-modal-overlay">
+  <div class="find-modal-content" cdkDrag>
+    <div class="find-modal-header" cdkDragHandle>
+      <h2>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e81123" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+          <polyline points="22,6 12,13 2,6"></polyline>
+        </svg>
+        Find and Replace
+      </h2>
+      <button class="close-btn" (click)="close()">&times;</button>
+    </div>
+
+    <div class="find-body">
+      <div class="top-row">
+        <div class="input-col">
+          <label>Find what:</label>
+          <input type="text" [ngModel]="findWhat()" (ngModelChange)="findWhat.set($event)" />
+        </div>
+        <div class="where-col">
+          <label>Find where:</label>
+          <div style="display: flex; gap: 4px;">
+            <select [ngModel]="findWhere()" (ngModelChange)="findWhere.set($event)">
+              <option value="entire_drawing">Entire drawing</option>
+              <option value="current_layout">Current layout</option>
+              <option value="selected">Selected objects</option>
+            </select>
+            <button class="icon-btn" title="Select objects" (click)="findWhere.set('selected')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-dasharray="2 2"></rect>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-col" style="margin-top: 8px;">
+        <label>Replace with:</label>
+        <input type="text" [ngModel]="replaceWith()" (ngModelChange)="replaceWith.set($event)" />
+      </div>
+
+      <div class="options-row">
+        <label>
+          <input type="checkbox" [ngModel]="listResults()" (ngModelChange)="listResults.set($event)" />
+          List results
+        </label>
+      </div>
+
+      @if (advancedExpanded()) {
+        <div class="advanced-options" style="margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;">
+          <label>
+            <input type="checkbox" [ngModel]="matchCase()" (ngModelChange)="matchCase.set($event)" />
+            Match case
+          </label>
+          <label>
+            <input type="checkbox" [ngModel]="wholeWords()" (ngModelChange)="wholeWords.set($event)" />
+            Find whole words only
+          </label>
+        </div>
+      }
+      
+      @if (listResults() && results().length > 0) {
+        <div class="results-list">
+          <div class="results-header">Matches ({{ results().length }})</div>
+          @for (res of results(); track res.entity.id; let i = $index) {
+            <div class="result-item" [class.active]="activeResultIndex() === i" (click)="activeResultIndex.set(i)">
+              {{ res.matchText }} ({{ res.property }})
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="find-footer">
+      <div class="left-actions">
+        <!-- Expand/collapse icon stub -->
+        <button class="icon-btn round-btn" (click)="advancedExpanded.set(!advancedExpanded())" title="More options">
+          @if (advancedExpanded()) {
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          }
+        </button>
+      </div>
+      <div class="right-actions">
+        <button (click)="replace()">Replace</button>
+        <button (click)="replaceAll()">Replace All</button>
+        <button (click)="find()">Find</button>
+        <button (click)="close()">Done</button>
+        <button>Help</button>
+      </div>
+    </div>
+  </div>
+</div>
+}

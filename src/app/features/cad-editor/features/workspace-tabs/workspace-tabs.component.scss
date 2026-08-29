@@ -1,0 +1,209 @@
+// ─── Workspace Tabs ───────────────────────────────────────────────────────────
+// AutoCAD-style bottom tab strip: [ Model ] [ Layout1 ] [ Layout2 ] [ + ]
+
+:host {
+  display: block;
+  flex-shrink: 0;
+}
+
+.ws-tabs {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  background: transparent;
+  border-top: none;
+  padding: 0 4px;
+  gap: 1px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3d transparent;
+  position: relative;
+  z-index: 10;
+}
+
+// ── Individual tab ──────────────────────────────────────────────────────────
+
+.ws-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px;
+  min-width: 60px;
+  max-width: 160px;
+  height: 100%;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  border-left: 1px solid transparent;
+  border-right: 1px solid transparent;
+  border-top: 2px solid transparent;
+  font-size: 11px;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  color: #8a8a8e;
+  background: transparent;
+  transition: background 0.1s ease, color 0.1s ease;
+  outline: none;
+  white-space: nowrap;
+  overflow: hidden;
+
+  &:hover {
+    background: #252527;
+    color: #c0c0c4;
+  }
+
+  &:focus-visible {
+    outline: 1px solid #499bea;
+    outline-offset: -1px;
+  }
+
+  // ── Active tab ─────────────────────────────────────────────────────────
+
+  &.active {
+    background: #252527;
+    color: #e0e0e4;
+    border-top-color: #499bea;
+    border-left-color: #2d2d30;
+    border-right-color: #2d2d30;
+
+    .ws-tab-label {
+      font-weight: 500;
+    }
+  }
+
+  // ── Model tab accent ────────────────────────────────────────────────────
+
+  &.model-tab.active {
+    border-top-color: #6ecf8a; // green accent for Model
+  }
+}
+
+.ws-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ── Mode badge (PSPACE / MSPACE) ───────────────────────────────────────────
+
+.ws-tab-mode {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+
+  &.pspace {
+    background: rgba(73, 155, 234, 0.15);
+    color: #499bea;
+    border: 1px solid rgba(73, 155, 234, 0.3);
+  }
+
+  &.mspace {
+    background: rgba(255, 160, 50, 0.18);
+    color: #f0a030;
+    border: 1px solid rgba(255, 160, 50, 0.35);
+  }
+}
+
+// ── Inline rename input ─────────────────────────────────────────────────────
+
+.ws-tab-rename {
+  background: #1a1a1c;
+  color: #e0e0e4;
+  border: 1px solid #499bea;
+  border-radius: 2px;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 0 4px;
+  height: 18px;
+  outline: none;
+  width: 120px;
+}
+
+// ── Add layout button ───────────────────────────────────────────────────────
+
+.ws-tab-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 100%;
+  padding: 0;
+  margin-left: 2px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: #6a6a6e;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: background 0.1s ease, color 0.1s ease;
+  outline: none;
+
+  &:hover {
+    background: #2d2d30;
+    color: #c0c0c4;
+  }
+
+  &:focus-visible {
+    outline: 1px solid #499bea;
+    outline-offset: -1px;
+  }
+}
+
+// ── Context menu ────────────────────────────────────────────────────────────
+
+.ws-ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 160px;
+  background: #252527;
+  border: 1px solid #3a3a3d;
+  border-radius: 6px;
+  padding: 4px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: 12px;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+.ws-ctx-item {
+  display: block;
+  width: 100%;
+  padding: 6px 14px;
+  background: none;
+  border: none;
+  color: #c0c0c4;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: background 0.08s ease;
+
+  &:hover:not(:disabled) {
+    background: #499bea20;
+    color: #e0e0e4;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &.danger {
+    color: #e05555;
+
+    &:hover:not(:disabled) {
+      background: rgba(224, 85, 85, 0.12);
+    }
+  }
+}
+
+.ws-ctx-sep {
+  height: 1px;
+  background: #3a3a3d;
+  margin: 3px 0;
+}

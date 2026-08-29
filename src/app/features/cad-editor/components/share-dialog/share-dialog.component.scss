@@ -1,0 +1,333 @@
+.share-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.share-modal {
+  background-color: var(--cad-bg-panel);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  width: 480px;
+  max-width: 92vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(15px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.share-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px 24px 0 24px;
+  background-color: transparent;
+
+  .header-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--cad-primary), #6366f1);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .close-btn {
+    background: var(--cad-bg-canvas);
+    border: 1px solid var(--cad-border);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cad-text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background: var(--cad-bg-hover);
+      color: var(--cad-text);
+      transform: scale(1.05);
+    }
+  }
+}
+
+.share-title-section {
+  padding: 20px 24px;
+  
+  h2 {
+    margin: 0 0 6px 0;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--cad-text);
+    line-height: 1.2;
+    
+    span {
+      font-weight: 400;
+      color: var(--cad-text-dim);
+    }
+  }
+  
+  p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--cad-text-secondary);
+    line-height: 1.4;
+  }
+}
+
+.invite-section {
+  padding: 0 24px 20px 24px;
+  
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--cad-text);
+    margin-bottom: 8px;
+  }
+  
+  .invite-input-group {
+    display: flex;
+    gap: 12px;
+    
+    input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--cad-border);
+      background: var(--cad-bg-canvas);
+      color: var(--cad-text);
+      font-size: 0.95rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      
+      &::placeholder {
+        color: var(--cad-text-dim);
+      }
+      
+      &:focus {
+        outline: none;
+        border-color: var(--cad-primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      }
+    }
+    
+    .invite-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      background: var(--cad-bg-canvas);
+      color: var(--cad-text);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: 1px solid var(--cad-border);
+      transition: all 0.2s;
+      
+      &:hover {
+        background: var(--cad-bg-hover);
+        color: var(--cad-primary);
+        border-color: var(--cad-primary);
+      }
+    }
+  }
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 0 24px 20px 24px;
+  
+  &::before, &::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--cad-border);
+  }
+  
+  span {
+    padding: 0 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--cad-text-dim);
+  }
+}
+
+.permissions-section {
+  padding: 0 24px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  
+  .perm-card {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--cad-border);
+    background: var(--cad-bg-canvas);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    
+    &:hover {
+      border-color: var(--cad-text-dim);
+      background: var(--cad-bg-hover);
+    }
+    
+    &.active {
+      border-color: var(--cad-primary);
+      background: rgba(99, 102, 241, 0.04);
+      
+      .perm-icon {
+        color: var(--cad-primary);
+        background: rgba(99, 102, 241, 0.1);
+      }
+    }
+    
+    .perm-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--cad-bg-hover);
+      color: var(--cad-text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 14px;
+      transition: all 0.2s;
+    }
+    
+    .perm-info {
+      flex: 1;
+      
+      h4 {
+        margin: 0 0 2px 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--cad-text);
+      }
+      
+      p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--cad-text-dim);
+      }
+    }
+    
+    .perm-check {
+      color: var(--cad-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+  }
+}
+
+@keyframes popIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.link-section {
+  padding: 20px 24px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid var(--cad-border);
+  
+  /* Fallback for dark mode */
+  @media (prefers-color-scheme: dark) {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+  
+  :host-context(body.dark-theme) & {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+  
+  .link-input-wrapper {
+    display: flex;
+    align-items: center;
+    background: var(--cad-bg-canvas);
+    border: 1px solid var(--cad-border);
+    border-radius: 8px;
+    padding: 6px;
+    transition: border-color 0.2s;
+    
+    &:focus-within {
+      border-color: var(--cad-primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    
+    .link-icon {
+      padding: 0 10px;
+      color: var(--cad-text-dim);
+      display: flex;
+      align-items: center;
+    }
+    
+    .link-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--cad-text);
+      font-size: 0.9rem;
+      padding: 8px 0;
+      width: 100%;
+      
+      &:focus {
+        outline: none;
+      }
+    }
+    
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--cad-primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-left: 8px;
+      
+      &:hover {
+        background: var(--cad-primary-hover, #4f46e5);
+        transform: translateY(-1px);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+      
+      &.copied {
+        background: #10b981;
+      }
+    }
+  }
+}

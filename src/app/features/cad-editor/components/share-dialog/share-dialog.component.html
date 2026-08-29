@@ -1,0 +1,120 @@
+<div class="share-overlay" (click)="onClose()">
+  <div class="share-modal" (click)="$event.stopPropagation()">
+
+    <!-- Top banner / close -->
+    <div class="share-header">
+      <div class="header-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+          <polyline points="16 6 12 2 8 6" />
+          <line x1="12" y1="2" x2="12" y2="15" />
+        </svg>
+      </div>
+      <button class="close-btn" (click)="onClose()" title="Close dialog">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Title and Desc -->
+    <div class="share-title-section">
+      <h2>Share <span>{{ fileName() }}</span></h2>
+      <p>Collaborate with your team or share externally via link.</p>
+    </div>
+
+    <!-- Email Invite Section (Mock) -->
+    <!-- <div class="invite-section">
+      <label>Invite people</label>
+      <div class="invite-input-group">
+        <input type="email" placeholder="Enter email addresses..." />
+        <button class="invite-btn">Send Invite</button>
+      </div>
+    </div> -->
+
+    <!-- <div class="divider">
+      <span>OR SHARE VIA LINK</span>
+    </div> -->
+
+    <!-- Link Permissions (Radio Cards) -->
+    <div class="permissions-section">
+      <div class="perm-card" [class.active]="permission === 'READ'" (click)="setPermission('READ')">
+        <div class="perm-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </div>
+        <div class="perm-info">
+          <h4>Viewer</h4>
+          <p>Anyone with the link can view</p>
+        </div>
+        @if (permission === 'READ') {
+        <div class="perm-check">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        }
+      </div>
+
+      <div class="perm-card" [class.active]="permission === 'EDIT'" (click)="setPermission('EDIT')">
+        <div class="perm-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+        </div>
+        <div class="perm-info">
+          <h4>Editor</h4>
+          <p>Anyone with the link can edit</p>
+        </div>
+        @if (permission === 'EDIT') {
+        <div class="perm-check">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        }
+      </div>
+    </div>
+
+    <!-- Link Output -->
+    <div class="link-section">
+      <div class="link-input-wrapper">
+        <div class="link-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+        </div>
+        <!-- (keydown.enter)="... prevent default to avoid form submission if any" if needed -->
+        <input type="text" readonly [value]="shareLink" class="link-input" (click)="$event.target.select()" />
+        <button class="copy-btn" (click)="copyLink()" [class.copied]="isCopied">
+          @if (!isCopied) {
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          }
+          {{ isCopied ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>

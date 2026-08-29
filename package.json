@@ -1,0 +1,60 @@
+{
+  "name": "aagento-cad",
+  "version": "1.0.0",
+  "description": "Aagento CAD — standalone browser-based 2D CAD editor (DXF import/export, layouts, blocks, dimensions, AI drafting assistant).",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.19.0",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "start:lan": "ng serve --host 0.0.0.0 --port 4200",
+    "build": "ng build --configuration production",
+    "build:dev": "ng build --configuration development",
+    "watch": "ng build --watch --configuration development",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "test": "ng test",
+    "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
+    "analyze": "ng build --configuration production --stats-json",
+    "docker:build": "docker build -t aagento-cad .",
+    "docker:run": "docker run --rm -p 8080:80 aagento-cad"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "printWidth": 120,
+    "overrides": [
+      { "files": "*.html", "options": { "parser": "angular" } }
+    ]
+  },
+  "dependencies": {
+    "@angular/cdk": "^20.2.14",
+    "@angular/common": "^20.1.0",
+    "@angular/compiler": "^20.1.0",
+    "@angular/core": "^20.1.0",
+    "@angular/forms": "^20.1.0",
+    "@angular/platform-browser": "^20.1.0",
+    "@angular/router": "^20.1.0",
+    "clipper-lib": "^6.4.2",
+    "dxf-parser": "^1.1.2",
+    "jspdf": "^4.2.1",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^20.1.5",
+    "@angular/cli": "^20.1.5",
+    "@angular/compiler-cli": "^20.1.0",
+    "@types/clipper-lib": "^6.4.0",
+    "@types/jasmine": "~5.1.0",
+    "jasmine-core": "~5.8.0",
+    "karma": "~6.4.0",
+    "karma-chrome-launcher": "~3.2.0",
+    "karma-coverage": "~2.2.0",
+    "karma-jasmine": "~5.1.0",
+    "karma-jasmine-html-reporter": "~2.1.0",
+    "typescript": "~5.8.2"
+  }
+}

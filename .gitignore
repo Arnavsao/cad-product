@@ -1,0 +1,30 @@
+# Compiled output
+/dist
+/out-tsc
+/coverage
+
+# Node
+/node_modules
+npm-debug.log*
+yarn-error.log*
+
+# Angular cache
+/.angular/cache
+.sass-cache/
+
+# IDEs
+.idea/
+*.sublime-workspace
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env overrides
+.env
+.env.*

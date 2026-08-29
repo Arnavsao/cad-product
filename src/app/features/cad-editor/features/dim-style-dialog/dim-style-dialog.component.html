@@ -1,0 +1,365 @@
+@if (svc.isOpen()) {
+<div class="dim-modal-overlay">
+  <div class="dim-modal-content">
+    <div class="dim-modal-header">
+      <h2>Modify Dimension Style: {{editingStyle.name}}</h2>
+      <button class="close-btn" (click)="close()">&times;</button>
+    </div>
+    <!-- Tab Strip -->
+    <div class="dim-tabs">
+      <button [class.active]="activeTab === 'Lines'" (click)="setTab('Lines')">Lines</button>
+      <button [class.active]="activeTab === 'Arrows'" (click)="setTab('Arrows')">Symbols and Arrows</button>
+      <button [class.active]="activeTab === 'Text'" (click)="setTab('Text')">Text</button>
+      <button [class.active]="activeTab === 'Fit'" (click)="setTab('Fit')">Fit</button>
+      <button [class.active]="activeTab === 'PrimaryUnits'" (click)="setTab('PrimaryUnits')">Primary Units</button>
+      <button [class.active]="activeTab === 'AlternateUnits'" (click)="setTab('AlternateUnits')">Alternate
+        Units</button>
+      <button [class.active]="activeTab === 'Tolerances'" (click)="setTab('Tolerances')">Tolerances</button>
+    </div>
+    @if (editingStyle) {
+    <div class="dim-tab-content">
+      <!-- Lines Tab -->
+      @if (activeTab === 'Lines') {
+      <div class="tab-pane">
+        <div class="top-section">
+          <div class="left-col">
+            <div class="field-group">
+              <label>Dimension lines</label>
+              <div class="field-row">
+                <span>Color:</span>
+                <select [(ngModel)]="editingStyle.dimLineColor" (change)="onStyleChange()">
+                  <option value="ByBlock">ByBlock</option>
+                  <option value="Red">Red</option>
+                  <option value="Yellow">Yellow</option>
+                  <option value="Green">Green</option>
+                  <option value="Cyan">Cyan</option>
+                  <option value="Blue">Blue</option>
+                  <option value="Magenta">Magenta</option>
+                  <option value="White">White</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <span>Linetype:</span>
+                <select disabled>
+                  <option>ByBlock</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <span>Lineweight:</span>
+                <select disabled>
+                  <option>ByBlock</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <span>Extend beyond ticks:</span>
+                <input type="number" step="0.1" value="0" disabled />
+              </div>
+              <div class="field-row">
+                <span>Baseline spacing:</span>
+                <input type="number" step="0.1" [(ngModel)]="editingStyle.baselineSpacing" (change)="onStyleChange()" />
+              </div>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="dim-preview-panel">
+              <div class="preview-canvas-placeholder">
+                <canvas #previewCanvas width="250" height="140"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-section">
+          <div class="field-group">
+            <label>Extension lines</label>
+            <div style="display: flex; gap: 40px;">
+              <div style="flex: 1;">
+                <div class="field-row">
+                  <span>Color:</span>
+                  <select [(ngModel)]="editingStyle.extLineColor" (change)="onStyleChange()">
+                    <option value="ByBlock">ByBlock</option>
+                    <option value="Red">Red</option>
+                    <option value="Yellow">Yellow</option>
+                    <option value="Green">Green</option>
+                    <option value="Cyan">Cyan</option>
+                    <option value="Blue">Blue</option>
+                    <option value="Magenta">Magenta</option>
+                    <option value="White">White</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <span>Linetype ext line 1:</span>
+                  <select disabled>
+                    <option>ByBlock</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <span>Linetype ext line 2:</span>
+                  <select disabled>
+                    <option>ByBlock</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <span>Lineweight:</span>
+                  <select disabled>
+                    <option>ByBlock</option>
+                  </select>
+                </div>
+              </div>
+              <div style="flex: 1;">
+                <div class="field-row">
+                  <span>Extend beyond dim lines:</span>
+                  <input type="number" step="0.1" [(ngModel)]="editingStyle.extendBeyondDim"
+                    (change)="onStyleChange()" />
+                </div>
+                <div class="field-row">
+                  <span>Offset from origin:</span>
+                  <input type="number" step="0.1" [(ngModel)]="editingStyle.offsetFromOrigin"
+                    (change)="onStyleChange()" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      }
+      <!-- Symbols and Arrows Tab -->
+      @if (activeTab === 'Arrows') {
+      <div class="tab-pane">
+        <div class="top-section">
+          <div class="left-col">
+            <div class="field-group">
+              <label>Arrowheads</label>
+              <div class="field-row">
+                <span>First:</span>
+                <select [(ngModel)]="editingStyle.arrowType1" (change)="onStyleChange()">
+                  <option value="ClosedFilled">Closed filled</option>
+                  <option value="ClosedBlank">Closed blank</option>
+                  <option value="Closed">Closed</option>
+                  <option value="Dot">Dot</option>
+                  <option value="ArchitecturalTick">Architectural tick</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <span>Arrow size:</span>
+                <input type="number" step="0.1" [(ngModel)]="editingStyle.arrowSize" (change)="onStyleChange()" />
+              </div>
+              <div class="field-row">
+                <span>Center mark size:</span>
+                <input type="number" step="0.1" [(ngModel)]="editingStyle.centerMarkSize" (change)="onStyleChange()" />
+              </div>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="dim-preview-panel">
+              <div class="preview-canvas-placeholder">
+                <canvas #previewCanvas width="250" height="140"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      }
+      <!-- Text Tab -->
+      @if (activeTab === 'Text') {
+      <div class="tab-pane">
+        <div class="top-section">
+          <div class="left-col">
+            <div class="field-group">
+              <label>Text appearance</label>
+              <div class="field-row">
+                <span>Text height:</span>
+                <input type="number" step="0.1" [(ngModel)]="editingStyle.textHeight" (change)="onStyleChange()" />
+              </div>
+              <div class="field-row">
+                <span>Text color:</span>
+                <select [(ngModel)]="editingStyle.textColor" (change)="onStyleChange()">
+                  <option value="ByBlock">ByBlock</option>
+                  <option value="Red">Red</option>
+                  <option value="Yellow">Yellow</option>
+                  <option value="Green">Green</option>
+                  <option value="Cyan">Cyan</option>
+                  <option value="Blue">Blue</option>
+                  <option value="Magenta">Magenta</option>
+                  <option value="White">White</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Text placement</label>
+              <div class="field-row">
+                <span>Vertical:</span>
+                <select [(ngModel)]="editingStyle.textPlacementVert" (change)="onStyleChange()">
+                  <option value="Centered">Centered</option>
+                  <option value="Above">Above</option>
+                  <option value="Outside">Outside</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <span>Offset from dim line:</span>
+                <input type="number" step="0.1" [(ngModel)]="editingStyle.textGap" (change)="onStyleChange()" />
+              </div>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="dim-preview-panel">
+              <div class="preview-canvas-placeholder">
+                <canvas #previewCanvas width="250" height="140"></canvas>
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Text alignment</label>
+              <div class="field-row radio-row">
+                <input type="radio" name="alignInside" value="Horizontal" [(ngModel)]="editingStyle.textInsideAlign"
+                  (change)="onStyleChange()" /> Horizontal
+              </div>
+              <div class="field-row radio-row">
+                <input type="radio" name="alignInside" value="Aligned" [(ngModel)]="editingStyle.textInsideAlign"
+                  (change)="onStyleChange()" /> Aligned with dimension line
+              </div>
+              <div class="field-row radio-row">
+                <input type="radio" name="alignInside" value="ISO" [(ngModel)]="editingStyle.textInsideAlign"
+                  (change)="onStyleChange()" /> ISO standard
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      }
+      <!-- Fit Tab -->
+      @if (activeTab === 'Fit') {
+      <div class="tab-pane">
+        <div class="top-section">
+          <div class="left-col">
+            <div class="field-group">
+              <label>Fit options</label>
+              <p style="margin: 4px 0 8px 0; font-size: 11px;">If there isn't enough room to place both text and arrows
+                inside extension lines, the first thing to move outside the extension lines is:</p>
+              <div class="field-row radio-row">
+                <input type="radio" name="fitMode" value="BestFit" [(ngModel)]="editingStyle.fitMode"
+                  (change)="onStyleChange()" /> Either text or arrows (best fit)
+              </div>
+              <div class="field-row radio-row">
+                <input type="radio" name="fitMode" value="ArrowsOnly" [(ngModel)]="editingStyle.fitMode"
+                  (change)="onStyleChange()" /> Arrows
+              </div>
+              <div class="field-row radio-row">
+                <input type="radio" name="fitMode" value="TextOnly" [(ngModel)]="editingStyle.fitMode"
+                  (change)="onStyleChange()" /> Text
+              </div>
+              <div class="field-row radio-row">
+                <input type="radio" name="fitMode" value="TextAndArrows" [(ngModel)]="editingStyle.fitMode"
+                  (change)="onStyleChange()" /> Both text and arrows
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Scale for dimension features</label>
+              <div class="field-row radio-row">
+                <input type="checkbox" [(ngModel)]="editingStyle.annotative" (change)="onStyleChange()" /> Annotative
+              </div>
+              <div class="field-row">
+                <span>Use overall scale of:</span>
+                <input type="number" step="0.1" [(ngModel)]="editingStyle.globalScale"
+                  [disabled]="editingStyle.annotative" (change)="onStyleChange()" />
+              </div>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="dim-preview-panel">
+              <div class="preview-canvas-placeholder">
+                <canvas #previewCanvas width="250" height="140"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      }
+      <!-- Primary Units Tab -->
+      @if (activeTab === 'PrimaryUnits') {
+      <div class="tab-pane">
+        <div class="top-section">
+          <div class="left-col">
+            <div class="field-group">
+              <label>Linear dimensions</label>
+              <div class="field-row">
+                <span>Unit format:</span>
+                <select [(ngModel)]="editingStyle.linearFormat" (change)="onStyleChange()">
+                  <option value="Decimal">Decimal</option>
+                  <option value="Architectural">Architectural</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Fractional">Fractional</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <span>Precision:</span>
+                <input type="number" min="0" max="8" step="1" [(ngModel)]="editingStyle.linearPrecision"
+                  (change)="onStyleChange()" />
+              </div>
+              <div class="field-row">
+                <span>Prefix:</span>
+                <input type="text" [(ngModel)]="editingStyle.prefix" (change)="onStyleChange()" />
+              </div>
+              <div class="field-row">
+                <span>Suffix:</span>
+                <input type="text" [(ngModel)]="editingStyle.suffix" (change)="onStyleChange()" />
+              </div>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="dim-preview-panel">
+              <div class="preview-canvas-placeholder">
+                <canvas #previewCanvas width="250" height="140"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      }
+      <!-- Alternate Units & Tolerances -->
+      @if (activeTab === 'AlternateUnits') {
+      <div class="tab-pane">
+        <div class="top-section">
+          <div class="left-col">
+            <div class="field-group">
+              <label>Alternate units</label>
+              <p style="margin: 4px 0 8px 0;">(Coming Soon)</p>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="dim-preview-panel">
+              <div class="preview-canvas-placeholder">
+                <canvas #previewCanvas width="250" height="140"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      }
+      @if (activeTab === 'Tolerances') {
+      <div class="tab-pane">
+        <div class="top-section">
+          <div class="left-col">
+            <div class="field-group">
+              <label>Tolerance format</label>
+              <p style="margin: 4px 0 8px 0;">(Coming Soon)</p>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="dim-preview-panel">
+              <div class="preview-canvas-placeholder">
+                <canvas #previewCanvas width="250" height="140"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      }
+    </div>
+    }
+    <div class="dim-modal-footer">
+      <button class="btn-save" (click)="saveAndClose()">OK</button>
+      <button class="btn-cancel" (click)="close()">Cancel</button>
+      <button class="btn-cancel" (click)="close()">Help</button>
+    </div>
+  </div>
+</div>
+}

@@ -1,0 +1,140 @@
+/* ---------------------------------------------------------------
+ * Application-level theme tokens.
+ * The CAD editor defines its own `--cad-*` tokens in cad-editor.scss;
+ * these `--color-*` tokens cover the surrounding shell and shared
+ * form controls, in both light and dark themes.
+ * --------------------------------------------------------------- */
+
+/* Base Light Themes fallback (Default Light) */
+:root,
+body.theme-light,
+body.theme-light-modern {
+  --color-bg: #ffffff;
+  --color-text: #334155;
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2f55d4;
+
+  --color-nav-bg: #f8f9fa;
+  --color-nav-border: #e8edf5;
+  --color-nav-link: #64748b;
+  --color-nav-link-hover: #0f172a;
+  --color-nav-link-bg-hover: #e2e8f0;
+  --color-nav-link-active: #2f55d4;
+  --color-nav-link-active-bg: rgba(47, 85, 212, .07);
+
+  --color-input-bg: #fff;
+  --color-input-border: #e2e8f0;
+  --color-input-text: #334155;
+  --color-input-placeholder: #64748b;
+}
+
+body.theme-solarized-light {
+  --color-bg: #fdf6e3;
+  --color-text: #657b83;
+  --color-primary: #268bd2;
+  --color-primary-dark: #2aa198;
+
+  --color-nav-bg: #eee8d5;
+  --color-nav-border: #d33682;
+  --color-nav-link: #586e75;
+  --color-nav-link-hover: #073642;
+  --color-nav-link-bg-hover: #e8e2d0;
+  --color-nav-link-active: #268bd2;
+  --color-nav-link-active-bg: rgba(38, 139, 210, 0.1);
+
+  --color-input-bg: #fdf6e3;
+  --color-input-border: #93a1a1;
+  --color-input-text: #657b83;
+  --color-input-placeholder: #93a1a1;
+}
+
+/* Base Dark Themes fallback (Default Dark & Dark Modern) */
+body.dark-theme,
+body.theme-dark,
+body.theme-dark-modern {
+  --color-bg: #1e1e1e; /* VS Code dark background */
+  --color-text: #cccccc;
+  --color-primary: #007acc;
+  --color-primary-dark: #005a9e;
+
+  --color-nav-bg: #252526;
+  --color-nav-border: #333333;
+  --color-nav-link: #cccccc;
+  --color-nav-link-hover: #ffffff;
+  --color-nav-link-bg-hover: #37373d;
+  --color-nav-link-active: #ffffff;
+  --color-nav-link-active-bg: #37373d;
+
+  --color-input-bg: #3c3c3c;
+  --color-input-border: #3c3c3c;
+  --color-input-text: #cccccc;
+  --color-input-placeholder: #a1a1aa;
+}
+
+body.theme-abyss {
+  --color-bg: #000c18;
+  --color-text: #6688cc;
+  --color-primary: #225588;
+  --color-primary-dark: #224477;
+
+  --color-nav-bg: #001122;
+  --color-nav-border: #224477;
+  --color-nav-link: #7799dd;
+  --color-nav-link-hover: #88aabb;
+  --color-nav-link-bg-hover: #002244;
+  --color-nav-link-active: #ffffff;
+  --color-nav-link-active-bg: #003366;
+
+  --color-input-bg: #001122;
+  --color-input-border: #224477;
+  --color-input-text: #88aabb;
+  --color-input-placeholder: #446688;
+}
+
+body.theme-monokai {
+  --color-bg: #272822;
+  --color-text: #f8f8f2;
+  --color-primary: #a6e22e;
+  --color-primary-dark: #75715e;
+
+  --color-nav-bg: #1e1f1c;
+  --color-nav-border: #49483e;
+  --color-nav-link: #cfcfc2;
+  --color-nav-link-hover: #f8f8f2;
+  --color-nav-link-bg-hover: #414339;
+  --color-nav-link-active: #a6e22e;
+  --color-nav-link-active-bg: #414339;
+
+  --color-input-bg: #272822;
+  --color-input-border: #49483e;
+  --color-input-text: #f8f8f2;
+  --color-input-placeholder: #75715e;
+}
+
+body.theme-solarized-dark {
+  --color-bg: #002b36;
+  --color-text: #839496;
+  --color-primary: #268bd2;
+  --color-primary-dark: #2aa198;
+
+  --color-nav-bg: #073642;
+  --color-nav-border: #dc322f;
+  --color-nav-link: #93a1a1;
+  --color-nav-link-hover: #fdf6e3;
+  --color-nav-link-bg-hover: #00212b;
+  --color-nav-link-active: #2aa198;
+  --color-nav-link-active-bg: #002b36;
+
+  --color-input-bg: #002b36;
+  --color-input-border: #586e75;
+  --color-input-text: #839496;
+  --color-input-placeholder: #586e75;
+}
+
+
+/* Set by index.html before first paint when the dark theme will be applied,
+ * so the document background never flashes white. */
+html.dark-theme-pending,
+html.dark-theme-pending body {
+  background: #1e1e1e;
+}

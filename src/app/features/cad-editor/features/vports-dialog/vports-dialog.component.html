@@ -1,0 +1,104 @@
+@if (dialogSvc.isOpen()) {
+<div class="vports-overlay" (click)="onOverlayClick($event)">
+  <div class="vports-dialog" role="dialog" aria-modal="true" aria-label="Viewports">
+    <!-- Header -->
+    <div class="vports-header">
+      <div class="vports-title-wrap">
+        <!-- <span class="vports-icon">A</span> -->
+        <span class="vports-title">Viewports</span>
+      </div>
+      <button class="vports-close" type="button" (click)="close()" aria-label="Close">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="vports-tabs">
+      <button class="tab-btn" type="button" [class.active]="activeTab() === 'new'" (click)="activeTab.set('new')">
+        New Viewports
+      </button>
+      <!-- <button class="tab-btn" type="button" [class.active]="activeTab() === 'named'" (click)="activeTab.set('named')">
+        Named Viewports
+      </button> -->
+    </div>
+
+    <!-- Body -->
+    <div class="vports-body">
+      @if (activeTab() === 'new') {
+      <div class="vports-grid">
+        <!-- Presets List -->
+        <div class="presets-col">
+          <label>Standard viewports:</label>
+          <div class="preset-list">
+            @for (p of presets; track p.name) {
+            <div class="preset-item" [class.selected]="selectedPreset().name === p.name" (click)="selectPreset(p)"
+              (dblclick)="confirm()">
+              {{ p.name }}
+            </div>
+            }
+          </div>
+        </div>
+
+        <!-- Live Preview Box -->
+        <div class="preview-col">
+          <div class="preview-box-container">
+            <div class="preview-header">Preview</div>
+            <div class="preview-canvas-wrap">
+              <canvas #previewCanvas></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Controls -->
+      <div class="options-row">
+        <div class="opt-group">
+          <label>Apply to:</label>
+          <select [(ngModel)]="applyTo">
+            <option value="Display">Display</option>
+            <option value="Current Viewport">Current Viewport</option>
+          </select>
+        </div>
+
+        <div class="opt-group">
+          <label>Setup:</label>
+          <select [(ngModel)]="setup">
+            <option value="2D">2D</option>
+            <option value="3D">3D</option>
+          </select>
+        </div>
+
+        <div class="opt-group">
+          <label>Change view to:</label>
+          <select [(ngModel)]="changeViewTo">
+            <option value="*Current*">*Current*</option>
+            <option value="Top">Top</option>
+            <option value="Front">Front</option>
+            <option value="Right">Right</option>
+          </select>
+        </div>
+
+        <div class="opt-group">
+          <label>Visual Style:</label>
+          <select [(ngModel)]="visualStyle" (change)="renderPreview()">
+            <option value="2D Wireframe">2D Wireframe</option>
+            <option value="Conceptual">Conceptual</option>
+            <option value="Realistic">Realistic</option>
+            <option value="Shaded">Shaded</option>
+          </select>
+        </div>
+      </div>
+      } @else {
+      <div style="padding: 40px; text-align: center; color: #64748b;">
+        No named viewport configurations saved.
+      </div>
+      }
+    </div>
+
+    <!-- Footer Buttons -->
+    <div class="vports-footer">
+      <button class="btn btn-primary" type="button" (click)="confirm()">OK</button>
+      <button class="btn" type="button" (click)="close()">Cancel</button>
+      <button class="btn" type="button" (click)="close()">Help</button>
+    </div>
+  </div>
+</div>
+}
