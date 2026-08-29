@@ -22,6 +22,7 @@ import { ToolbarComponent } from './features/toolbar/toolbar.component';
 import { SidebarComponent } from './features/sidebar/sidebar.component';
 import { LayersPanelComponent } from './features/panels/layers-panel.component';
 import { PropertiesPanelComponent } from './features/panels/properties-panel.component';
+import { SettingsPanelComponent } from './features/settings/settings-panel.component';
 import { BlocksPanelComponent } from './features/panels/blocks-panel.component';
 import { CommandLineComponent } from './features/command-line/command-line.component';
 import { StatusBarComponent } from './features/status-bar/status-bar.component';
@@ -134,6 +135,7 @@ import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.co
     SidebarComponent,
     LayersPanelComponent,
     PropertiesPanelComponent,
+    SettingsPanelComponent,
     BlocksPanelComponent,
     ViewportsPanelComponent,
     CommandLineComponent,

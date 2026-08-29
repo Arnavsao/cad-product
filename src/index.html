@@ -12,9 +12,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script>
-    // Apply the persisted theme before first paint to avoid a light/dark flash.
-    // Dark is the default when no preference has been saved yet.
-    try { if (localStorage.getItem('theme') !== 'light') document.documentElement.classList.add('dark-theme-pending'); } catch (e) {}
+    // Paint the persisted theme's background before first paint, so the page
+    // never flashes the wrong colour. Dark is the default when nothing is saved.
+    try {
+      var bg = localStorage.getItem('cad.theme.bg');
+      if (localStorage.getItem('theme') !== 'light') document.documentElement.classList.add('dark-theme-pending');
+      if (bg && /^#[0-9a-f]{3,8}$/i.test(bg)) document.documentElement.style.background = bg;
+    } catch (e) {}
   </script>
 </head>
 <body>

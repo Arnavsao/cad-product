@@ -1,4 +1,4 @@
-﻿import { Component, inject , ChangeDetectionStrategy
+import { Component, inject , ChangeDetectionStrategy
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -8,6 +8,48 @@ import { Layer, DxfFile } from '../../core/models/layer.model';
 import { ColorPickerComponent } from '../shared/color-picker/color-picker.component';
 import { CommandStackService } from '../../core/services/command-stack.service';
 import { ModifyLayerPropertyCmd, ModifyPropertiesCmd, CompoundCmd } from '../../core/models/command.model';
+
+/**
+ * AutoCAD Layer Properties Manager parity.
+ *
+ * The `Layer` model already carries `frozen`, `lineType` and `lineWeight`, and
+ * the renderer already honours all three - `frozen` is checked in
+ * DocumentService.drawAll() and in the select/trim/extend/stretch hit tests, and
+ * `lineType`/`lineWeight` drive ByLayer resolution in Entity.setupContext().
+ * Only the UI was missing, so these columns are pure exposure of existing
+ * behaviour rather than new rendering work.
+ */
+const LAYER_LINETYPES: string[] = [
+  'Continuous', 'DASHED', 'HIDDEN', 'CENTER', 'PHANTOM', 'DOT', 'DASHDOT', 'DASHDOTDOT',
+];
+
+const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
+  { value: -3, label: 'Default' },
+  { value: 0, label: '0.00 mm' },
+  { value: 5, label: '0.05 mm' },
+  { value: 9, label: '0.09 mm' },
+  { value: 13, label: '0.13 mm' },
+  { value: 15, label: '0.15 mm' },
+  { value: 18, label: '0.18 mm' },
+  { value: 20, label: '0.20 mm' },
+  { value: 25, label: '0.25 mm' },
+  { value: 30, label: '0.30 mm' },
+  { value: 35, label: '0.35 mm' },
+  { value: 40, label: '0.40 mm' },
+  { value: 50, label: '0.50 mm' },
+  { value: 53, label: '0.53 mm' },
+  { value: 60, label: '0.60 mm' },
+  { value: 70, label: '0.70 mm' },
+  { value: 80, label: '0.80 mm' },
+  { value: 90, label: '0.90 mm' },
+  { value: 100, label: '1.00 mm' },
+  { value: 106, label: '1.06 mm' },
+  { value: 120, label: '1.20 mm' },
+  { value: 140, label: '1.40 mm' },
+  { value: 158, label: '1.58 mm' },
+  { value: 200, label: '2.00 mm' },
+  { value: 211, label: '2.11 mm' },
+];
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,9 +72,18 @@ import { ModifyLayerPropertyCmd, ModifyPropertiesCmd, CompoundCmd } from '../../
                 class="layer-row"
                 [class.active]="entry.name === doc.activeLayerName"
                 (click)="setActiveLayer(file, entry.name)">
-                <button class="icon-btn" (click)="toggleLayerVisible(entry.lay); $event.stopPropagation()">{{ entry.lay.visible ? 'ðŸ‘' : 'âˆ…' }}</button>
-                <button class="icon-btn" (click)="toggleLayerLock(entry.lay); $event.stopPropagation()">{{ entry.lay.locked ? 'ðŸ”’' : 'ðŸ”“' }}</button>
-                <button class="icon-btn" (click)="toggleLayerPrint(entry.lay); $event.stopPropagation()" [title]="entry.lay.print ? 'No-plot' : 'Plot'">{{ entry.lay.print ? 'ðŸ–¨' : 'âŠ˜' }}</button>
+                <button class="icon-btn" (click)="toggleLayerVisible(entry.lay); $event.stopPropagation()"
+                  [class.off]="!entry.lay.visible"
+                  [title]="entry.lay.visible ? 'Turn layer off' : 'Turn layer on'">{{ entry.lay.visible ? '◉' : '◌' }}</button>
+                <button class="icon-btn" (click)="toggleLayerFrozen(entry.lay); $event.stopPropagation()"
+                  [class.off]="entry.lay.frozen"
+                  [title]="entry.lay.frozen ? 'Thaw layer' : 'Freeze layer'">{{ entry.lay.frozen ? '❄' : '☀' }}</button>
+                <button class="icon-btn" (click)="toggleLayerLock(entry.lay); $event.stopPropagation()"
+                  [class.off]="entry.lay.locked"
+                  [title]="entry.lay.locked ? 'Unlock layer' : 'Lock layer'">{{ entry.lay.locked ? '🔒' : '🔓' }}</button>
+                <button class="icon-btn" (click)="toggleLayerPrint(entry.lay); $event.stopPropagation()"
+                  [class.off]="!entry.lay.print"
+                  [title]="entry.lay.print ? 'Plot: on' : 'Plot: off (no-plot)'">{{ entry.lay.print ? '⎙' : '⊘' }}</button>
                 <span class="layer-color-cell" (click)="$event.stopPropagation()">
                   <app-color-picker
                     [value]="entry.lay.color"
@@ -58,6 +109,24 @@ import { ModifyLayerPropertyCmd, ModifyPropertiesCmd, CompoundCmd } from '../../
                     (keydown.escape)="cancelRename()"
                     (click)="$event.stopPropagation()">
                 }
+                <select class="layer-select lt"
+                  [value]="entry.lay.lineType"
+                  (click)="$event.stopPropagation()"
+                  (change)="setLayerLinetype(entry.lay, $any($event.target).value)"
+                  title="Layer linetype">
+                  @for (lt of linetypeOptions; track lt) {
+                    <option [value]="lt" [selected]="lt.toUpperCase() === entry.lay.lineType.toUpperCase()">{{ lt }}</option>
+                  }
+                </select>
+                <select class="layer-select lw"
+                  [value]="entry.lay.lineWeight"
+                  (click)="$event.stopPropagation()"
+                  (change)="setLayerLineweight(entry.lay, $any($event.target).value)"
+                  title="Layer lineweight">
+                  @for (o of lineweightOptions; track o.value) {
+                    <option [value]="o.value" [selected]="o.value === entry.lay.lineWeight">{{ o.label }}</option>
+                  }
+                </select>
                 @if (!entry.lay.isProtected) {
                   <button class="icon-btn icon-del" (click)="deleteLayer(file, entry.lay); $event.stopPropagation()" title="Delete layer">Ã—</button>
                 }
@@ -91,12 +160,12 @@ import { ModifyLayerPropertyCmd, ModifyPropertiesCmd, CompoundCmd } from '../../
     }
     .layer-row {
       display: flex; align-items: center; gap: 4px;
-      padding: 4px 10px 4px 22px;
+      padding: 4px 10px 4px 12px;
       border-bottom: 1px solid var(--cad-border);
       cursor: pointer; color: var(--cad-text-primary);
       &:hover { background: var(--cad-bg-hover); }
       &.active { background: var(--cad-bg-active); }
-      .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .layer-name { flex: 1 1 60px; min-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .layer-rename-input {
         flex: 1; min-width: 0;
         background: var(--cad-bg-input); color: var(--cad-text-primary);
@@ -108,8 +177,29 @@ import { ModifyLayerPropertyCmd, ModifyPropertiesCmd, CompoundCmd } from '../../
       background: transparent; color: var(--cad-text-dim);
       border: 1px solid transparent; padding: 1px 4px;
       border-radius: 2px; cursor: pointer; font-size: 10px;
+      flex: 0 0 auto; line-height: 1.4;
       &:hover { background: var(--cad-bg-hover); border-color: var(--cad-border); color: var(--cad-text-primary); }
       &.icon-del:hover { color: var(--cad-red); border-color: var(--cad-red); }
+      /* Off / frozen / locked / no-plot states read as dimmed, matching the
+         Layer Properties Manager's greyed-out column glyphs. */
+      &.off { color: var(--cad-text-dim); opacity: 0.55; }
+    }
+    .layer-select {
+      flex: 0 0 auto;
+      max-width: 92px;
+      background: var(--cad-bg-input, #181825);
+      color: var(--cad-text-primary);
+      border: 1px solid var(--cad-border);
+      border-radius: 2px;
+      padding: 1px 2px;
+      font-size: 10px;
+      font-family: var(--cad-font-mono, ui-monospace, monospace);
+      outline: none;
+      cursor: pointer;
+      &:hover { border-color: var(--cad-accent); }
+      &:focus { border-color: var(--cad-accent); }
+      &.lt { width: 78px; }
+      &.lw { width: 66px; }
     }
   `],
 })
@@ -119,6 +209,9 @@ export class LayersPanelComponent {
   private cmds = inject(CommandStackService);
 
   layerFilter = '';
+
+  readonly linetypeOptions = LAYER_LINETYPES;
+  readonly lineweightOptions = LAYER_LINEWEIGHTS;
 
   layerEntries(file: DxfFile): { name: string; lay: Layer }[] {
     return Array.from(file.layers.entries()).map(([name, lay]) => ({ name, lay }));
@@ -139,19 +232,64 @@ export class LayersPanelComponent {
   }
 
   toggleLayerVisible(lay: Layer): void {
-    lay.visible = !lay.visible;
-    this.vm.markContentDirty();
+    this.applyLayerChange(lay, { visible: !lay.visible });
   }
 
   toggleLayerLock(lay: Layer): void {
-    lay.locked = !lay.locked;
-    this.doc.bump();
+    this.applyLayerChange(lay, { locked: !lay.locked });
+  }
+
+  /**
+   * Freeze / thaw. Distinct from visibility: a frozen layer is skipped by the
+   * renderer AND excluded from selection, trim, extend and stretch hit tests,
+   * whereas an "off" layer is only hidden. Both are already honoured
+   * throughout the codebase; this exposes the toggle.
+   */
+  toggleLayerFrozen(lay: Layer): void {
+    this.applyLayerChange(lay, { frozen: !lay.frozen });
+  }
+
+  setLayerLinetype(lay: Layer, value: string): void {
+    if (!value || value === lay.lineType) return;
+    this.applyLayerChange(lay, { lineType: value });
+  }
+
+  setLayerLineweight(lay: Layer, value: string | number): void {
+    const lw = typeof value === 'number' ? value : parseInt(value, 10);
+    if (!isFinite(lw) || lw === lay.lineWeight) return;
+    // `lineWidth` is the legacy display field read by some older render paths;
+    // keep the two in step so a lineweight change is visible immediately.
+    this.applyLayerChange(lay, { lineWeight: lw, lineWidth: lw > 0 ? lw / 100 : 0 });
+  }
+
+  /**
+   * Route every layer-property edit through the command stack so Ctrl+Z
+   * restores it, and bump the document so panels bound to `doc.version()`
+   * re-read the mutated Layer instance (signals cannot see in-place field
+   * writes on a plain class).
+   */
+  private applyLayerChange(lay: Layer, after: Record<string, unknown>): void {
+    const before: Record<string, unknown> = {};
+    for (const k of Object.keys(after)) before[k] = (lay as unknown as Record<string, unknown>)[k];
+
+    this.cmds.push(
+      new ModifyLayerPropertyCmd(
+        lay as unknown as { [k: string]: unknown },
+        before,
+        after,
+        {
+          markDirty: () => {
+            this.vm.markContentDirty();
+            this.doc.bump();
+          },
+        },
+      ),
+    );
   }
 
   toggleLayerPrint(lay: Layer): void {
     if (lay.isDefpoints) return;
-    lay.print = !lay.print;
-    this.doc.bump();
+    this.applyLayerChange(lay, { print: !lay.print });
   }
 
   /**
