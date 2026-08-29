@@ -1,0 +1,89 @@
+# CADOnline local infrastructure — Postgres 16 + MinIO (S3-compatible).
+#
+#   npm run db:up      -> docker compose up -d --wait postgres minio && docker compose run --rm minio-init
+#   npm run db:down    -> docker compose down
+#   npm run db:reset   -> docker compose down -v && db:up && db:migrate
+#
+# Image tags are pinned on purpose: MinIO stopped publishing community images in
+# 2025-10, so `latest` is not a moving target we can rely on.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cad-postgres
+    environment:
+      POSTGRES_USER: cad
+      POSTGRES_PASSWORD: cad
+      POSTGRES_DB: cad
+    ports:
+      # Host port is overridable (root `.env` → POSTGRES_PORT=5433) for machines
+      # that already run a native Postgres on 5432. Keep DATABASE_URL in sync.
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cad -d cad']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: cad-minio
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      # Browser-direct PUT/GET (presigned URLs) from the Angular dev server.
+      MINIO_API_CORS_ALLOW_ORIGIN: http://localhost:4200
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:9000/minio/health/live || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  # One-shot: creates the `drawings` bucket and a bucket-level CORS rule.
+  # Runs only when asked for explicitly (`docker compose run --rm minio-init`).
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: cad-minio-init
+    profiles: ['init']
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        mc alias set local http://minio:9000 minioadmin minioadmin
+        mc mb --ignore-existing local/drawings
+        cat > /tmp/cors.xml <<'EOF'
+        <CORSConfiguration>
+          <CORSRule>
+            <AllowedOrigin>http://localhost:4200</AllowedOrigin>
+            <AllowedMethod>GET</AllowedMethod>
+            <AllowedMethod>PUT</AllowedMethod>
+            <AllowedMethod>HEAD</AllowedMethod>
+            <AllowedHeader>*</AllowedHeader>
+            <ExposeHeader>ETag</ExposeHeader>
+            <MaxAgeSeconds>3600</MaxAgeSeconds>
+          </CORSRule>
+        </CORSConfiguration>
+        EOF
+        if mc cors set local/drawings /tmp/cors.xml 2>/dev/null; then
+          echo 'minio-init: bucket CORS rule applied'
+        else
+          echo 'minio-init: `mc cors set` unsupported by this server build; relying on MINIO_API_CORS_ALLOW_ORIGIN'
+        fi
+        echo 'minio-init: ready (bucket `drawings`)'
+
+volumes:
+  pgdata:
+  miniodata:

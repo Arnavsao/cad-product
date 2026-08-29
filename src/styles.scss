@@ -1,4 +1,10 @@
+@use '@angular/cdk' as cdk;
 @use './theme';
+@use './app/shared/ui/tokens';
+@use './app/shared/ui/ui';
+
+/* CDK overlay container/backdrop structure (dialogs, menus). */
+@include cdk.overlay();
 
 /* ---------------------------------------------------------------
  * Base element styles
@@ -33,11 +39,14 @@ app-root {
 ::-webkit-scrollbar-thumb:hover { background: #60c578; }
 
 /* ---------------------------------------------------------------
- * Global form control baseline (the editor's own styles refine these)
+ * Form control baseline.
+ * Scoped to the editor root and to `[uiInput]` on purpose: an unscoped
+ * `input, select, textarea` rule leaks into third-party DOM we do not own —
+ * Clerk's mounted sign-in / account forms in particular — and breaks their
+ * layout. The editor's own styles refine these further.
  * --------------------------------------------------------------- */
-input,
-select,
-textarea {
+.cad-editor-root :is(input, select, textarea),
+[uiInput] {
   font-size: 13px;
   color: var(--color-input-text);
   background: var(--color-input-bg);
@@ -49,15 +58,14 @@ textarea {
   transition: border-color .14s, box-shadow .14s, background .14s;
 }
 
-input::placeholder,
-textarea::placeholder {
+.cad-editor-root :is(input, textarea)::placeholder,
+[uiInput]::placeholder {
   color: var(--color-input-placeholder);
   opacity: 1;
 }
 
-input:focus,
-select:focus,
-textarea:focus {
+.cad-editor-root :is(input, select, textarea):focus,
+[uiInput]:focus {
   border-color: #4a6cf7;
   box-shadow: 0 0 0 3px rgba(74, 108, 247, .1);
   background: var(--color-input-bg);

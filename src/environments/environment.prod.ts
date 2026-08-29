@@ -1,13 +1,16 @@
 import { AppEnvironment } from './environment.model';
 
 /**
- * Production configuration. `apiUrl` is swapped in at build time via
- * `fileReplacements` in angular.json; override it per deployment by editing
- * this file in your release pipeline or by templating it before `ng build`.
+ * Production configuration. Swapped in at build time via `fileReplacements`
+ * in angular.json; override values per deployment by templating this file in
+ * your release pipeline before `ng build`.
  */
 export const environment: AppEnvironment = {
   production: true,
   appName: 'CADOnline',
+  // Relative: nginx proxies `/api/` to the API container (see nginx.conf).
   apiUrl: '/api/v1',
   defaultOllamaUrl: 'http://localhost:11434',
+  // Templated in CI with the production instance key (`pk_live_…`). Empty = embedded mode (no auth).
+  clerkPublishableKey: '',
 };

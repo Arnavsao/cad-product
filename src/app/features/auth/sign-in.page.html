@@ -1,0 +1,35 @@
+<app-auth-layout>
+  @if (!clerk.enabled()) {
+    <div class="auth-notice" role="status">
+      <ui-icon name="alert" [size]="18" />
+      <div>
+        <strong>Authentication is not configured</strong>
+        <p>
+          Set <code>clerkPublishableKey</code> in <code>src/environments/environment.ts</code> to enable sign-in.
+          Until then the editor runs without an account.
+        </p>
+        <a uiButton variant="primary" routerLink="/editor">Open editor</a>
+      </div>
+    </div>
+  } @else {
+    @if (clerk.loadError(); as err) {
+      <div class="auth-notice auth-notice--error" role="alert">
+        <ui-icon name="alert" [size]="18" />
+        <div>
+          <strong>Sign-in could not be loaded</strong>
+          <p>{{ err }}</p>
+          <button type="button" uiButton variant="primary" (click)="retry()">Retry</button>
+        </div>
+      </div>
+    } @else if (!clerk.isLoaded()) {
+      <div class="auth-skeleton" aria-busy="true" aria-label="Loading sign-in">
+        <ui-skeleton width="60%" height="24px" />
+        <ui-skeleton width="80%" height="14px" />
+        <ui-skeleton width="100%" height="40px" radius="var(--ui-radius-md)" />
+        <ui-skeleton width="100%" height="40px" radius="var(--ui-radius-md)" />
+        <ui-skeleton width="100%" height="40px" radius="var(--ui-radius-md)" />
+      </div>
+    }
+    <div #host class="clerk-host" [class.clerk-host--hidden]="!clerk.isLoaded() || !!clerk.loadError()"></div>
+  }
+</app-auth-layout>

@@ -20,13 +20,27 @@
     "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
     "analyze": "ng build --configuration production --stats-json",
     "docker:build": "docker build -t aagento-cad .",
-    "docker:run": "docker run --rm -p 8080:80 aagento-cad"
+    "docker:run": "docker run --rm -p 8080:80 aagento-cad",
+    "setup": "npm install && npm --prefix server install && npm run db:up && npm run db:migrate",
+    "dev": "npm run db:up && concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --prefix server run start:dev",
+    "dev:web": "ng serve",
+    "db:up": "docker compose up -d --wait postgres minio && docker compose run --rm minio-init",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && npm run db:up && npm run db:migrate",
+    "db:migrate": "npm --prefix server run prisma:migrate",
+    "db:studio": "npm --prefix server run prisma:studio"
   },
   "prettier": {
     "singleQuote": true,
     "printWidth": 120,
     "overrides": [
-      { "files": "*.html", "options": { "parser": "angular" } }
+      {
+        "files": "*.html",
+        "options": {
+          "parser": "angular"
+        }
+      }
     ]
   },
   "dependencies": {
@@ -37,6 +51,7 @@
     "@angular/forms": "^20.1.0",
     "@angular/platform-browser": "^20.1.0",
     "@angular/router": "^20.1.0",
+    "@clerk/clerk-js": "^6.30.2",
     "clipper-lib": "^6.4.2",
     "dxf-parser": "^1.1.2",
     "jspdf": "^4.2.1",
@@ -49,6 +64,7 @@
     "@angular/compiler-cli": "^20.1.0",
     "@types/clipper-lib": "^6.4.0",
     "@types/jasmine": "~5.1.0",
+    "concurrently": "^10.0.5",
     "jasmine-core": "~5.8.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",

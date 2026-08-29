@@ -6,3 +6,4 @@ coverage
 .vscode
 docs
 *.md
+server

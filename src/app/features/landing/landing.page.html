@@ -1,0 +1,69 @@
+<div class="landing">
+  <header class="landing__nav">
+    <a class="brand" routerLink="/" aria-label="CADOnline home">
+      <span class="brand__mark" aria-hidden="true"><ui-icon name="grid" [size]="16" /></span>
+      <span class="brand__name">{{ appName }}</span>
+    </a>
+    <nav class="landing__nav-actions" aria-label="Account">
+      @if (!clerk.enabled()) {
+        <a uiButton size="sm" variant="ghost" routerLink="/editor">Open editor</a>
+      } @else if (!clerk.isLoaded()) {
+        <ui-skeleton width="72px" height="28px" radius="var(--ui-radius-md)" />
+      } @else if (clerk.isSignedIn()) {
+        <a uiButton size="sm" variant="ghost" routerLink="/dashboard">Dashboard</a>
+      } @else {
+        <a uiButton size="sm" variant="ghost" routerLink="/sign-in">Sign in</a>
+        <a uiButton size="sm" variant="primary" routerLink="/sign-up">Create account</a>
+      }
+    </nav>
+  </header>
+
+  <main class="landing__main">
+    <section class="hero">
+      <p class="hero__eyebrow">Browser-native 2D CAD</p>
+      <h1 class="hero__title">Draw anywhere.<br />Your drawings, in the browser.</h1>
+      <p class="hero__sub">
+        CADOnline is a full 2D CAD editor that runs in any modern browser — DXF in and out, layouts and plotting,
+        autosave and cloud files.
+      </p>
+      <div class="hero__cta">
+        @if (!clerk.enabled()) {
+          <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
+        } @else if (!clerk.isLoaded()) {
+          <ui-skeleton width="120px" height="42px" radius="var(--ui-radius-lg)" />
+          <ui-skeleton width="160px" height="42px" radius="var(--ui-radius-lg)" />
+        } @else if (clerk.isSignedIn()) {
+          <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
+          <a uiButton size="lg" routerLink="/editor">Open editor</a>
+        } @else {
+          <a uiButton variant="primary" size="lg" routerLink="/sign-in">Sign in</a>
+          <a uiButton size="lg" routerLink="/sign-up">Create account</a>
+        }
+      </div>
+    </section>
+
+    <section class="features" aria-label="Highlights">
+      <article class="feature">
+        <div class="feature__icon"><ui-icon name="pencil" [size]="20" /></div>
+        <h2>Precise drafting</h2>
+        <p>12 object snaps, associative dimensions and hatch.</p>
+      </article>
+      <article class="feature">
+        <div class="feature__icon"><ui-icon name="file" [size]="20" /></div>
+        <h2>Files you own</h2>
+        <p>DXF import/export, layouts, PDF plot.</p>
+      </article>
+      <article class="feature">
+        <div class="feature__icon"><ui-icon name="cloud" [size]="20" /></div>
+        <h2>Never lose work</h2>
+        <p>Autosave, recovery and cloud drawings.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="landing__footer">
+    <span>&copy; {{ year }} {{ appName }}</span>
+    <span class="landing__footer-sep" aria-hidden="true">·</span>
+    <span>2D CAD in the browser</span>
+  </footer>
+</div>

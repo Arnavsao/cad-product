@@ -1,0 +1,64 @@
+/* Shared by SignInPage and SignUpPage (each uses it as its own styleUrl so the
+ * projected content is styled by the declaring component). */
+:host {
+  display: block;
+  width: 100%;
+}
+
+.clerk-host {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 1px;
+
+  &--hidden {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+  }
+}
+
+.auth-skeleton {
+  display: grid;
+  gap: 14px;
+  width: min(400px, 100%);
+  padding: 32px 28px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-panel);
+
+  ui-skeleton { display: flex; }
+}
+
+.auth-notice {
+  display: flex;
+  gap: 14px;
+  width: min(440px, 100%);
+  padding: 20px 22px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: var(--ui-text-md);
+  line-height: 1.5;
+
+  ui-icon { flex: 0 0 auto; margin-top: 2px; color: var(--ui-warning); }
+  strong { display: block; color: var(--ui-text-strong); font-weight: 600; }
+  p { margin: 6px 0 14px; color: var(--ui-text-dim); overflow-wrap: anywhere; }
+  code {
+    font-family: var(--ui-font-mono);
+    font-size: var(--ui-text-sm);
+    padding: 1px 5px;
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-hover);
+    color: var(--ui-text);
+  }
+
+  &--error {
+    border-color: color-mix(in srgb, var(--ui-danger) 45%, var(--ui-border));
+    ui-icon { color: var(--ui-danger); }
+  }
+}

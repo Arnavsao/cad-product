@@ -1,0 +1,96 @@
+/* ---------------------------------------------------------------
+ * `--ui-*` design tokens for everything outside the CAD canvas
+ * (landing, auth, dashboard, dialogs, menus).
+ *
+ * They alias the `--color-*` theme tokens that ThemeService writes as inline
+ * styles on <body>, with fallbacks to the CAD Dark palette. They MUST be
+ * declared on `body` (not `:root`): a custom property is resolved where it is
+ * declared, so `--ui-bg: var(--color-bg)` on `:root` would freeze the light
+ * default from theme.scss and never see the body-level theme override.
+ * --------------------------------------------------------------- */
+
+:root {
+  /* spacing (4px grid) */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-space-10: 40px;
+  --ui-space-12: 48px;
+  --ui-space-16: 64px;
+
+  /* radius */
+  --ui-radius-sm: 4px;
+  --ui-radius-md: 6px;
+  --ui-radius-lg: 10px;
+  --ui-radius-xl: 14px;
+  --ui-radius-full: 999px;
+
+  /* type */
+  --ui-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ui-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ui-text-xs: 11px;
+  --ui-text-sm: 12px;
+  --ui-text-md: 13px;
+  --ui-text-base: 14px;
+  --ui-text-lg: 16px;
+  --ui-text-xl: 20px;
+  --ui-text-2xl: 26px;
+  --ui-text-3xl: 40px;
+  --ui-leading-tight: 1.2;
+  --ui-leading: 1.5;
+
+  /* motion */
+  --ui-ease: cubic-bezier(.2, .7, .2, 1);
+  --ui-dur-fast: .12s;
+  --ui-dur: .18s;
+
+  /* z layers */
+  --ui-z-overlay: 10000;
+}
+
+body {
+  /* surfaces */
+  --ui-bg: var(--color-bg, #1e1e1e);
+  --ui-surface: var(--color-surface, var(--color-nav-link-bg-hover, #252526));
+  --ui-surface-raised: var(--color-nav-bg, #2a2a2b);
+  --ui-hover: var(--color-nav-link-bg-hover, #37373d);
+  --ui-active: var(--color-nav-link-active-bg, rgba(76, 154, 255, .12));
+  --ui-border: var(--color-nav-border, #333333);
+  --ui-border-strong: var(--color-nav-link, #6b6b6b);
+
+  /* text */
+  --ui-text: var(--color-text, #cccccc);
+  --ui-text-dim: var(--color-nav-link, #9a9a9a);
+  --ui-text-placeholder: var(--color-input-placeholder, #a1a1aa);
+  --ui-text-strong: var(--color-nav-link-hover, #ffffff);
+
+  /* accent */
+  --ui-accent: var(--color-primary, #4c9aff);
+  --ui-accent-dark: var(--color-primary-dark, #2f6fd1);
+  --ui-on-accent: var(--color-on-accent, #ffffff);
+  --ui-accent-tint: var(--color-accent-tint, rgba(76, 154, 255, .15));
+  --ui-accent-glow: var(--color-accent-glow, rgba(76, 154, 255, .3));
+
+  /* semantic */
+  --ui-danger: var(--color-red, #e05555);
+  --ui-danger-tint: rgba(224, 85, 85, .14);
+  --ui-success: var(--color-green, #4caf50);
+  --ui-success-tint: rgba(76, 175, 80, .14);
+  --ui-warning: var(--color-yellow, #f0a030);
+  --ui-warning-tint: rgba(240, 160, 48, .14);
+
+  /* controls */
+  --ui-input-bg: var(--color-input-bg, #3c3c3c);
+  --ui-input-border: var(--color-input-border, #3c3c3c);
+  --ui-input-text: var(--color-input-text, #cccccc);
+
+  /* elevation */
+  --ui-shadow-panel: var(--color-shadow-panel, 0 4px 16px rgba(0, 0, 0, .4));
+  --ui-shadow-float: var(--color-shadow-float, 0 12px 40px rgba(0, 0, 0, .5));
+  --ui-backdrop: rgba(0, 0, 0, .45);
+  --ui-focus-ring: 0 0 0 3px var(--ui-accent-glow);
+}

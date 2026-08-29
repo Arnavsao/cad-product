@@ -1,0 +1,192 @@
+// CADOnline data model — Postgres holds metadata only; DXF payloads and
+// thumbnails live in S3-compatible object storage under the keys in
+// `src/storage/storage-keys.ts`.
+//
+// Prisma 7: the datasource URL lives in `prisma.config.ts` (CLI/migrations use
+// DIRECT_DATABASE_URL) and the runtime client is constructed with a driver
+// adapter on DATABASE_URL (see `src/prisma/prisma.service.ts`).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums — stored lowercase so raw SQL / psql output matches the wire format.
+// ---------------------------------------------------------------------------
+
+enum Units {
+  MM @map("mm")
+  CM @map("cm")
+  M  @map("m")
+  IN @map("in")
+  FT @map("ft")
+
+  @@map("units")
+}
+
+enum UserRole {
+  ARCHITECT @map("architect")
+  ENGINEER  @map("engineer")
+  STUDENT   @map("student")
+  OTHER     @map("other")
+
+  @@map("user_role")
+}
+
+enum DrawingFormat {
+  DXF @map("dxf")
+  DWG @map("dwg")
+
+  @@map("drawing_format")
+}
+
+enum SharePermission {
+  VIEW @map("view")
+  EDIT @map("edit")
+
+  @@map("share_permission")
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+model User {
+  id          String    @id @default(cuid())
+  clerkId     String    @unique @map("clerk_id")
+  email       String
+  firstName   String?   @map("first_name")
+  lastName    String?   @map("last_name")
+  imageUrl    String?   @map("image_url")
+  onboardedAt DateTime? @map("onboarded_at")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  preferences UserPreferences?
+  folders     Folder[]
+  drawings    Drawing[]
+  shareLinks  ShareLink[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model UserPreferences {
+  userId              String    @id @map("user_id")
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  units               Units     @default(MM)
+  theme               String    @default("dark")
+  role                UserRole?
+  defaultTemplate     String    @default("blank") @map("default_template")
+  autosaveIntervalSec Int       @default(30) @map("autosave_interval_sec")
+  uiState             Json?     @map("ui_state")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("user_preferences")
+}
+
+// ---------------------------------------------------------------------------
+// Folders — adjacency-list tree. Root-level name uniqueness (parentId IS NULL)
+// is enforced in FoldersService because SQL treats NULLs as distinct.
+// ---------------------------------------------------------------------------
+
+model Folder {
+  id        String   @id @default(cuid())
+  ownerId   String   @map("owner_id")
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  parentId  String?  @map("parent_id")
+  parent    Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[] @relation("FolderTree")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  drawings Drawing[]
+
+  @@unique([ownerId, parentId, name])
+  @@index([ownerId, parentId])
+  @@map("folders")
+}
+
+// ---------------------------------------------------------------------------
+// Drawings — one row per document; `storageKey` always points at the object
+// for `currentVersion`. Trash = `deletedAt` set; permanent delete removes the
+// row (cascading versions/share links) and the storage prefix.
+// ---------------------------------------------------------------------------
+
+model Drawing {
+  id             String        @id @default(cuid())
+  ownerId        String        @map("owner_id")
+  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  folderId       String?       @map("folder_id")
+  folder         Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  name           String
+  format         DrawingFormat @default(DXF)
+  storageKey     String        @map("storage_key")
+  byteSize       Int           @map("byte_size")
+  thumbnailKey   String?       @map("thumbnail_key")
+  currentVersion Int           @default(1) @map("current_version")
+  lastOpenedAt   DateTime?     @map("last_opened_at")
+  deletedAt      DateTime?     @map("deleted_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  versions   DrawingVersion[]
+  shareLinks ShareLink[]
+
+  @@index([ownerId, updatedAt(sort: Desc)])
+  @@index([ownerId, lastOpenedAt(sort: Desc)])
+  @@index([ownerId, folderId])
+  @@index([ownerId, deletedAt])
+  @@map("drawings")
+}
+
+// `@@unique([drawingId, version])` is the save lock: two concurrent saves that
+// both compute `next = currentVersion + 1` cannot both insert.
+model DrawingVersion {
+  id         String   @id @default(cuid())
+  drawingId  String   @map("drawing_id")
+  drawing    Drawing  @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  version    Int
+  storageKey String   @map("storage_key")
+  byteSize   Int      @map("byte_size")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([drawingId, version])
+  @@map("drawing_versions")
+}
+
+// Schema only in 1.1.0 — endpoints are phase 2.
+model ShareLink {
+  id          String          @id @default(cuid())
+  drawingId   String          @map("drawing_id")
+  drawing     Drawing         @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  createdById String          @map("created_by_id")
+  createdBy   User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  token       String          @unique
+  permission  SharePermission @default(VIEW)
+  expiresAt   DateTime?       @map("expires_at")
+  revokedAt   DateTime?       @map("revoked_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([drawingId])
+  @@map("share_links")
+}
+
+// Idempotency ledger for Clerk webhooks: `id` is the Svix message id.
+model WebhookEvent {
+  id         String   @id
+  type       String
+  receivedAt DateTime @default(now()) @map("received_at")
+
+  @@map("webhook_events")
+}
