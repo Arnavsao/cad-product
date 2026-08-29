@@ -59,7 +59,7 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
   template: `
     <div class="layers-panel">
       <div class="header-tools">
-        <input type="text" class="layer-search" placeholder="Search layersâ€¦" [(ngModel)]="layerFilter" (click)="$event.stopPropagation()">
+        <input type="text" class="layer-search" placeholder="Search layers…" [(ngModel)]="layerFilter" (click)="$event.stopPropagation()">
         <button type="button" class="panel-btn" (click)="addLayer()" title="New layer">+ Layer</button>
       </div>
     
@@ -138,7 +138,10 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
     </div>
     `,
   styles: [`
-    .layers-panel { display: flex; flex-direction: column; height: 100%; background: transparent; color: var(--cad-text-primary); font-size: 12px; overflow: auto; }
+    .layers-panel { display: flex; flex-direction: column; height: 100%; background: transparent; color: var(--cad-text-primary); font-size: 12px; overflow: hidden; }
+    /* The row carries more columns than the drawer is wide, so the list scrolls
+       horizontally instead of clipping the lineweight column off the edge. */
+    .layer-list { flex: 1; overflow: auto; }
     .header-tools {
       display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
       padding: 6px 12px; border-bottom: 1px solid var(--cad-border);
@@ -160,12 +163,13 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
     }
     .layer-row {
       display: flex; align-items: center; gap: 4px;
+      min-width: max-content;
       padding: 4px 10px 4px 12px;
       border-bottom: 1px solid var(--cad-border);
       cursor: pointer; color: var(--cad-text-primary);
       &:hover { background: var(--cad-bg-hover); }
       &.active { background: var(--cad-bg-active); }
-      .layer-name { flex: 1 1 60px; min-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .layer-name { flex: 1 1 44px; min-width: 34px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .layer-rename-input {
         flex: 1; min-width: 0;
         background: var(--cad-bg-input); color: var(--cad-text-primary);
@@ -186,7 +190,7 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
     }
     .layer-select {
       flex: 0 0 auto;
-      max-width: 92px;
+      max-width: 70px;
       background: var(--cad-bg-input, #181825);
       color: var(--cad-text-primary);
       border: 1px solid var(--cad-border);
@@ -198,8 +202,8 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
       cursor: pointer;
       &:hover { border-color: var(--cad-accent); }
       &:focus { border-color: var(--cad-accent); }
-      &.lt { width: 78px; }
-      &.lw { width: 66px; }
+      &.lt { width: 62px; }
+      &.lw { width: 54px; }
     }
   `],
 })
@@ -296,17 +300,17 @@ export class LayersPanelComponent {
    * Apply a new layer color through the command stack so Ctrl+Z restores
    * the prior color. Picker emits the canonical `#rrggbb` hex on commit.
    *
-   * Layer color is the source of truth â€” any entity on this layer that has
+   * Layer color is the source of truth — any entity on this layer that has
    * an explicit color override (direct hex, or ACI != 256) is also reset to
    * BYLAYER so the new layer color paints through visibly (rule 3:
-   * "Connected â€” any property change must propagate to Canvas..."). All
+   * "Connected — any property change must propagate to Canvas..."). All
    * three mutations land in a single CompoundCmd so undo restores both the
    * old layer color and each entity's prior override in one step.
    */
   setLayerColor(lay: Layer, hex: string): void {
     if (!hex || lay.color === hex) return;
 
-    // Locate the file that owns this Layer instance â€” layers are file-scoped,
+    // Locate the file that owns this Layer instance — layers are file-scoped,
     // and the panel can edit layers from any open file.
     let ownerFile: DxfFile | null = null;
     let layerName: string | null = null;

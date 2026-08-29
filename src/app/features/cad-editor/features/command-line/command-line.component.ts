@@ -325,13 +325,9 @@ export class CommandLineComponent {
       // the Select/last-tool toggle so the command bar behaves like canvas focus.
       e.preventDefault();
       e.stopPropagation();
-      const val = (this.inputRef?.nativeElement.value ?? '').trim();
-      if (val) {
-        this.pressEnter();
-      } else if (!this.toolMgr.toggleLastOrSelect()) {
-        // Nothing to toggle — silently no-op rather than leaking a space
-        // character into the input.
-      }
+      // Empty or not, pressEnter() now does the right thing: it forwards to a
+      // running tool, and only toggles Select/last-tool when nothing is active.
+      this.pressEnter();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       this.pressEsc();
@@ -366,6 +362,15 @@ export class CommandLineComponent {
     const toolIsActive  = !!(activeTool && activeToolName !== 'select' && activeToolName !== 'pan');
 
     if (!valLower) {
+      // A running command owns Enter: it means "finish this step" — close the
+      // polyline, commit the array, end the selection set, total the area.
+      // Forward it to the tool instead of cancelling out to Select, which is
+      // what toggleLastOrSelect() would do. Only at idle does Enter carry its
+      // other AutoCAD meaning, "repeat the last command".
+      if (toolIsActive) {
+        activeTool!.onKeyDown?.(new KeyboardEvent('keydown', { key: 'Enter', bubbles: false }));
+        return;
+      }
       this.toolMgr.toggleLastOrSelect();
       return;
     }
