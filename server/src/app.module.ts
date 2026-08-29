@@ -14,11 +14,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
-// ---------------------------------------------------------------------------
-// Domain modules (added by the drawings/folders work) — import here:
-// import { DrawingsModule } from './drawings/drawings.module';
-// import { FoldersModule } from './folders/folders.module';
-// ---------------------------------------------------------------------------
+import { DrawingsModule } from './drawings/drawings.module';
+import { FoldersModule } from './folders/folders.module';
 
 /** Default throttle: 300 requests / minute / IP. Routes override with `@Throttle`. */
 const DEFAULT_THROTTLE = { name: 'default', ttl: 60_000, limit: 300 };
@@ -71,8 +68,8 @@ function flattenValidationErrors(errors: ValidationError[], parent = ''): { fiel
     UsersModule,
     StorageModule,
     WebhooksModule,
-    // DrawingsModule,
-    // FoldersModule,
+    FoldersModule,
+    DrawingsModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -79,7 +79,13 @@ export class StorageService {
   constructor(config: ConfigService<Env, true>) {
     this.bucket = config.get('S3_BUCKET', { infer: true });
     this.endpoint = config.get('S3_ENDPOINT', { infer: true });
-    this.publicEndpoint = config.get('S3_PUBLIC_ENDPOINT', { infer: true }) ?? this.endpoint;
+    // `?? this.endpoint` is not enough: when the Zod schema maps a blank value
+    // to `undefined`, `ConfigService` falls back to the RAW `process.env` entry
+    // and hands back `''` — which is not nullish, so an empty endpoint would
+    // reach the S3 client and every presigned URL would be signed for the AWS
+    // default host instead of MinIO/R2. Treat blank as unset.
+    const publicEndpoint = config.get('S3_PUBLIC_ENDPOINT', { infer: true });
+    this.publicEndpoint = publicEndpoint?.trim() ? publicEndpoint : this.endpoint;
 
     const base: S3ClientConfig = {
       region: config.get('S3_REGION', { infer: true }),

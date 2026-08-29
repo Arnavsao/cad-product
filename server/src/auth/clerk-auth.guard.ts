@@ -50,10 +50,16 @@ export class ClerkAuthGuard implements CanActivate {
     @Inject(CLERK_TOKEN_VERIFIER) private readonly verify: TokenVerifier,
     private readonly users: UsersService,
   ) {
-    this.secretKey = config.get('CLERK_SECRET_KEY', { infer: true });
-    this.jwtKey = config.get('CLERK_JWT_KEY', { infer: true });
+    this.secretKey = blankToUndefined(config.get('CLERK_SECRET_KEY', { infer: true }));
+    this.jwtKey = blankToUndefined(config.get('CLERK_JWT_KEY', { infer: true }));
+    // `?? CORS_ORIGIN` is not enough on its own: when the Zod schema maps a
+    // blank `CLERK_AUTHORIZED_PARTIES=` to `undefined`, `ConfigService` falls
+    // back to the RAW `process.env` entry and returns `''`, which is not
+    // nullish. `@clerk/backend` then sees a zero-length list and SKIPS the
+    // `azp` check entirely — every Clerk frontend's token would be accepted.
+    const parties = config.get('CLERK_AUTHORIZED_PARTIES', { infer: true });
     this.authorizedParties =
-      config.get('CLERK_AUTHORIZED_PARTIES', { infer: true }) ?? config.get('CORS_ORIGIN', { infer: true });
+      Array.isArray(parties) && parties.length > 0 ? parties : config.get('CORS_ORIGIN', { infer: true });
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -117,6 +123,11 @@ export class ClerkAuthGuard implements CanActivate {
     }
     return payload as ClerkSessionClaims;
   }
+}
+
+/** A present-but-blank env value means "unset" (see the constructor comment). */
+function blankToUndefined(value: string | undefined): string | undefined {
+  return value && value.trim() !== '' ? value : undefined;
 }
 
 function invalidToken(): ApiException {

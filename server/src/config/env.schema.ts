@@ -107,5 +107,22 @@ export function validateEnv(config: Record<string, unknown>): Env {
     const lines = result.error.issues.map((issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`);
     throw new Error(`Invalid environment configuration:\n${lines.join('\n')}`);
   }
+
+  // `@nestjs/config` falls back to raw `process.env` whenever a validated key
+  // is `undefined`, so a blank line in `.env` (`CLERK_AUTHORIZED_PARTIES=`)
+  // reaches `config.get()` as `''` — which is NOT nullish, so `?? fallback`
+  // keeps the empty string. That has bitten twice already: an empty
+  // `S3_PUBLIC_ENDPOINT` made the presigner sign for real AWS instead of MinIO,
+  // and an empty authorized-parties list made `verifyToken` skip the `azp`
+  // check altogether, accepting tokens minted for any other Clerk frontend.
+  //
+  // Deleting the blank keys here restores `undefined` at the fallback site, so
+  // the whole class of bug cannot recur for a future optional key.
+  for (const [key, value] of Object.entries(config)) {
+    if (typeof value === 'string' && value.trim() === '') {
+      delete process.env[key];
+    }
+  }
+
   return result.data;
 }

@@ -4,7 +4,6 @@ import { Test } from '@nestjs/testing';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { spawnSync } from 'node:child_process';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createDevKeypair, mintSessionToken, toEnvPem, type DevKeypair } from './support/jwt';
@@ -50,6 +49,11 @@ describeIfDb('API foundation (e2e)', () => {
     process.env.NODE_ENV = 'test';
     process.env.LOG_LEVEL = 'silent';
 
+    // `AppModule` is imported LAZILY: `ConfigModule.forRoot()` runs while the
+    // module file is being evaluated, so a top-level import would snapshot the
+    // real `.env` (including its production-shaped CLERK_JWT_KEY) before the
+    // overrides above could take effect, and every token below would 401.
+    const { AppModule } = await import('../src/app.module');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
     configureApp(app as NestExpressApplication);
