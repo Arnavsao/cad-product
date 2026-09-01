@@ -17,4 +17,11 @@ export interface AppEnvironment {
    * sign-in and the API is never called with a bearer token.
    */
   clerkPublishableKey: string;
+  /**
+   * Sentry DSN for client-side crash reporting (public by design, safe to
+   * commit — it only lets a client submit events, not read data). Empty
+   * string keeps error reporting fully local (console + in-app toast only,
+   * today's behaviour) — see GlobalErrorHandler.
+   */
+  sentryDsn: string;
 }

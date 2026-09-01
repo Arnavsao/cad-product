@@ -25,7 +25,18 @@ services:
     build: .
     ports:
       - "80:80"
+      # Uncomment once TLS is terminated in nginx itself (self-hosted, no CDN/LB
+      # in front) — see DEPLOYMENT_TLS.md. Also uncomment the two volumes below,
+      # and switch the Dockerfile to COPY nginx.ssl.conf as default.conf.
+      # - "443:443"
+    # volumes:
+    #   - certbot-etc:/etc/letsencrypt:ro
+    #   - certbot-www:/usr/share/nginx/html/.well-known/acme-challenge
     depends_on:
       api:
         condition: service_healthy
     restart: unless-stopped
+
+# volumes:
+#   certbot-etc:
+#   certbot-www:

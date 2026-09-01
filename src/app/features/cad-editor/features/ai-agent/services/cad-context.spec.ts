@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
 import { CadContextService } from './cad-context.service';
 import { DocumentService } from '../../../core/services/document.service';
 import { LineEntity, CircleEntity } from '../../../core/models/entity.model';
@@ -8,7 +9,7 @@ describe('CadContextService', () => {
   let doc: DocumentService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
     ctx = TestBed.inject(CadContextService);
     doc = TestBed.inject(DocumentService);
     doc.clear();

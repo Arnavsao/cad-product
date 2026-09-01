@@ -10,4 +10,6 @@ export const environment: AppEnvironment = {
   // Paste your Clerk dev instance key here (`pk_test_…`, from the Clerk dashboard → API keys).
   // Leaving it empty keeps auth disabled: the app boots straight into /editor (embedded mode).
   clerkPublishableKey: '',
+  // Leave empty in dev — you don't want local stack traces landing in Sentry.
+  sentryDsn: '',
 };

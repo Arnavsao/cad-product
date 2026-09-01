@@ -1,0 +1,109 @@
+<div class="legal">
+  <a class="legal__back" routerLink="/">← {{ appName }}</a>
+
+  <div class="legal__draft-banner" role="note">
+    <strong>Draft — not final.</strong> This page has not been reviewed by counsel and is not yet
+    published as a binding agreement. Do not rely on it; replace with reviewed copy before launch.
+  </div>
+
+  @if (doc === 'terms') {
+    <h1>Terms of Service</h1>
+    <p class="legal__meta">Status: draft</p>
+
+    <h2>1. Acceptance</h2>
+    <p>
+      By creating an account or using {{ appName }}, you agree to these Terms. If you don't agree,
+      don't use the service.
+    </p>
+
+    <h2>2. Your account</h2>
+    <p>
+      Authentication is handled by Clerk. You're responsible for the security of your credentials
+      and for activity that happens under your account.
+    </p>
+
+    <h2>3. Your content</h2>
+    <p>
+      Drawings you create or upload remain yours. You grant {{ appName }} a limited license to
+      store, process, and transmit that content solely to provide the service (e.g. saving,
+      rendering, exporting, and — if you opt in — sending a summary of it to an AI provider you've
+      configured). We don't claim ownership of your drawings.
+    </p>
+
+    <h2>4. AI features</h2>
+    <p>
+      The AI drafting assistant can run against a local model (Ollama, self-hosted) or an external
+      provider (OpenRouter). Using the external provider sends a summary of your drawing and your
+      prompts to that third party; the in-app consent notice explains this before it happens.
+    </p>
+
+    <h2>5. Acceptable use</h2>
+    <p>
+      Don't use the service to store or distribute unlawful content, attempt to breach its
+      security, or interfere with other users.
+    </p>
+
+    <h2>6. Availability &amp; changes</h2>
+    <p>
+      The service is provided "as is," without uptime guarantees at this stage. Features,
+      including this document, may change; material changes will be posted here with an updated
+      status line.
+    </p>
+
+    <h2>7. Termination</h2>
+    <p>
+      You may stop using the service and delete your account at any time. We may suspend accounts
+      that violate these Terms.
+    </p>
+
+    <h2>8. Contact</h2>
+    <p>Questions about these Terms: <em>[support contact — add before publishing]</em>.</p>
+  } @else {
+    <h1>Privacy Policy</h1>
+    <p class="legal__meta">Status: draft</p>
+
+    <h2>1. What we collect</h2>
+    <ul>
+      <li><strong>Account data:</strong> handled by Clerk (email, auth identifiers, session cookies).</li>
+      <li><strong>Drawing data:</strong> the DXF/drawing content you save, stored in our database and object storage.</li>
+      <li><strong>Usage data:</strong> basic operational logs (requests, errors) needed to run the service.</li>
+    </ul>
+
+    <h2>2. AI features</h2>
+    <p>
+      If you choose the local (Ollama) model, your drawing data never leaves your machine/network.
+      If you choose OpenRouter, a summary of your drawing (layers, entity counts/types, current
+      selection — not the raw file) and your prompts are sent to OpenRouter to generate a
+      response. This only happens after you've selected that model and acknowledged the in-app
+      notice.
+    </p>
+
+    <h2>3. Cookies</h2>
+    <p>
+      Clerk sets session cookies required for sign-in to work. We don't use third-party
+      advertising or tracking cookies.
+    </p>
+
+    <h2>4. Sharing</h2>
+    <p>
+      We don't sell your data. It's shared only with the infrastructure providers needed to run
+      the service (hosting, database, object storage, and — only if you opt in — your chosen AI
+      provider).
+    </p>
+
+    <h2>5. Retention &amp; deletion</h2>
+    <p>
+      Drawings you delete are moved to Trash and then permanently removed after the retention
+      window shown in the app. You can request full account deletion at any time.
+    </p>
+
+    <h2>6. Your rights</h2>
+    <p>
+      Depending on where you live (e.g. under GDPR or CCPA), you may have rights to access,
+      export, correct, or delete your data. <em>[add the specific request process before publishing]</em>.
+    </p>
+
+    <h2>7. Contact</h2>
+    <p>Privacy questions: <em>[support/privacy contact — add before publishing]</em>.</p>
+  }
+</div>

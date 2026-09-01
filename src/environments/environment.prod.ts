@@ -13,4 +13,7 @@ export const environment: AppEnvironment = {
   defaultOllamaUrl: 'http://localhost:11434',
   // Templated in CI with the production instance key (`pk_live_…`). Empty = embedded mode (no auth).
   clerkPublishableKey: '',
+  // Templated in CI with your Sentry project DSN. Empty = no external error
+  // reporting (GlobalErrorHandler still logs to console + shows a toast).
+  sentryDsn: '',
 };

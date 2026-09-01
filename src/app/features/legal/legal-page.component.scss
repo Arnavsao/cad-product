@@ -1,0 +1,40 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: var(--ui-bg, #0f1115);
+  color: var(--ui-text, #d7dee8);
+}
+
+.legal {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+  line-height: 1.6;
+}
+
+.legal__back {
+  display: inline-block;
+  margin-bottom: 24px;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.8;
+  font-size: 14px;
+
+  &:hover { opacity: 1; }
+}
+
+.legal__draft-banner {
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-bottom: 32px;
+}
+
+h1 { font-size: 28px; margin-bottom: 4px; }
+h2 { font-size: 18px; margin-top: 28px; margin-bottom: 8px; }
+p, li { font-size: 14px; opacity: 0.9; }
+.legal__meta { font-size: 12px; opacity: 0.6; margin-bottom: 24px; }
+ul { padding-left: 20px; }

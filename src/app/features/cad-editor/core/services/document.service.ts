@@ -157,6 +157,11 @@ export class DocumentService {
     this.activeFile.entities = [];
     this.activeFile.blocks.clear();
     this.activeFile.layers.clear();
+    // Every other document-creation path (DocumentManagerService.createDocument,
+    // DxfImportService's post-parse guard) guarantees at least a default 'Layer 0'
+    // exists — re-seed it here so clear() doesn't leave that invariant broken.
+    this.activeFile.layers.set('Layer 0', new Layer('Layer 0'));
+    this.activeDoc.activeLayerName = 'Layer 0';
     this.vm.markContentDirty();
     this.bump();
   }

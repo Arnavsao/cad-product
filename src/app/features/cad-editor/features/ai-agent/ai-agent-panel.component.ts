@@ -72,23 +72,36 @@ function nextId() { return `msg_${++msgIdSeq}`; }
             }
             <!-- OpenRouter API key (shown for cloud models) -->
             @if (isOpenRouter()) {
-              <label class="ai-settings-label">OpenRouter API key</label>
-              <div class="ai-key-row">
-                <input class="ai-key-input"
-                  [type]="showKey() ? 'text' : 'password'"
-                  placeholder="sk-or-v1-…"
-                  [ngModel]="modelSvc.apiKey()"
-                  (ngModelChange)="onKeyChange($event)"
-                  autocomplete="off" spellcheck="false" />
-                  <button type="button" class="ai-key-toggle" (click)="showKey.set(!showKey())">
-                    {{ showKey() ? '🙈' : '👁' }}
+              @if (needsDataConsent()) {
+                <div class="ai-settings-consent">
+                  <p class="ai-settings-note ai-settings-warn">
+                    ⚠ OpenRouter is a third-party, external AI provider. Using it sends a summary
+                    of your drawing (layers, entity counts/types, selection — not the raw file) and
+                    your prompts to OpenRouter's servers to generate a response.
+                  </p>
+                  <button type="button" class="ai-consent-btn" (click)="grantDataConsent()">
+                    I understand — continue
                   </button>
                 </div>
-                <p class="ai-settings-note" [class.ai-settings-warn]="needsKey()">
-                  {{ needsKey()
-                  ? '⚠ This model needs a key. Paste your OpenRouter key above.'
-                  : 'Stored only in this browser. Sent directly to OpenRouter. Never commit it.' }}
-                </p>
+              } @else {
+                <label class="ai-settings-label">OpenRouter API key</label>
+                <div class="ai-key-row">
+                  <input class="ai-key-input"
+                    [type]="showKey() ? 'text' : 'password'"
+                    placeholder="sk-or-v1-…"
+                    [ngModel]="modelSvc.apiKey()"
+                    (ngModelChange)="onKeyChange($event)"
+                    autocomplete="off" spellcheck="false" />
+                    <button type="button" class="ai-key-toggle" (click)="showKey.set(!showKey())">
+                      {{ showKey() ? '🙈' : '👁' }}
+                    </button>
+                  </div>
+                  <p class="ai-settings-note" [class.ai-settings-warn]="needsKey()">
+                    {{ needsKey()
+                    ? '⚠ This model needs a key. Paste your OpenRouter key above.'
+                    : 'Stored only in this browser. Sent directly to OpenRouter. Never commit it.' }}
+                  </p>
+                }
               }
               <!-- Regex selected -->
               @if (modelSvc.selected.kind === 'local') {
@@ -356,6 +369,19 @@ function nextId() { return `msg_${++msgIdSeq}`; }
       line-height: 1.4;
     }
     .ai-settings-warn { color: #fbbf24; }
+    .ai-settings-consent { display: flex; flex-direction: column; gap: 8px; }
+    .ai-consent-btn {
+      align-self: flex-start;
+      background: var(--cad-accent, #4f8ef7);
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .ai-consent-btn:hover { filter: brightness(1.1); }
 
     /* ── Header ─────────────────────────────────────────────────── */
 
@@ -666,6 +692,15 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
     return this.modelSvc.selected.kind === 'openrouter';
   }
 
+  /** True when OpenRouter is selected but the user hasn't acknowledged that drawing data leaves the browser. */
+  protected needsDataConsent(): boolean {
+    return this.isOpenRouter() && !this.modelSvc.hasDataConsent();
+  }
+
+  protected grantDataConsent(): void {
+    this.modelSvc.grantDataConsent();
+  }
+
   protected onModelChange(id: string): void {
     this.modelSvc.setModel(id as any);
     // Auto-open settings if the chosen model needs configuration.
@@ -730,6 +765,13 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
   protected send(): void {
     const text = this.inputText().trim();
     if (!text || this.thinking()) return;
+
+    if (this.needsDataConsent()) {
+      // Surface the consent banner instead of silently sending drawing data
+      // to a third-party LLM the user hasn't acknowledged yet.
+      this.showSettings.set(true);
+      return;
+    }
 
     this.inputText.set('');
 

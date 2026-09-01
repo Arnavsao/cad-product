@@ -33,18 +33,18 @@ describe('DraftingLine', () => {
 
     it('should throw a GeometryError if coordinates contain NaN or Infinity', () => {
         expect(() => DraftingLine.create({ x: NaN, y: 0, z: 0 }, validEnd, layer))
-            .toThrow(GeometryError);
-            
+            .toThrowError(GeometryError);
+
         expect(() => DraftingLine.create(validStart, { x: 10, y: Infinity, z: 0 }, layer))
-            .toThrow(GeometryError);
+            .toThrowError(GeometryError);
     });
 
     it('should throw a GeometryError if layer reference is missing or empty space', () => {
         expect(() => DraftingLine.create(validStart, validEnd, ''))
-            .toThrow(GeometryError);
-            
+            .toThrowError(GeometryError);
+
         expect(() => DraftingLine.create(validStart, validEnd, '   '))
-            .toThrow(GeometryError);
+            .toThrowError(GeometryError);
     });
 
     it('should protect against external mutation via defensive cloning and freezing', () => {

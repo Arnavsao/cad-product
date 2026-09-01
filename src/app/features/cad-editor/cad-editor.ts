@@ -134,7 +134,6 @@ import { AiAgentPanelComponent } from './features/ai-agent/ai-agent-panel.compon
 import { AiToolRegistryService } from './features/ai-agent/services/ai-tool-registry.service';
 import { CursorSizeTool } from './tools/options/cursor-size-tool';
 import { PickboxTool } from './tools/options/pickbox-tool';
-import { ShareDialogComponent } from './components/share-dialog/share-dialog.component';
 import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.component';
 
 @Component({
@@ -172,7 +171,6 @@ import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.co
     DocumentTabsComponent,
     TextEditorRibbonComponent,
     AiAgentPanelComponent,
-    ShareDialogComponent,
     VportsDialogComponent,
     DimTextEditorOverlayComponent,
     AccountButtonComponent
@@ -203,7 +201,6 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly close = output<void>();
 
   isLoading = signal(false);
-  showShareDialog = false;
 
   commandLine?: CommandLineComponent;
 

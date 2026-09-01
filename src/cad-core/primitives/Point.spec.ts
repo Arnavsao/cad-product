@@ -29,7 +29,7 @@ describe('Point', () => {
     });
 
     it('should fail-fast and throw on invalid float input', () => {
-        expect(() => new Point(NaN, 0, 0)).toThrow('Point coordinates must be finite numbers');
+        expect(() => new Point(NaN, 0, 0)).toThrowError('Point coordinates must be finite numbers');
     });
     
     it('should instantiate $O(1)$ bounding box correctly', () => {

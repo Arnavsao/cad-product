@@ -13,7 +13,7 @@ describe('Vector', () => {
     });
 
     it('should fail-fast and throw on normalizing zero vector', () => {
-        expect(() => new Vector(0, 0, 0).normalize()).toThrow('Cannot normalize a zero vector');
+        expect(() => new Vector(0, 0, 0).normalize()).toThrowError('Cannot normalize a zero vector');
     });
 
     it('should perform dot product correctly', () => {
@@ -23,6 +23,6 @@ describe('Vector', () => {
     });
 
     it('should fail-fast and throw on invalid float input', () => {
-        expect(() => new Vector(NaN, 0, 0)).toThrow('Vector components must be finite numbers');
+        expect(() => new Vector(NaN, 0, 0)).toThrowError('Vector components must be finite numbers');
     });
 });

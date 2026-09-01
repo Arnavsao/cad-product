@@ -1,5 +1,5 @@
 import { DraftingCanvasContext } from './DraftingCanvasContext';
-import { DraftingLine, DraftingHatch, DraftingText } from '../models/drafting';
+import { DraftingLine, DraftingText } from '../models/drafting';
 
 describe('DraftingCanvasContext', () => {
     let ctx: DraftingCanvasContext;
@@ -37,15 +37,11 @@ describe('DraftingCanvasContext', () => {
         expect(ctx.entities.length).toBe(0);
     });
 
-    it('should correctly extract rect() boundaries into a DraftingHatch on fill()', () => {
+    it('should never emit a DraftingHatch from fillRect() (structural GAD exports must not turn component fills into SOLID hatches)', () => {
         ctx.fillStyle = '#0000ff';
         ctx.fillRect(0, 0, 10, 10);
 
-        expect(ctx.entities.length).toBe(1);
-        const hatch = ctx.entities[0] as DraftingHatch;
-        expect(hatch.draftingType).toBe('Hatch');
-        expect(hatch.boundaryPoints.length).toBe(5); // moveTo + 4 lineTos
-        expect(hatch.patternName).toBe('SOLID');
+        expect(ctx.entities.length).toBe(0);
     });
 
     it('should ignore fills when the color is pure white (legacy text masking heuristic)', () => {
@@ -63,14 +59,16 @@ describe('DraftingCanvasContext', () => {
         ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
         ctx.scale(3, 3);
-        
+
         ctx.fillText('Bridge GAD', 10, 20);
 
         expect(ctx.entities.length).toBe(1);
         const textEntity = ctx.entities[0] as DraftingText;
         expect(textEntity.draftingType).toBe('Text');
         expect(textEntity.text).toBe('Bridge GAD');
-        expect(textEntity.height).toBe(14 * 3); // Extracted 14px * 3 scale
+        // Height follows the fixed DXF_TEXT_STANDARDS table (default view, non-title
+        // dimension text = 200 units / 2.5 scale factor), not naive canvas-font * transform-scale.
+        expect(textEntity.height).toBe(80);
         expect(textEntity.position.x).toBe(30);
         expect(textEntity.position.y).toBe(60);
         expect(textEntity.alignment).toBe('right');

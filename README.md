@@ -79,14 +79,24 @@ Two containers: nginx serving the Angular build, and the API.
 docker compose -f docker-compose.prod.yml up -d --build   # web on :80, api internal
 ```
 
-`nginx.conf` provides the SPA fallback, gzip, immutable caching for hashed assets, `no-store` for `index.html`,
-security headers, a `/healthz` endpoint used by the container `HEALTHCHECK`, and a `location ^~ /api/` proxy to the
-API container. That proxy is not optional: the app calls a relative `/api/v1`, so without it every API request falls
-into the SPA fallback and gets `index.html` back. Its `client_max_body_size 8m` matters too — nginx's 1 MB default
-would reject every inline drawing save.
+`nginx.conf` (plus the shared `nginx.common.conf` it includes) provides the SPA fallback, gzip, immutable caching for
+hashed assets, `no-store` for `index.html`, security headers including a Content-Security-Policy, `robots.txt`, a
+`/healthz` endpoint used by the container `HEALTHCHECK`, and a `location ^~ /api/` proxy to the API container. That
+proxy is not optional: the app calls a relative `/api/v1`, so without it every API request falls into the SPA
+fallback and gets `index.html` back. Its `client_max_body_size 8m` matters too — nginx's 1 MB default would reject
+every inline drawing save.
+
+It serves plain HTTP on :80 by default, which is correct when TLS is terminated upstream (Cloudflare, an ALB, a
+reverse proxy). If this container is the public edge instead, see [DEPLOYMENT_TLS.md](DEPLOYMENT_TLS.md) to switch to
+`nginx.ssl.conf` with a Let's Encrypt certificate.
+
+> **If your production Clerk instance uses a custom domain** (a CNAME like `accounts.yourapp.com`, not the default
+> `*.clerk.accounts.dev`), add that host to the `script-src` and `frame-src` directives in `nginx.common.conf`'s CSP
+> header before going live — otherwise the browser silently blocks Clerk's UI script and sign-in never loads.
 
 Postgres and object storage are external in production (Neon, Cloudflare R2 / S3), configured through `server/.env`.
-The API runs `prisma migrate deploy` on boot.
+The API runs `prisma migrate deploy` on boot. See [docs/BACKUPS.md](docs/BACKUPS.md) for the backup/restore story on
+both.
 
 The editor alone is still a static SPA — build it and host the `dist/` output anywhere if you don't need the backend.
 

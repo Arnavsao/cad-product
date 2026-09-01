@@ -1,6 +1,7 @@
 import { ErrorHandler, Injectable, inject } from '@angular/core';
 import { NotificationService } from '../services/notification.service';
 import { environment } from '../../../environments/environment';
+import { reportError } from './sentry.init';
 
 /**
  * Last-resort error handler: logs every uncaught error and surfaces a single,
@@ -14,6 +15,7 @@ export class GlobalErrorHandler implements ErrorHandler {
 
   handleError(error: unknown): void {
     console.error('[CAD] Uncaught error:', error);
+    reportError(error);
     const now = Date.now();
     if (now - this.lastToastAt < 5000) return;
     this.lastToastAt = now;

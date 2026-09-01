@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
 import { AiPreviewService } from './ai-preview.service';
 import { ViewModelService } from '../../../core/services/view-model.service';
 
@@ -6,7 +7,7 @@ describe('AiPreviewService', () => {
   let svc: AiPreviewService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
     svc = TestBed.inject(AiPreviewService);
   });
 

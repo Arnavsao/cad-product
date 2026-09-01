@@ -52,6 +52,7 @@
     "@angular/platform-browser": "^20.1.0",
     "@angular/router": "^20.1.0",
     "@clerk/clerk-js": "^6.30.2",
+    "@sentry/browser": "^10.72.0",
     "clipper-lib": "^6.4.2",
     "dxf-parser": "^1.1.2",
     "jspdf": "^4.2.1",

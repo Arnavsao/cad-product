@@ -24,7 +24,7 @@ describe('Transform', () => {
     });
 
     it('should fail fast on invalid matrix data', () => {
-        expect(() => new Transform([1,2,3])).toThrow('Matrix must have exactly 16 elements');
-        expect(() => new Transform(new Array(16).fill(NaN))).toThrow('Matrix contains invalid floats');
+        expect(() => new Transform([1,2,3])).toThrowError('Matrix must have exactly 16 elements');
+        expect(() => new Transform(new Array(16).fill(NaN))).toThrowError('Matrix contains invalid floats (NaN or Infinity)');
     });
 });

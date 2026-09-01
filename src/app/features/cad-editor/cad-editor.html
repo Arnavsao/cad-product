@@ -103,19 +103,7 @@
         </div>
       </button>
 
-      <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="showShareDialog = true"
-        data-tooltip="Share this drawing">
-        <div class="icon-wrap">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
-            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="4" cy="8" r="1.5" />
-            <circle cx="12" cy="4" r="1.5" />
-            <circle cx="12" cy="12" r="1.5" />
-            <line x1="5.2" y1="7.4" x2="10.8" y2="4.6" />
-            <line x1="5.2" y1="8.6" x2="10.8" y2="11.4" />
-          </svg>
-        </div>
-      </button>
+      <!-- Share button hidden until the ShareLink API exists server-side (schema-only in 1.1.0). -->
 
       <!-- Account menu. Renders nothing when auth is disabled (embedded mode). -->
       <app-account-button class="hdr-account"></app-account-button>
@@ -314,9 +302,6 @@
   </div>
   }
 
-  <!-- ==================== SHARE DIALOG ==================== -->
-  @if (showShareDialog) {
-  <app-share-dialog [fileName]="doc.activeFile.name" (close)="showShareDialog = false"></app-share-dialog>
-  }
+  <!-- Share dialog disabled: see header comment near the (removed) share button. -->
 
 </div>

@@ -4,6 +4,7 @@ import { AI_MODELS, getModelOption, DEFAULT_OLLAMA_URL, type AiModelId, type AiM
 const LS_MODEL_KEY = 'cad_ai_model_v1';
 const LS_API_KEY = 'cad_ai_openrouter_key_v1';
 const LS_OLLAMA_URL = 'cad_ai_ollama_url_v1';
+const LS_DATA_CONSENT_KEY = 'cad_ai_openrouter_data_consent_v1';
 
 /**
  * Holds the user's chosen reasoning backend, OpenRouter API key, and the
@@ -42,6 +43,24 @@ export class AiModelService {
 
   hasApiKey(): boolean {
     return this.apiKey().length > 0;
+  }
+
+  /**
+   * Whether the user has acknowledged that drawing content (entity/layer
+   * summaries, not raw files) is sent to OpenRouter — a third-party, external
+   * LLM provider — as part of the AI assistant's context. Ollama is excluded:
+   * it's a self-hosted/local server the user points at themselves.
+   */
+  hasDataConsent(): boolean {
+    try {
+      return localStorage.getItem(LS_DATA_CONSENT_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  grantDataConsent(): void {
+    try { localStorage.setItem(LS_DATA_CONSENT_KEY, '1'); } catch { /* ignore */ }
   }
 
   setOllamaUrl(url: string): void {

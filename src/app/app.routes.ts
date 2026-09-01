@@ -81,6 +81,18 @@ export const routes: Routes = [
     data: { preload: true },
     loadComponent: () => import('./features/cad-editor/cad-editor').then((m) => m.CadEditorComponent),
   },
+  {
+    path: 'terms',
+    title: 'Terms of Service · CADOnline',
+    data: { doc: 'terms' },
+    loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
+  },
+  {
+    path: 'privacy',
+    title: 'Privacy Policy · CADOnline',
+    data: { doc: 'privacy' },
+    loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
+  },
   // Legacy path used by the bridge application.
   { path: 'cad-editor', redirectTo: 'editor' },
   // Must stay last.
