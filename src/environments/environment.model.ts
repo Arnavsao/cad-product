@@ -11,12 +11,16 @@ export interface AppEnvironment {
   /** Default Ollama endpoint offered in the AI panel settings. */
   defaultOllamaUrl: string;
   /**
-   * Clerk publishable key (`pk_test_…` / `pk_live_…`). This key is public by
-   * design and safe to commit. An empty string disables authentication and the
-   * dashboard: the app runs in *embedded mode*, where `/editor` boots without a
-   * sign-in and the API is never called with a bearer token.
+   * Supabase project URL (`https://<ref>.supabase.co`).
+   *
+   * Together with `supabaseAnonKey` this decides whether auth exists at all:
+   * with EITHER left empty the app runs in *embedded mode*, where `/editor`
+   * boots without a sign-in and the API is never called with a bearer token.
+   * Both are public by design and safe to commit.
    */
-  clerkPublishableKey: string;
+  supabaseUrl: string;
+  /** Supabase anon (publishable) key. Public by design — RLS is what protects data. */
+  supabaseAnonKey: string;
   /**
    * Sentry DSN for client-side crash reporting (public by design, safe to
    * commit — it only lets a client submit events, not read data). Empty

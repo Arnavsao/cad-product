@@ -1,15 +1,23 @@
-import { verifyToken } from '@clerk/backend';
 import { Module } from '@nestjs/common';
-import { CLERK_TOKEN_VERIFIER, type TokenVerifier } from './clerk-auth.guard';
-import { ClerkClientProvider } from './clerk-client.provider';
+import { ConfigService } from '@nestjs/config';
+import { AUTH_TOKEN_VERIFIER, supabaseVerifierFactory } from './supabase-auth.guard';
 
 /**
- * Clerk plumbing: the Backend API client and the token verifier function.
- * The guard itself is registered as `APP_GUARD` in `AppModule` (it needs
- * `UsersService`, which lives in a module that imports this one).
+ * Auth. Provides only the token verifier — there is no provider SDK client
+ * anymore: Supabase access tokens carry `email` and `user_metadata`, so the
+ * local user row is provisioned from the token alone.
+ *
+ * The guard itself is registered in `AppModule` because it depends on
+ * `UsersService`, so the dependency points that way and never back.
  */
 @Module({
-  providers: [ClerkClientProvider, { provide: CLERK_TOKEN_VERIFIER, useValue: verifyToken as TokenVerifier }],
-  exports: [ClerkClientProvider, CLERK_TOKEN_VERIFIER],
+  providers: [
+    {
+      provide: AUTH_TOKEN_VERIFIER,
+      useFactory: supabaseVerifierFactory,
+      inject: [ConfigService],
+    },
+  ],
+  exports: [AUTH_TOKEN_VERIFIER],
 })
 export class AuthModule {}

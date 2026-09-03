@@ -1,35 +1,96 @@
 <app-auth-layout>
-  @if (!clerk.enabled()) {
+  @if (!auth.enabled()) {
     <div class="auth-notice" role="status">
       <ui-icon name="alert" [size]="18" />
       <div>
         <strong>Authentication is not configured</strong>
         <p>
-          Set <code>clerkPublishableKey</code> in <code>src/environments/environment.ts</code> to enable sign-in.
-          Until then the editor runs without an account.
+          Set <code>supabaseUrl</code> and <code>supabaseAnonKey</code> in
+          <code>src/environments/environment.ts</code> to enable sign-in. Until then the editor runs without an
+          account.
         </p>
         <a uiButton variant="primary" routerLink="/editor">Open editor</a>
       </div>
     </div>
+  } @else if (auth.loadError(); as err) {
+    <div class="auth-notice auth-notice--error" role="alert">
+      <ui-icon name="alert" [size]="18" />
+      <div>
+        <strong>Sign-in could not be loaded</strong>
+        <p>{{ err }}</p>
+        <button type="button" uiButton variant="primary" (click)="retry()">Retry</button>
+      </div>
+    </div>
+  } @else if (linkSent()) {
+    <div class="auth-card">
+      <div class="auth-sent" role="status">
+        <span class="auth-sent__mark" aria-hidden="true"><ui-icon name="check" [size]="20" /></span>
+        <h2>Check your email</h2>
+        <p>We sent a sign-in link to <strong>{{ email() }}</strong>. Open it on this device to continue.</p>
+        <button type="button" uiButton variant="ghost" (click)="linkSent.set(false)">Use a password instead</button>
+      </div>
+    </div>
   } @else {
-    @if (clerk.loadError(); as err) {
-      <div class="auth-notice auth-notice--error" role="alert">
-        <ui-icon name="alert" [size]="18" />
-        <div>
-          <strong>Sign-in could not be loaded</strong>
-          <p>{{ err }}</p>
-          <button type="button" uiButton variant="primary" (click)="retry()">Retry</button>
+    <div class="auth-card">
+      <h1 class="auth-card__title">Sign in</h1>
+      <p class="auth-card__sub">Welcome back. Pick up where you left off.</p>
+
+      <app-oauth-buttons verb="Continue" [redirectAfter]="redirectUrl()" (failed)="error.set($event)" />
+
+      <div class="auth-sep">or</div>
+
+      <form class="auth-form" (ngSubmit)="submit()">
+        <div class="auth-field">
+          <label class="auth-field__label" for="si-email">Email</label>
+          <input
+            uiInput
+            id="si-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+            [value]="email()"
+            [disabled]="busy()"
+            (input)="email.set(value($event))"
+          />
         </div>
-      </div>
-    } @else if (!clerk.isLoaded()) {
-      <div class="auth-skeleton" aria-busy="true" aria-label="Loading sign-in">
-        <ui-skeleton width="60%" height="24px" />
-        <ui-skeleton width="80%" height="14px" />
-        <ui-skeleton width="100%" height="40px" radius="var(--ui-radius-md)" />
-        <ui-skeleton width="100%" height="40px" radius="var(--ui-radius-md)" />
-        <ui-skeleton width="100%" height="40px" radius="var(--ui-radius-md)" />
-      </div>
-    }
-    <div #host class="clerk-host" [class.clerk-host--hidden]="!clerk.isLoaded() || !!clerk.loadError()"></div>
+
+        @if (!magicMode()) {
+          <div class="auth-field">
+            <label class="auth-field__label" for="si-password">
+              Password
+              <a routerLink="/reset-password">Forgot password?</a>
+            </label>
+            <input
+              uiInput
+              id="si-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              [value]="password()"
+              [disabled]="busy()"
+              (input)="password.set(value($event))"
+            />
+          </div>
+        }
+
+        @if (error(); as message) {
+          <p class="auth-error" role="alert"><ui-icon name="alert" [size]="15" />{{ message }}</p>
+        }
+
+        <button type="submit" uiButton class="auth-submit" [disabled]="!canSubmit()" [loading]="busy()">
+          {{ magicMode() ? 'Email me a sign-in link' : 'Sign in' }}
+        </button>
+      </form>
+
+      <p class="auth-alt">
+        <button type="button" class="auth-link" [disabled]="busy()" (click)="toggleMagic()">
+          {{ magicMode() ? 'Sign in with a password' : 'Sign in with an email link instead' }}
+        </button>
+      </p>
+
+      <p class="auth-alt">No account yet? <a routerLink="/sign-up">Create one</a></p>
+    </div>
   }
 </app-auth-layout>

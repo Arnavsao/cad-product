@@ -5,7 +5,7 @@ import { UiIconComponent } from '../../shared/ui/icon.component';
 
 /**
  * Two-column frame for the auth pages: a brand rail (≥960px) with the value
- * proposition on the left, the projected Clerk card on the right. Below 960px
+ * proposition on the left, the projected form card on the right. Below 960px
  * the rail collapses to a compact brand row above the card.
  */
 @Component({
