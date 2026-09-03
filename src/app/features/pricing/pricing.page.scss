@@ -1,0 +1,386 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+
+.pr {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── chrome ────────────────────────────────────────────────────────────────── */
+
+.pr__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  padding: var(--ui-space-4) var(--ui-space-6);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.pr__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--ui-text-strong);
+  text-decoration: none;
+}
+
+.pr__brand-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+}
+
+.pr__main {
+  flex: 1;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--ui-space-10) var(--ui-space-6);
+}
+
+/* ── hero ──────────────────────────────────────────────────────────────────── */
+
+.pr__hero {
+  text-align: center;
+  margin-bottom: var(--ui-space-10);
+}
+
+.pr__title {
+  margin: 0;
+  font-size: var(--ui-text-3xl);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--ui-text-strong);
+}
+
+.pr__lede {
+  max-width: 56ch;
+  margin: var(--ui-space-3) auto 0;
+  font-size: var(--ui-text-lg);
+  color: var(--ui-text-dim);
+  line-height: var(--ui-leading);
+}
+
+.pr__toggle {
+  display: inline-flex;
+  gap: 2px;
+  margin-top: var(--ui-space-6);
+  padding: 3px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface);
+}
+
+.pr__toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: var(--ui-radius-full);
+  background: none;
+  color: var(--ui-text-dim);
+  font-size: var(--ui-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--ui-dur-fast), color var(--ui-dur-fast);
+
+  &:hover { color: var(--ui-text); }
+  &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+
+  &--on {
+    background: var(--ui-accent);
+    color: var(--ui-on-accent);
+  }
+}
+
+.pr__toggle-save {
+  font-size: var(--ui-text-xs);
+  font-weight: 600;
+  opacity: .9;
+}
+
+/* ── tiers ─────────────────────────────────────────────────────────────────── */
+
+.pr__tiers {
+  display: grid;
+  gap: var(--ui-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: var(--ui-space-12);
+  /* Room for the featured card's lift, so it is not clipped by the grid. */
+  padding-top: var(--ui-space-3);
+}
+
+.pr__tier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--ui-space-6);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl);
+  background: var(--ui-surface);
+
+  &--featured {
+    border-color: var(--ui-accent);
+    box-shadow: var(--ui-shadow-panel);
+  }
+}
+
+.pr__tier-flag {
+  position: absolute;
+  top: -11px;
+  left: var(--ui-space-6);
+  padding: 2px 10px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+  font-size: var(--ui-text-xs);
+  font-weight: 600;
+}
+
+.pr__tier-name {
+  margin: 0;
+  font-size: var(--ui-text-lg);
+  font-weight: 600;
+  color: var(--ui-text-strong);
+}
+
+.pr__tier-tagline {
+  margin: 4px 0 var(--ui-space-5);
+  font-size: var(--ui-text-sm);
+  color: var(--ui-text-dim);
+  line-height: var(--ui-leading);
+  min-height: 2.6em;
+}
+
+.pr__price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+}
+
+.pr__price-amount {
+  font-size: var(--ui-text-3xl);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--ui-text-strong);
+}
+
+.pr__price-unit {
+  font-size: var(--ui-text-sm);
+  color: var(--ui-text-dim);
+}
+
+.pr__price-note {
+  margin: 2px 0 var(--ui-space-5);
+  font-size: var(--ui-text-xs);
+  color: var(--ui-text-dim);
+}
+
+.pr__tier-cta {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: var(--ui-space-5);
+}
+
+.pr__features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: var(--ui-text-sm);
+    color: var(--ui-text);
+    line-height: 1.45;
+  }
+
+  ui-icon {
+    color: var(--ui-success);
+    flex: 0 0 auto;
+    margin-top: 2px;
+  }
+}
+
+/* ── comparison ────────────────────────────────────────────────────────────── */
+
+.pr__section-title {
+  margin: 0 0 var(--ui-space-5);
+  font-size: var(--ui-text-2xl);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--ui-text-strong);
+  text-align: center;
+}
+
+.pr__compare { margin-bottom: var(--ui-space-12); }
+
+/* The table is the one thing here that cannot reflow; let it scroll on its own
+   rather than widening the page. */
+.pr__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl);
+}
+
+.pr__table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: var(--ui-text-sm);
+
+  th, td {
+    padding: 11px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--ui-border);
+  }
+
+  thead th {
+    font-weight: 600;
+    color: var(--ui-text-strong);
+    background: var(--ui-surface);
+    position: sticky;
+    top: 0;
+  }
+
+  thead th:not(:first-child),
+  tbody td { text-align: center; }
+
+  tbody th[scope='row'] {
+    font-weight: 400;
+    color: var(--ui-text);
+  }
+
+  tbody tr:last-child th,
+  tbody tr:last-child td { border-bottom: 0; }
+}
+
+.pr__group th {
+  padding-top: 14px;
+  padding-bottom: 8px;
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ui-text-dim);
+  background: var(--ui-hover);
+}
+
+.pr__yes { color: var(--ui-success); vertical-align: middle; }
+.pr__no { color: var(--ui-text-placeholder); }
+
+/* ── faq ───────────────────────────────────────────────────────────────────── */
+
+.pr__faq { margin-bottom: var(--ui-space-12); }
+
+.pr__faq-list {
+  max-width: 760px;
+  margin: 0 auto;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl);
+  overflow: hidden;
+}
+
+.pr__faq-item {
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+
+  &:last-child { border-bottom: 0; }
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-4);
+    padding: 14px 18px;
+    font-size: var(--ui-text-md);
+    font-weight: 500;
+    color: var(--ui-text-strong);
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker { display: none; }
+    &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+  }
+
+  ui-icon {
+    color: var(--ui-text-dim);
+    flex: 0 0 auto;
+    transition: transform var(--ui-dur-fast) var(--ui-ease);
+  }
+
+  &[open] ui-icon { transform: rotate(180deg); }
+
+  p {
+    margin: 0;
+    padding: 0 18px 16px;
+    font-size: var(--ui-text-md);
+    color: var(--ui-text-dim);
+    line-height: var(--ui-leading);
+  }
+}
+
+/* ── closing cta ───────────────────────────────────────────────────────────── */
+
+.pr__cta {
+  text-align: center;
+  padding: var(--ui-space-10) var(--ui-space-6);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl);
+  background: var(--ui-surface);
+}
+
+.pr__cta-title {
+  margin: 0;
+  font-size: var(--ui-text-2xl);
+  font-weight: 700;
+  color: var(--ui-text-strong);
+}
+
+.pr__cta-text {
+  margin: var(--ui-space-2) 0 var(--ui-space-5);
+  font-size: var(--ui-text-md);
+  color: var(--ui-text-dim);
+}
+
+/* ── footer ────────────────────────────────────────────────────────────────── */
+
+.pr__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  flex-wrap: wrap;
+  padding: var(--ui-space-5) var(--ui-space-6);
+  border-top: 1px solid var(--ui-border);
+  font-size: var(--ui-text-sm);
+  color: var(--ui-text-dim);
+}
+
+.pr__foot-links {
+  display: flex;
+  gap: var(--ui-space-4);
+
+  a {
+    color: var(--ui-text-dim);
+    text-decoration: none;
+
+    &:hover { color: var(--ui-text); text-decoration: underline; }
+  }
+}

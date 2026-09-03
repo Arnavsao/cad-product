@@ -14,15 +14,26 @@ export interface RenameDialogData {
   value: string;
   /** Default "Rename". */
   confirmLabel?: string;
+  /**
+   * Optional commit hook. When given, the dialog calls it on submit and stays
+   * open if it resolves with a message, which it then shows beside the field.
+   *
+   * This exists for one error in particular: renaming onto a sibling's name is
+   * a 409 `NAME_TAKEN`, and the only place that is useful is next to the field
+   * the user has to change. Closing first and toasting after would throw away
+   * what they typed. Resolve `null` on success — the dialog closes with the name.
+   */
+  onSubmit?: (name: string) => Promise<string | null>;
 }
 
 /**
  * Single-field rename prompt. Resolves with the trimmed new name, or
  * `undefined` when cancelled / dismissed / unchanged.
  *
- * Design decision: the dialog validates but does not call the API — the caller
- * owns the optimistic list update and the failure toast, and reusing this for
- * folders as well as drawings then costs nothing.
+ * Design decision: the dialog validates and, by default, does not call the API —
+ * the caller owns the optimistic list update and the failure toast, so reusing
+ * this for folders as well as drawings costs nothing. A caller that needs an
+ * error shown *inside* the dialog passes `onSubmit` (see `RenameDialogData`).
  */
 @Component({
   selector: 'app-rename-dialog',
@@ -46,18 +57,28 @@ export interface RenameDialogData {
           type="text"
           [id]="fieldId"
           [value]="name()"
-          [invalid]="!valid()"
-          (input)="name.set(value($event))"
+          [invalid]="!valid() || !!error()"
+          [disabled]="saving()"
+          (input)="onInput($event)"
           (keydown.enter)="submit()"
         />
         @if (!valid()) {
           <p class="rd__hint" role="alert">A name is required.</p>
+        } @else if (error(); as message) {
+          <p class="rd__hint" role="alert">{{ message }}</p>
         }
       </div>
 
       <footer class="ui-dialog__footer">
-        <button type="button" uiButton variant="secondary" (click)="ref.close()">Cancel</button>
-        <button type="button" uiButton variant="primary" [disabled]="!valid()" (click)="submit()">
+        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">Cancel</button>
+        <button
+          type="button"
+          uiButton
+          variant="primary"
+          [loading]="saving()"
+          [disabled]="!valid() || saving()"
+          (click)="submit()"
+        >
           {{ data.confirmLabel ?? 'Rename' }}
         </button>
       </footer>
@@ -79,6 +100,8 @@ export class RenameDialogComponent implements AfterViewInit {
   protected readonly titleId = nextId('rename-title');
   protected readonly fieldId = nextId('rename-field');
   protected readonly name = signal(this.data.value);
+  protected readonly saving = signal(false);
+  protected readonly error = signal<string | null>(null);
   protected readonly valid = computed(() => this.name().trim().length > 0);
 
   ngAfterViewInit(): void {
@@ -87,14 +110,36 @@ export class RenameDialogComponent implements AfterViewInit {
     el?.select();
   }
 
-  protected value(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+  protected onInput(event: Event): void {
+    this.name.set((event.target as HTMLInputElement).value);
+    // Typing is the fix for a name clash, so clear the error as they type.
+    this.error.set(null);
   }
 
-  protected submit(): void {
+  protected async submit(): Promise<void> {
     const next = this.name().trim();
-    if (!next) return;
-    this.ref.close(next === this.data.value ? undefined : next);
+    if (!next || this.saving()) return;
+    if (next === this.data.value) {
+      this.ref.close(undefined);
+      return;
+    }
+    if (!this.data.onSubmit) {
+      this.ref.close(next);
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set(null);
+    try {
+      const message = await this.data.onSubmit(next);
+      if (message === null) {
+        this.ref.close(next);
+      } else {
+        this.error.set(message);
+      }
+    } finally {
+      this.saving.set(false);
+    }
   }
 }
 

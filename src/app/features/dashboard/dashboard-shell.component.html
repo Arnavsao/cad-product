@@ -9,35 +9,44 @@
   <header class="dash__top">
     <div class="dash__search">
       <ui-icon class="dash__search-icon" name="search" [size]="15" />
-      <input
-        uiInput
-        type="search"
-        class="dash__search-input"
-        placeholder="Search drawings"
-        aria-label="Search drawings"
-        [value]="search()"
-        (input)="onSearchInput($event)"
-        (keydown.enter)="onSearchEnter()"
-      />
+      <input uiInput type="search" class="dash__search-input" placeholder="Search drawings" aria-label="Search drawings"
+        [value]="search()" (input)="onSearchInput($event)" (keydown.enter)="onSearchEnter()" />
       @if (search()) {
-        <button
-          type="button"
-          uiButton
-          variant="ghost"
-          size="sm"
-          iconOnly
-          class="dash__search-clear"
-          aria-label="Clear search"
-          (click)="clearSearch()"
-        >
-          <ui-icon name="close" [size]="14" />
-        </button>
+      <button type="button" uiButton variant="ghost" size="sm" iconOnly class="dash__search-clear"
+        aria-label="Clear search" (click)="clearSearch()">
+        <ui-icon name="close" [size]="14" />
+      </button>
       }
     </div>
-    <app-account-button />
+    <div class="dash__actions">
+      <a uiButton variant="ghost" size="sm" iconOnly class="dash__action" routerLink="/dashboard/settings"
+        title="Settings" aria-label="Settings" [attr.aria-current]="section() === 'settings' ? 'page' : null">
+        <ui-icon name="settings" [size]="17" />
+      </a>
+
+      <button type="button" uiButton variant="ghost" size="sm" iconOnly class="dash__action" title="Help"
+        aria-label="Help" [uiMenuTrigger]="helpMenu" menuAlign="end" (uiMenuSelect)="onHelpSelect($event.id)">
+        <ui-icon name="help" [size]="17" />
+      </button>
+
+      <a uiButton variant="ghost" size="sm" iconOnly class="dash__action dash__bell" routerLink="/dashboard/inbox"
+        [title]="bellTitle()" [attr.aria-label]="bellTitle()"
+        [attr.aria-current]="section() === 'inbox' ? 'page' : null">
+        <ui-icon name="bell" [size]="17" />
+        @if (inbox.hasUnread()) {
+        <span class="dash__badge" aria-hidden="true">{{ badgeLabel() }}</span>
+        }
+      </a>
+
+      <app-account-button />
+    </div>
   </header>
 
   <nav class="dash__nav" aria-label="Dashboard">
+    <div class="dash__workspace">
+      <app-workspace-switcher />
+    </div>
+
     <div class="dash__create">
       <app-new-drawing-menu [folderId]="folderId()" (created)="onDrawingCreated()" />
       <button type="button" uiButton class="dash__wide" (click)="pickFiles()">
@@ -64,20 +73,41 @@
         </a>
       </li>
       <li>
+        <a class="dash__link" [class.dash__link--on]="section() === 'shared'" routerLink="/dashboard/shared">
+          <ui-icon name="share" [size]="16" />
+          Shared with me
+        </a>
+      </li>
+      <li>
         <a class="dash__link" [class.dash__link--on]="section() === 'trash'" routerLink="/dashboard/trash">
           <ui-icon name="trash" [size]="16" />
           Trash
         </a>
       </li>
+      @if (workspace.isOrg()) {
+      <li>
+        <a class="dash__link" [class.dash__link--on]="section() === 'organization'"
+          routerLink="/dashboard/organization">
+          <ui-icon name="users" [size]="16" />
+          Members
+        </a>
+      </li>
+      }
+      <li>
+        <a class="dash__link" [class.dash__link--on]="section() === 'profile'" routerLink="/dashboard/profile">
+          <ui-icon name="user" [size]="16" />
+          Personal info
+        </a>
+      </li>
     </ul>
 
     <div class="dash__nav-foot">
-      <a class="dash__link" [class.dash__link--on]="section() === 'settings'" routerLink="/dashboard/settings">
-        <ui-icon name="settings" [size]="16" />
-        Settings
+      <a class="dash__link" [class.dash__link--on]="section() === 'feedback'" routerLink="/dashboard/feedback">
+        <ui-icon name="message" [size]="16" />
+        Provide Feedback
       </a>
 
-      @if (usage(); as u) {
+      <!-- @if (usage(); as u) {
         <div class="dash__usage">
           <span class="dash__usage-main">{{ u.bytesUsed | fileSize }} used</span>
           <span class="dash__usage-sub">{{ u.drawingCount }} {{ u.drawingCount === 1 ? 'drawing' : 'drawings' }}</span>
@@ -87,82 +117,72 @@
           <ui-skeleton width="90px" height="12px" />
           <ui-skeleton width="60px" height="10px" />
         </div>
-      }
+      } -->
     </div>
   </nav>
 
-  <main
-    class="dash__content"
-    appUploadDropzone
-    #zone="appUploadDropzone"
-    [class.dash__content--over]="zone.over()"
-    (filesDropped)="onFilesDropped($event)"
-  >
-    <router-outlet />
+  <main class="dash__content" appUploadDropzone #zone="appUploadDropzone" [class.dash__content--over]="zone.over()"
+    (filesDropped)="onFilesDropped($event)">
+    <!--
+      One container centres every routed page. The width class lives here, not on
+      the page: `--ui-page-max` has to be set on the same element that reads it,
+      and custom properties do not inherit upwards from the routed component.
+    -->
+    <div class="ui-page dash__page" [class.dash__page--wide]="wideSection()">
+      <app-invitations-banner />
+      <router-outlet />
+    </div>
 
     @if (zone.over()) {
-      <div class="dash__drop" aria-hidden="true">
-        <div class="dash__drop-card">
-          <ui-icon name="upload" [size]="26" [strokeWidth]="1.5" />
-          <p>Drop to upload</p>
-          <span>.dxf and .dwg files</span>
-        </div>
+    <div class="dash__drop" aria-hidden="true">
+      <div class="dash__drop-card">
+        <ui-icon name="upload" [size]="26" [strokeWidth]="1.5" />
+        <p>Drop to upload</p>
+        <span>.dxf and .dwg files</span>
       </div>
+    </div>
     }
   </main>
 
   @if (upload.tasks().length) {
-    <aside class="dash__uploads" aria-label="Uploads">
-      <header class="dash__uploads-head">
-        <span>Uploads</span>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Clear finished uploads" (click)="upload.clearFinished()">
-          <ui-icon name="close" [size]="14" />
-        </button>
-      </header>
-      <ul>
-        @for (task of upload.tasks(); track task.id) {
-          <li class="dash__upload" [class.dash__upload--error]="task.state === 'error'">
-            <div class="dash__upload-row">
-              <ui-icon [name]="task.state === 'error' ? 'alert' : task.state === 'done' ? 'check' : 'upload'" [size]="14" />
-              <span class="dash__upload-name" [title]="task.fileName">{{ task.fileName }}</span>
-              <span class="dash__upload-state">
-                @switch (task.state) {
-                  @case ('uploading') { {{ task.progress }}% }
-                  @case ('importing') { Importing }
-                  @case ('done') { Done }
-                  @default { Failed }
-                }
-              </span>
-            </div>
-            @if (task.state === 'uploading' || task.state === 'importing') {
-              <div
-                class="dash__upload-bar"
-                role="progressbar"
-                [attr.aria-valuenow]="task.progress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                [attr.aria-label]="'Uploading ' + task.fileName"
-              >
-                <span [style.width.%]="task.progress"></span>
-              </div>
+  <aside class="dash__uploads" aria-label="Uploads">
+    <header class="dash__uploads-head">
+      <span>Uploads</span>
+      <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Clear finished uploads"
+        (click)="upload.clearFinished()">
+        <ui-icon name="close" [size]="14" />
+      </button>
+    </header>
+    <ul>
+      @for (task of upload.tasks(); track task.id) {
+      <li class="dash__upload" [class.dash__upload--error]="task.state === 'error'">
+        <div class="dash__upload-row">
+          <ui-icon [name]="task.state === 'error' ? 'alert' : task.state === 'done' ? 'check' : 'upload'" [size]="14" />
+          <span class="dash__upload-name" [title]="task.fileName">{{ task.fileName }}</span>
+          <span class="dash__upload-state">
+            @switch (task.state) {
+            @case ('uploading') { {{ task.progress }}% }
+            @case ('importing') { Importing }
+            @case ('done') { Done }
+            @default { Failed }
             }
-            @if (task.message) {
-              <p class="dash__upload-msg">{{ task.message }}</p>
-            }
-          </li>
+          </span>
+        </div>
+        @if (task.state === 'uploading' || task.state === 'importing') {
+        <div class="dash__upload-bar" role="progressbar" [attr.aria-valuenow]="task.progress" aria-valuemin="0"
+          aria-valuemax="100" [attr.aria-label]="'Uploading ' + task.fileName">
+          <span [style.width.%]="task.progress"></span>
+        </div>
         }
-      </ul>
-    </aside>
+        @if (task.message) {
+        <p class="dash__upload-msg">{{ task.message }}</p>
+        }
+      </li>
+      }
+    </ul>
+  </aside>
   }
 
-  <input
-    #fileInput
-    type="file"
-    class="ui-visually-hidden"
-    multiple
-    tabindex="-1"
-    aria-hidden="true"
-    [accept]="uploadAccept"
-    (change)="onFileInput($event)"
-  />
+  <input #fileInput type="file" class="ui-visually-hidden" multiple tabindex="-1" aria-hidden="true"
+    [accept]="uploadAccept" (change)="onFileInput($event)" />
 </div>

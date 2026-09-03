@@ -21,6 +21,16 @@ export class CreateDrawingDto {
   @Length(1, 64)
   folderId?: string | null;
 
+  /**
+   * Workspace to create in; omit for personal. Ignored when `folderId` is
+   * given — the folder's workspace wins, so a drawing can never sit in an org
+   * folder while claiming to be personal.
+   */
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  organizationId?: string | null;
+
   /** Full DXF text. Sniffed with `looksLikeDxf` before it is stored. */
   @IsOptional()
   @IsString()
@@ -38,6 +48,50 @@ export class UpdateDrawingDto {
   @IsString()
   @Length(1, 64)
   folderId?: string | null;
+}
+
+/**
+ * Body of `POST /drawings/:id/move` — the explicit cross-workspace move.
+ *
+ * `PATCH /drawings/:id` still handles a move *within* one workspace (and still
+ * answers 422 `CROSS_WORKSPACE_MOVE` when its `folderId` points elsewhere):
+ * that request never named a workspace, so re-tagging the drawing and changing
+ * who can see it is not what it asked for. This route names one.
+ */
+export class MoveDrawingDto {
+  /** Target workspace: `null` (or omitted) for the caller's personal drawings. */
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  organizationId?: string | null;
+
+  /** Target folder inside that workspace; `null`/omitted for its root. */
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  folderId?: string | null;
+}
+
+/**
+ * Body of `POST /drawings/:id/copy`. Same target fields as a move, plus an
+ * optional name; the copy is auto-suffixed rather than refused when the name is
+ * taken at the destination.
+ */
+export class CopyDrawingDto {
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  organizationId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  folderId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, MAX_NAME_LENGTH)
+  name?: string;
 }
 
 /** Body of `POST /drawings/:id/duplicate`. */

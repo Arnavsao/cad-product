@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { Actor } from '../common/access';
+import { CurrentActor } from '../common/decorators/current-actor.decorator';
 import { DrawingsService } from './drawings.service';
 import type { DrawingSummaryDto, PresignDto } from './dto/drawing.dto';
 import { ImportDrawingDto, PresignUploadDto } from './dto/upload.dto';
@@ -27,15 +28,15 @@ export class UploadsController {
   @Post('uploads/presign')
   @HttpCode(HttpStatus.OK)
   @Throttle(UPLOAD_THROTTLE)
-  presign(@CurrentUser('id') userId: string, @Body() dto: PresignUploadDto): Promise<PresignDto> {
-    return this.drawings.presignUpload(userId, dto);
+  presign(@CurrentActor() actor: Actor, @Body() dto: PresignUploadDto): Promise<PresignDto> {
+    return this.drawings.presignUpload(actor, dto);
   }
 
   /** `POST /drawings/import` → `DrawingSummaryDto` (201). */
   @Post('drawings/import')
   @HttpCode(HttpStatus.CREATED)
   @Throttle(UPLOAD_THROTTLE)
-  import(@CurrentUser('id') userId: string, @Body() dto: ImportDrawingDto): Promise<DrawingSummaryDto> {
-    return this.drawings.importUpload(userId, dto);
+  import(@CurrentActor() actor: Actor, @Body() dto: ImportDrawingDto): Promise<DrawingSummaryDto> {
+    return this.drawings.importUpload(actor, dto);
   }
 }

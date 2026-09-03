@@ -4,25 +4,60 @@ import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterOutlet } from 
 import { filter, map, startWith } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { MeService } from '../../core/api/me.service';
+import { WorkspaceService } from '../../core/api/workspace.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { AccountButtonComponent } from '../../shared/ui/account-button.component';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiDialogService } from '../../shared/ui/dialog/ui-dialog.service';
 import { UiIconComponent } from '../../shared/ui/icon.component';
 import { UiInputDirective } from '../../shared/ui/input.directive';
+import type { UiMenuItem } from '../../shared/ui/menu/ui-menu.component';
+import { UiMenuTriggerDirective } from '../../shared/ui/menu/ui-menu-trigger.directive';
 import { FileSizePipe } from '../../shared/ui/pipes/file-size.pipe';
 import { UiSkeletonComponent } from '../../shared/ui/skeleton.component';
+import { InvitationsBannerComponent } from './components/invitations-banner.component';
 import { NewDrawingMenuComponent } from './components/new-drawing-menu.component';
 import { NewFolderDialogComponent, NewFolderDialogData } from './components/new-folder-dialog.component';
+import { WorkspaceSwitcherComponent } from './components/workspace-switcher.component';
 import { UploadDropzoneDirective } from './components/upload-dropzone.directive';
 import { DashboardEventsService } from './data/dashboard-events.service';
+import { InboxService } from './data/inbox.service';
 import { UPLOAD_ACCEPT, UploadService } from './data/upload.service';
 import { FolderDto } from '../../core/api/api.models';
 
-/** Which left-nav entry the current URL belongs to. */
-type DashboardSection = 'recent' | 'drawings' | 'trash' | 'settings';
+/** Which nav entry (left rail or header action) the current URL belongs to. */
+type DashboardSection =
+  | 'recent'
+  | 'drawings'
+  | 'shared'
+  | 'trash'
+  | 'settings'
+  | 'feedback'
+  | 'inbox'
+  | 'profile'
+  | 'organization';
 
 const SEARCH_DEBOUNCE_MS = 250;
+
+/** Sections that fill the content column rather than sitting at a form measure. */
+const WIDE_SECTIONS: ReadonlySet<DashboardSection> = new Set<DashboardSection>(['recent', 'drawings', 'shared', 'trash']);
+
+/** Anything above this shows as "9+" so the badge cannot stretch the button. */
+const BADGE_CAP = 9;
+
+/**
+ * Header help menu. `UiMenuItem` carries no href, so each id is routed in
+ * `onHelpSelect`. Only What's New and About are wired up — Social / Community /
+ * Contact Support were explicitly deferred, and a menu entry that does nothing is
+ * worse than one that is absent.
+ */
+const HELP_MENU: UiMenuItem[] = [
+  { id: 'whats-new', label: "What's New", icon: 'sparkle' },
+  { id: 'about', label: 'About', icon: 'help' },
+  { id: 'sep', label: '', separator: true },
+  { id: 'pricing', label: 'Plans & pricing', icon: 'tag' },
+  { id: 'feedback', label: 'Provide Feedback', icon: 'message' },
+];
 
 /**
  * Chrome around every dashboard page: left nav, top bar, drop target, outlet.
@@ -54,10 +89,13 @@ const SEARCH_DEBOUNCE_MS = 250;
     UiButtonDirective,
     UiIconComponent,
     UiInputDirective,
+    UiMenuTriggerDirective,
     UiSkeletonComponent,
     FileSizePipe,
+    InvitationsBannerComponent,
     NewDrawingMenuComponent,
     UploadDropzoneDirective,
+    WorkspaceSwitcherComponent,
   ],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
@@ -70,7 +108,9 @@ export class DashboardShellComponent {
   private readonly events = inject(DashboardEventsService);
 
   protected readonly me = inject(MeService);
+  protected readonly workspace = inject(WorkspaceService);
   protected readonly upload = inject(UploadService);
+  protected readonly inbox = inject(InboxService);
 
   protected readonly appName = environment.appName;
   protected readonly uploadAccept = UPLOAD_ACCEPT;
@@ -97,10 +137,35 @@ export class DashboardShellComponent {
 
   protected readonly section = computed<DashboardSection>(() => {
     const url = this.url();
+    if (url.startsWith('/dashboard/shared')) return 'shared';
     if (url.startsWith('/dashboard/trash')) return 'trash';
     if (url.startsWith('/dashboard/settings')) return 'settings';
+    if (url.startsWith('/dashboard/feedback')) return 'feedback';
+    if (url.startsWith('/dashboard/inbox')) return 'inbox';
+    if (url.startsWith('/dashboard/profile')) return 'profile';
+    if (url.startsWith('/dashboard/organization')) return 'organization';
     if (url.startsWith('/dashboard/drawings') || url.startsWith('/dashboard/folders')) return 'drawings';
     return 'recent';
+  });
+
+  /**
+   * Sections whose content is a table or tile grid, and should use the whole
+   * content width; the rest are forms and read better at a capped measure.
+   */
+  protected readonly wideSection = computed(() => WIDE_SECTIONS.has(this.section()));
+
+  protected readonly helpMenu = HELP_MENU;
+
+  /** `9+` past the cap so a large count cannot stretch the bell button. */
+  protected readonly badgeLabel = computed(() => {
+    const n = this.inbox.unreadCount();
+    return n > BADGE_CAP ? `${BADGE_CAP}+` : String(n);
+  });
+
+  protected readonly bellTitle = computed(() => {
+    const n = this.inbox.unreadCount();
+    if (!n) return 'Notifications';
+    return `Notifications — ${n} unread`;
   });
 
   /** Mirrors `?q=`; also the value of the search box. */
@@ -115,7 +180,15 @@ export class DashboardShellComponent {
   private debounce: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    void this.me.load().catch(() => this.usageUnavailable.set(true));
+    // `/me` carries the organization list, so the switcher is populated by the
+    // same request the shell already needs — no second round-trip on arrival.
+    void this.me
+      .load()
+      .then((me) => this.workspace.hydrate(me))
+      .catch(() => this.usageUnavailable.set(true));
+    // The badge needs a count on arrival. `refreshCount` swallows its own errors,
+    // so a notifications outage never blocks the dashboard from rendering.
+    void this.inbox.refreshCount();
 
     // Adopt `?q=` when it changes from outside (deep link, Back, nav link).
     effect(() => {
@@ -169,6 +242,35 @@ export class DashboardShellComponent {
     this.events.bump();
   }
 
+  /** Routes a help-menu pick. `UiMenuItem` has no href, so ids are dispatched here. */
+  protected onHelpSelect(id: string): void {
+    switch (id) {
+      case 'whats-new':
+        void this.router.navigateByUrl('/whats-new');
+        return;
+      case 'pricing':
+        void this.router.navigateByUrl('/pricing');
+        return;
+      case 'feedback':
+        void this.router.navigateByUrl('/dashboard/feedback');
+        return;
+      case 'about':
+        void this.openAbout();
+        return;
+      default:
+        return;
+    }
+  }
+
+  /**
+   * About is a dialog, not a route — it is a glance at the version, not a
+   * destination. Loaded on demand so its content is not in the dashboard chunk.
+   */
+  private async openAbout(): Promise<void> {
+    const { AboutDialogComponent } = await import('../about/about-dialog.component');
+    await this.dialog.open(AboutDialogComponent, undefined, { width: '420px' }).afterClosed;
+  }
+
   protected pickFiles(): void {
     this.fileInput()?.nativeElement.click();
   }
@@ -187,7 +289,10 @@ export class DashboardShellComponent {
   protected async newFolder(): Promise<void> {
     if (this.creatingFolder()) return;
     this.creatingFolder.set(true);
-    const data: NewFolderDialogData = { parentId: this.folderId() };
+    const data: NewFolderDialogData = {
+      parentId: this.folderId(),
+      organizationId: this.workspace.activeOrgId(),
+    };
     try {
       const folder = await this.dialog.open<FolderDto, NewFolderDialogData>(NewFolderDialogComponent, data).afterClosed;
       if (!folder) return;
@@ -201,7 +306,7 @@ export class DashboardShellComponent {
 
   private async startUpload(files: File[]): Promise<void> {
     if (!files.length) return;
-    await this.upload.upload(files, this.folderId());
+    await this.upload.upload(files, this.folderId(), this.workspace.activeOrgId());
     this.events.bump();
     void this.me.refresh().catch(() => undefined); // storage usage moved
   }

@@ -68,6 +68,12 @@ export class ImportDrawingDto {
   @Length(1, 64)
   folderId?: string | null;
 
+  /** Workspace to import into; ignored when `folderId` is given. */
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  organizationId?: string | null;
+
   /**
    * Optional client-side size assertion. When present it must match what the
    * bucket actually holds, otherwise the upload was truncated or replaced

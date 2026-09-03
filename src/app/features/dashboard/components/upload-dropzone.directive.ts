@@ -1,4 +1,5 @@
 import { Directive, input, output, signal } from '@angular/core';
+import { isDropHandled } from './drag-payload';
 
 /**
  * Turns any element into a file drop target.
@@ -64,6 +65,10 @@ export class UploadDropzoneDirective {
     event.preventDefault();
     this.depth = 0;
     this.over.set(false);
+    // A nested target (a folder tile) already imported these files into itself.
+    // The hover state above is reset either way, which is why that target lets
+    // the event bubble instead of stopping it — see `markDropHandled`.
+    if (isDropHandled(event)) return;
     const files = Array.from(event.dataTransfer?.files ?? []);
     if (files.length) this.filesDropped.emit(files);
   }

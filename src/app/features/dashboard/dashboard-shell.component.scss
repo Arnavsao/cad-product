@@ -34,6 +34,52 @@
     background: var(--ui-surface);
   }
 
+  /* Utility cluster: settings / help / notifications / account. */
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-2);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  &__action {
+    position: relative;
+    color: var(--ui-text-dim);
+
+    &:hover { color: var(--ui-text); }
+
+    /* The active surface is reached from here, so mark it like a nav link. */
+    &[aria-current='page'] {
+      color: var(--ui-accent);
+      background: var(--ui-active);
+    }
+  }
+
+  &__bell { overflow: visible; }
+
+  /*
+   * Unread count. `pointer-events: none` so it never swallows the click meant
+   * for the bell underneath it.
+   */
+  &__badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: var(--ui-radius-full);
+    background: var(--ui-danger);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+    pointer-events: none;
+    box-shadow: 0 0 0 2px var(--ui-surface);
+  }
+
   &__nav {
     grid-column: 1;
     grid-row: 2;
@@ -54,6 +100,24 @@
     padding: var(--ui-space-6) clamp(16px, 3vw, 32px) var(--ui-space-12);
 
     &--over { outline: 2px dashed var(--ui-accent); outline-offset: -8px; }
+  }
+
+  /*
+   * The centred column every page renders into (see `.ui-page`). Forms get a
+   * readable measure; tables and tile grids take the full width — which is what
+   * removes the dead space on the right of a wide monitor without squeezing the
+   * file table into a narrow strip.
+   */
+  &__page {
+    --ui-page-max: 1080px;
+    min-height: 100%;
+
+    &--wide { --ui-page-max: none; }
+  }
+
+  /* A flex child of `&__nav`, which already pads itself — no padding here. */
+  &__workspace {
+    flex: 0 0 auto;
   }
 }
 
@@ -270,4 +334,7 @@
   /* Collapse the labelled buttons and links to their leading icon. */
   .dash__link,
   .dash__wide { justify-content: center; padding-left: 0; padding-right: 0; font-size: 0; gap: 0; }
+  /* The header actions are already icon-only; just tighten them. */
+  .dash__top { gap: var(--ui-space-2); padding: 0 var(--ui-space-3); }
+  .dash__actions { gap: 2px; }
 }

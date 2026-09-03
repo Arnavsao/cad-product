@@ -1,20 +1,23 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { UiMenuItem } from '../../../shared/ui/menu/ui-menu.component';
 import { UiMenuTriggerDirective } from '../../../shared/ui/menu/ui-menu-trigger.directive';
 import { RelativeTimePipe } from '../../../shared/ui/pipes/relative-time.pipe';
-import { DRAWING_MENU_ITEMS } from './drawing-menu';
+import { drawingMenuFor } from './drawing-menu';
+import type { RowSelectEvent } from './drawing-row.component';
 
 /**
  * Grid tile for one drawing: thumbnail, name, "Edited 2h ago".
  *
- * Design decision: the tile is a `<button>` so Enter/Space open it and focus is
- * visible for free, with the kebab lifted out of it (a nested button would be
- * invalid HTML). The same menu is reachable by right-click anywhere on the tile.
- * Thumbnails are presigned URLs that can expire, so a load failure silently
- * falls back to the placeholder instead of showing a broken image.
+ * Design decisions: the tile is a `<button>` so Enter/Space open it and focus is
+ * visible for free, with the kebab and the selection checkbox lifted out of it
+ * (a nested control would be invalid HTML). The same menu is reachable by
+ * right-click anywhere on the tile, and it defaults to `drawingMenuFor` so grid
+ * view offers exactly the actions list view does. Thumbnails are presigned URLs
+ * that can expire, so a load failure silently falls back to the placeholder
+ * instead of showing a broken image.
  */
 @Component({
   selector: 'app-drawing-card',
@@ -24,11 +27,15 @@ import { DRAWING_MENU_ITEMS } from './drawing-menu';
   template: `
     <div
       class="dc"
-      [uiMenuTrigger]="menuItems()"
+      [class.dc--selected]="selected()"
+      [attr.draggable]="draggable() ? 'true' : null"
+      [uiMenuTrigger]="menu()"
       [openOnClick]="false"
       #ctx="uiMenuTrigger"
       (uiMenuSelect)="action.emit($event.id)"
       (contextmenu)="onContextMenu($event, ctx)"
+      (dragstart)="dragStart.emit($event)"
+      (dragend)="dragEnd.emit()"
     >
       <button type="button" class="dc__hit" [attr.aria-label]="'Open ' + drawing().name" (click)="open.emit()">
         <span class="dc__thumb">
@@ -43,9 +50,24 @@ import { DRAWING_MENU_ITEMS } from './drawing-menu';
         </span>
         <span class="dc__meta">
           <span class="dc__name" [title]="drawing().name">{{ drawing().name }}</span>
-          <span class="dc__sub">Edited {{ drawing().updatedAt | relativeTime }}</span>
+          <span class="dc__sub">
+            Edited {{ drawing().updatedAt | relativeTime }}
+            @if (readOnly()) {
+              · View only
+            }
+          </span>
         </span>
       </button>
+
+      @if (selectable()) {
+        <input
+          type="checkbox"
+          class="dc__check"
+          [checked]="selected()"
+          [attr.aria-label]="'Select ' + drawing().name"
+          (click)="onPick($event)"
+        />
+      }
 
       <button
         type="button"
@@ -55,7 +77,7 @@ import { DRAWING_MENU_ITEMS } from './drawing-menu';
         iconOnly
         class="dc__kebab"
         [attr.aria-label]="'Actions for ' + drawing().name"
-        [uiMenuTrigger]="menuItems()"
+        [uiMenuTrigger]="menu()"
         menuAlign="end"
         (uiMenuSelect)="action.emit($event.id)"
       >
@@ -74,6 +96,8 @@ import { DRAWING_MENU_ITEMS } from './drawing-menu';
       }
       .dc:hover { border-color: var(--ui-border-strong); }
       .dc:hover .dc__kebab, .dc__kebab[aria-expanded='true'] { opacity: 1; }
+      .dc:hover .dc__check, .dc--selected .dc__check, .dc__check:focus-visible { opacity: 1; }
+      .dc--selected { border-color: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent); }
 
       .dc__hit {
         display: block; width: 100%; padding: 0; text-align: left;
@@ -112,22 +136,47 @@ import { DRAWING_MENU_ITEMS } from './drawing-menu';
       }
       .dc__kebab:focus-visible { opacity: 1; }
       @media (hover: none) { .dc__kebab { opacity: 1; } }
+
+      .dc__check {
+        position: absolute; top: 10px; left: 10px;
+        width: 16px; height: 16px; margin: 0;
+        accent-color: var(--ui-accent); cursor: pointer;
+        opacity: 0; transition: opacity var(--ui-dur-fast);
+      }
+      @media (hover: none) { .dc__check { opacity: 1; } }
     `,
   ],
 })
 export class DrawingCardComponent {
   readonly drawing = input.required<DrawingSummaryDto>();
-  readonly menuItems = input<UiMenuItem[]>([...DRAWING_MENU_ITEMS]);
+  /** Override the menu; leave unset for the access-aware default. */
+  readonly menuItems = input<UiMenuItem[] | null>(null);
+  /** Show the selection checkbox. */
+  readonly selectable = input(true);
+  readonly selected = input(false);
+  /** Let the tile start an HTML5 drag (the page fills the `dataTransfer`). */
+  readonly draggable = input(false);
 
   /** Primary activation (click / Enter on the tile). */
   readonly open = output<void>();
   /** A menu item id — narrow it with `toDrawingAction`. */
   readonly action = output<string>();
+  readonly selectChange = output<RowSelectEvent>();
+  readonly dragStart = output<DragEvent>();
+  readonly dragEnd = output<void>();
 
   protected readonly thumbFailed = signal(false);
+  protected readonly menu = computed<UiMenuItem[]>(() => this.menuItems() ?? drawingMenuFor(this.drawing()));
+  protected readonly readOnly = computed(() => this.drawing().access === 'view');
 
   protected onContextMenu(event: MouseEvent, trigger: UiMenuTriggerDirective): void {
     event.preventDefault();
     trigger.openAt(event.clientX, event.clientY);
+  }
+
+  protected onPick(event: MouseEvent): void {
+    event.stopPropagation();
+    const input = event.target as HTMLInputElement;
+    this.selectChange.emit({ selected: input.checked, shift: event.shiftKey });
   }
 }

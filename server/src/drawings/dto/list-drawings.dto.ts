@@ -1,4 +1,5 @@
 import { IsIn, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { LIST_SCOPES, type ListScope } from '../../folders/dto/folder.dto';
 
 /** `?sort=` values for `GET /drawings`. */
 export const DRAWING_SORTS = ['updated', 'name', 'opened'] as const;
@@ -16,13 +17,41 @@ export const DEFAULT_PAGE_LIMIT = 30;
 export const MAX_PAGE_LIMIT = 100;
 export const MAX_RECENT_LIMIT = 50;
 
-/** Query of `GET /drawings`. */
+/**
+ * Upper bound on `?page=`. Offset paging makes the database walk every skipped
+ * row, so an unbounded page number is a cheap way to make it do a lot of work;
+ * 10 000 pages is far past anything a person scrolls to.
+ */
+export const MAX_PAGE_NUMBER = 10_000;
+
+/**
+ * Query of `GET /drawings`.
+ *
+ * Paging accepts either mode, never both meaningfully: send `cursor` to walk
+ * forward through a feed, or `page` to address a numbered page and get a
+ * `total` back. `page` wins if both arrive — see `DrawingsService.list`.
+ */
 export class ListDrawingsDto {
   /** A folder cuid, or `root`/omitted for the top level. */
   @IsOptional()
   @IsString()
   @Length(1, 64)
   folderId?: string;
+
+  /** Omit for the caller's personal drawings; an org id for that org's. */
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  organizationId?: string;
+
+  /**
+   * `shared` lists drawings others shared with the caller directly, wherever
+   * they live, instead of one workspace's own rows. Ignored when `folderId` is
+   * given — the folder already decides both the workspace and the scope.
+   */
+  @IsOptional()
+  @IsIn(LIST_SCOPES)
+  scope?: ListScope;
 
   /** Case-insensitive substring match on `name`. */
   @IsOptional()
@@ -39,6 +68,13 @@ export class ListDrawingsDto {
   @Length(1, 512)
   cursor?: string;
 
+  /** 1-based page number; switches the response to offset mode. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(MAX_PAGE_NUMBER)
+  page?: number;
+
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -50,8 +86,19 @@ export class ListDrawingsDto {
 export class ListTrashDto {
   @IsOptional()
   @IsString()
+  @Length(1, 64)
+  organizationId?: string;
+
+  @IsOptional()
+  @IsString()
   @Length(1, 512)
   cursor?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(MAX_PAGE_NUMBER)
+  page?: number;
 
   @IsOptional()
   @IsInt()
@@ -62,6 +109,11 @@ export class ListTrashDto {
 
 /** Query of `GET /drawings/recent`. */
 export class RecentDrawingsDto {
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  organizationId?: string;
+
   @IsOptional()
   @IsInt()
   @Min(1)

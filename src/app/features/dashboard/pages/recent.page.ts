@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
+import { WorkspaceService } from '../../../core/api/workspace.service';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiEmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
@@ -99,7 +100,13 @@ const RECENT_LIMIT = 12;
         <h2 class="pg__subtitle">Recently opened</h2>
         <div class="rc__grid">
           @for (drawing of rest(); track drawing.id) {
-            <app-drawing-card [drawing]="drawing" (open)="open(drawing)" (action)="onAction($event, drawing)" />
+            <!-- No checkbox here: Recent has no bulk bar, so a tick would lead nowhere. -->
+            <app-drawing-card
+              [drawing]="drawing"
+              [selectable]="false"
+              (open)="open(drawing)"
+              (action)="onAction($event, drawing)"
+            />
           }
         </div>
       }
@@ -158,6 +165,8 @@ const RECENT_LIMIT = 12;
 })
 export class RecentPage {
   private readonly api = inject(DrawingsApiService);
+  /** Recent is per workspace: an org's recents are the org's, not yours. */
+  private readonly workspace = inject(WorkspaceService);
   private readonly actions = inject(DrawingActionsService);
   private readonly events = inject(DashboardEventsService);
 
@@ -185,7 +194,7 @@ export class RecentPage {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const items = await this.api.recent(RECENT_LIMIT);
+      const items = await this.api.recent(RECENT_LIMIT, this.workspace.activeOrgId());
       if (gen !== this.generation) return;
       this.items.set(items);
       this.heroThumbFailed.set(false);

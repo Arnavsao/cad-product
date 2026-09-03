@@ -11,6 +11,11 @@ import { UiInputDirective } from '../../../shared/ui/input.directive';
 export interface NewFolderDialogData {
   /** Where the folder is created; null for the top level. */
   parentId: string | null;
+  /**
+   * Workspace to create in; null for personal. Ignored by the server when
+   * `parentId` is set, since the parent's workspace wins.
+   */
+  organizationId?: string | null;
   /** Name of the parent, shown as context. */
   parentName?: string;
 }
@@ -103,7 +108,11 @@ export class NewFolderDialogComponent implements AfterViewInit {
     this.saving.set(true);
     this.error.set(null);
     try {
-      const folder = await this.folders.create({ name, parentId: this.data.parentId });
+      const folder = await this.folders.create({
+        name,
+        parentId: this.data.parentId,
+        organizationId: this.data.organizationId ?? null,
+      });
       this.ref.close(folder);
     } catch (e) {
       this.error.set(

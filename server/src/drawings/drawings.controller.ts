@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Put,
@@ -16,19 +17,31 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { Actor } from '../common/access';
+import { CurrentActor } from '../common/decorators/current-actor.decorator';
 import { ApiException } from '../common/errors/api-error';
 import { ParseCuidPipe } from '../common/pipes/parse-cuid.pipe';
 import type { Page } from '../common/utils/pagination';
-import { CompleteContentDto, CreateDrawingDto, DuplicateDrawingDto, PresignContentDto, UpdateDrawingDto } from './dto/create-drawing.dto';
+import {
+  CompleteContentDto,
+  CopyDrawingDto,
+  CreateDrawingDto,
+  DuplicateDrawingDto,
+  MoveDrawingDto,
+  PresignContentDto,
+  UpdateDrawingDto,
+} from './dto/create-drawing.dto';
 import type {
   DeletedDrawingDto,
   DrawingDto,
   DrawingSummaryDto,
+  EmptyTrashResultDto,
   PresignDto,
   SaveResultDto,
   ThumbnailResultDto,
   TrashedDrawingDto,
+  VersionDownloadDto,
+  VersionDto,
 } from './dto/drawing.dto';
 import {
   GetDrawingDto,
@@ -47,52 +60,64 @@ const PRESIGN_THROTTLE = { default: { limit: 30, ttl: 60_000 } };
  * `/api/v1/drawings` — plan §1 drawing routes.
  *
  * Design notes:
- * - `recent` and `trash` are declared BEFORE `:id` so Express does not match
- *   them as drawing ids.
+ * - `recent` and `trash` (both verbs) are declared BEFORE `:id` so Express does
+ *   not match them as drawing ids.
  * - The DXF and PNG bodies arrive from the per-route parsers mounted in
  *   `app.setup.ts`; we read them off `req.body` rather than through `@Body()`
  *   because the global `ValidationPipe` would try to `plainToInstance` a
  *   `Buffer`.
  * - Saves answer with `ETag: "<version>"` so the client can send the value back
  *   as `If-Match` without tracking it separately.
+ * - The caller arrives as an `Actor` (`{ userId, email }`) rather than a bare
+ *   id: an email is half of every access decision, because a share names its
+ *   recipient by address.
  */
 @Controller('drawings')
 export class DrawingsController {
   constructor(private readonly drawings: DrawingsService) {}
 
-  /** `GET /drawings` → `Page<DrawingSummaryDto>`. */
+  /** `GET /drawings` → `Page<DrawingSummaryDto>`. `?scope=shared` for others' files. */
   @Get()
-  list(@CurrentUser('id') userId: string, @Query() query: ListDrawingsDto): Promise<Page<DrawingSummaryDto>> {
-    return this.drawings.list(userId, query);
+  list(@CurrentActor() actor: Actor, @Query() query: ListDrawingsDto): Promise<Page<DrawingSummaryDto>> {
+    return this.drawings.list(actor, query);
   }
 
   /** `GET /drawings/recent` → `DrawingSummaryDto[]` ordered by `lastOpenedAt`. */
   @Get('recent')
-  recent(@CurrentUser('id') userId: string, @Query() query: RecentDrawingsDto): Promise<DrawingSummaryDto[]> {
-    return this.drawings.recent(userId, query.limit);
+  recent(@CurrentActor() actor: Actor, @Query() query: RecentDrawingsDto): Promise<DrawingSummaryDto[]> {
+    return this.drawings.recent(actor, query.limit, query.organizationId);
   }
 
   /** `GET /drawings/trash` → `Page<DrawingSummaryDto>` of soft-deleted rows. */
   @Get('trash')
-  trash(@CurrentUser('id') userId: string, @Query() query: ListTrashDto): Promise<Page<DrawingSummaryDto>> {
-    return this.drawings.trash(userId, query);
+  trash(@CurrentActor() actor: Actor, @Query() query: ListTrashDto): Promise<Page<DrawingSummaryDto>> {
+    return this.drawings.trash(actor, query);
+  }
+
+  /**
+   * `DELETE /drawings/trash?organizationId=` → `{ deleted }`. Declared before
+   * `DELETE /drawings/:id`, or "trash" would be parsed as an id.
+   */
+  @Delete('trash')
+  emptyTrash(@CurrentActor() actor: Actor, @Query() query: ListTrashDto): Promise<EmptyTrashResultDto> {
+    return this.drawings.emptyTrash(actor, query.organizationId);
   }
 
   /** `POST /drawings` → `DrawingDto` (201). */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@CurrentUser('id') userId: string, @Body() dto: CreateDrawingDto): Promise<DrawingDto> {
-    return this.drawings.create(userId, dto);
+  create(@CurrentActor() actor: Actor, @Body() dto: CreateDrawingDto): Promise<DrawingDto> {
+    return this.drawings.create(actor, dto);
   }
 
   /** `GET /drawings/:id` → `DrawingDto` with a presigned GET; touches `lastOpenedAt`. */
   @Get(':id')
   get(
-    @CurrentUser('id') userId: string,
+    @CurrentActor() actor: Actor,
     @Param('id', ParseCuidPipe) id: string,
     @Query() query: GetDrawingDto,
   ): Promise<DrawingDto> {
-    return this.drawings.get(userId, id, {
+    return this.drawings.get(actor, id, {
       touch: isNotFalsyFlag(query.touch),
       download: isTruthyFlag(query.download),
     });
@@ -101,7 +126,7 @@ export class DrawingsController {
   /** `PUT /drawings/:id/content` — inline DXF save. `If-Match` omitted = force. */
   @Put(':id/content')
   async saveContent(
-    @CurrentUser('id') userId: string,
+    @CurrentActor() actor: Actor,
     @Param('id', ParseCuidPipe) id: string,
     @Req() req: Request,
     @Headers('if-match') ifMatch: string | undefined,
@@ -111,7 +136,7 @@ export class DrawingsController {
     if (typeof body !== 'string') {
       throw ApiException.unsupportedMediaType('UNSUPPORTED_MEDIA_TYPE', 'Send the DXF as text/plain');
     }
-    const result = await this.drawings.saveContent(userId, id, body, parseIfMatch(ifMatch));
+    const result = await this.drawings.saveContent(actor, id, body, parseIfMatch(ifMatch));
     res.setHeader('ETag', `"${result.version}"`);
     return result;
   }
@@ -121,72 +146,125 @@ export class DrawingsController {
   @HttpCode(HttpStatus.OK)
   @Throttle(PRESIGN_THROTTLE)
   presignContent(
-    @CurrentUser('id') userId: string,
+    @CurrentActor() actor: Actor,
     @Param('id', ParseCuidPipe) id: string,
     @Body() dto: PresignContentDto,
   ): Promise<PresignDto> {
-    return this.drawings.presignContent(userId, id, dto);
+    return this.drawings.presignContent(actor, id, dto);
   }
 
   /** `POST /drawings/:id/content/complete` — promotes a staged object to a version. */
   @Post(':id/content/complete')
   @HttpCode(HttpStatus.OK)
   async completeContent(
-    @CurrentUser('id') userId: string,
+    @CurrentActor() actor: Actor,
     @Param('id', ParseCuidPipe) id: string,
     @Body() dto: CompleteContentDto,
     @Headers('if-match') ifMatch: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ): Promise<SaveResultDto> {
-    const result = await this.drawings.completeContent(userId, id, dto, parseIfMatch(ifMatch));
+    const result = await this.drawings.completeContent(actor, id, dto, parseIfMatch(ifMatch));
     res.setHeader('ETag', `"${result.version}"`);
     return result;
   }
 
-  /** `PATCH /drawings/:id` → `DrawingSummaryDto`. */
+  /** `GET /drawings/:id/versions` → `VersionDto[]`, newest first. */
+  @Get(':id/versions')
+  listVersions(@CurrentActor() actor: Actor, @Param('id', ParseCuidPipe) id: string): Promise<VersionDto[]> {
+    return this.drawings.listVersions(actor, id);
+  }
+
+  /** `GET /drawings/:id/versions/:version` → `{ downloadUrl, expiresAt }`. */
+  @Get(':id/versions/:version')
+  versionDownload(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseCuidPipe) id: string,
+    @Param('version', ParseIntPipe) version: number,
+  ): Promise<VersionDownloadDto> {
+    return this.drawings.versionDownload(actor, id, version);
+  }
+
+  /** `POST /drawings/:id/versions/:version/restore` → a NEW version with the old bytes. */
+  @Post(':id/versions/:version/restore')
+  @HttpCode(HttpStatus.OK)
+  async restoreVersion(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseCuidPipe) id: string,
+    @Param('version', ParseIntPipe) version: number,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SaveResultDto> {
+    const result = await this.drawings.restoreVersion(actor, id, version, parseIfMatch(ifMatch));
+    res.setHeader('ETag', `"${result.version}"`);
+    return result;
+  }
+
+  /** `PATCH /drawings/:id` → `DrawingSummaryDto` (rename / same-workspace move). */
   @Patch(':id')
   update(
-    @CurrentUser('id') userId: string,
+    @CurrentActor() actor: Actor,
     @Param('id', ParseCuidPipe) id: string,
     @Body() dto: UpdateDrawingDto,
   ): Promise<DrawingSummaryDto> {
-    return this.drawings.update(userId, id, dto);
+    return this.drawings.update(actor, id, dto);
+  }
+
+  /** `POST /drawings/:id/move` → `DrawingSummaryDto`; the cross-workspace move. */
+  @Post(':id/move')
+  @HttpCode(HttpStatus.OK)
+  move(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseCuidPipe) id: string,
+    @Body() dto: MoveDrawingDto,
+  ): Promise<DrawingSummaryDto> {
+    return this.drawings.move(actor, id, dto);
+  }
+
+  /** `POST /drawings/:id/copy` → `DrawingSummaryDto` (201), owned by the caller. */
+  @Post(':id/copy')
+  @HttpCode(HttpStatus.CREATED)
+  copy(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseCuidPipe) id: string,
+    @Body() dto: CopyDrawingDto,
+  ): Promise<DrawingSummaryDto> {
+    return this.drawings.copy(actor, id, dto);
   }
 
   /** `POST /drawings/:id/duplicate` → `DrawingSummaryDto` (201). */
   @Post(':id/duplicate')
   @HttpCode(HttpStatus.CREATED)
   duplicate(
-    @CurrentUser('id') userId: string,
+    @CurrentActor() actor: Actor,
     @Param('id', ParseCuidPipe) id: string,
     @Body() dto: DuplicateDrawingDto,
   ): Promise<DrawingSummaryDto> {
-    return this.drawings.duplicate(userId, id, dto);
+    return this.drawings.duplicate(actor, id, dto);
   }
 
   /** `DELETE /drawings/:id` → `{ id, deletedAt }` (trash). */
   @Delete(':id')
-  remove(@CurrentUser('id') userId: string, @Param('id', ParseCuidPipe) id: string): Promise<TrashedDrawingDto> {
-    return this.drawings.trashDrawing(userId, id);
+  remove(@CurrentActor() actor: Actor, @Param('id', ParseCuidPipe) id: string): Promise<TrashedDrawingDto> {
+    return this.drawings.trashDrawing(actor, id);
   }
 
   /** `POST /drawings/:id/restore` → `DrawingSummaryDto`. */
   @Post(':id/restore')
   @HttpCode(HttpStatus.OK)
-  restore(@CurrentUser('id') userId: string, @Param('id', ParseCuidPipe) id: string): Promise<DrawingSummaryDto> {
-    return this.drawings.restore(userId, id);
+  restore(@CurrentActor() actor: Actor, @Param('id', ParseCuidPipe) id: string): Promise<DrawingSummaryDto> {
+    return this.drawings.restore(actor, id);
   }
 
   /** `DELETE /drawings/:id/permanent` → `{ id }`; removes the row and its objects. */
   @Delete(':id/permanent')
-  permanent(@CurrentUser('id') userId: string, @Param('id', ParseCuidPipe) id: string): Promise<DeletedDrawingDto> {
-    return this.drawings.permanentDelete(userId, id);
+  permanent(@CurrentActor() actor: Actor, @Param('id', ParseCuidPipe) id: string): Promise<DeletedDrawingDto> {
+    return this.drawings.permanentDelete(actor, id);
   }
 
   /** `PUT /drawings/:id/thumbnail` → `{ thumbnailUrl }`; body is raw `image/png`. */
   @Put(':id/thumbnail')
   setThumbnail(
-    @CurrentUser('id') userId: string,
+    @CurrentActor() actor: Actor,
     @Param('id', ParseCuidPipe) id: string,
     @Req() req: Request,
   ): Promise<ThumbnailResultDto> {
@@ -194,7 +272,7 @@ export class DrawingsController {
     if (!Buffer.isBuffer(body)) {
       throw ApiException.unsupportedMediaType('NOT_PNG', 'Send the thumbnail as image/png');
     }
-    return this.drawings.setThumbnail(userId, id, body);
+    return this.drawings.setThumbnail(actor, id, body);
   }
 }
 

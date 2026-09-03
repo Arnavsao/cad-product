@@ -66,7 +66,11 @@ export class UploadService {
    * Upload and import every accepted file. Resolves with the drawings that were
    * created. A single successfully imported DXF also opens in the editor.
    */
-  async upload(files: readonly File[], folderId: string | null): Promise<DrawingSummaryDto[]> {
+  async upload(
+    files: readonly File[],
+    folderId: string | null,
+    organizationId: string | null = null,
+  ): Promise<DrawingSummaryDto[]> {
     const accepted: File[] = [];
     for (const file of files) {
       if (!isAccepted(file)) {
@@ -83,7 +87,7 @@ export class UploadService {
 
     const created: DrawingSummaryDto[] = [];
     for (const file of accepted) {
-      const drawing = await this.uploadOne(file, folderId);
+      const drawing = await this.uploadOne(file, folderId, organizationId);
       if (drawing) created.push(drawing);
     }
 
@@ -103,7 +107,11 @@ export class UploadService {
     this.tasks.update((list) => list.filter((t) => t.state === 'uploading' || t.state === 'importing'));
   }
 
-  private async uploadOne(file: File, folderId: string | null): Promise<DrawingSummaryDto | null> {
+  private async uploadOne(
+    file: File,
+    folderId: string | null,
+    organizationId: string | null,
+  ): Promise<DrawingSummaryDto | null> {
     const id = `upload-${++this.seq}`;
     const contentType = contentTypeOf(file);
     this.tasks.update((list) => [...list, { id, fileName: file.name, progress: 0, state: 'uploading' }]);
@@ -113,7 +121,7 @@ export class UploadService {
       await this.putBytes(id, presign.uploadUrl, file, contentType);
 
       this.patch(id, { state: 'importing', progress: 100 });
-      const drawing = await this.drawings.importDrawing({ key: presign.key, name: file.name, folderId });
+      const drawing = await this.drawings.importDrawing({ key: presign.key, name: file.name, folderId, organizationId });
 
       this.patch(id, { state: 'done', drawingId: drawing.id });
       if (drawing.format === 'dwg') {

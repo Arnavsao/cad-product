@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { PreferencesDto, Units } from '../../../core/api/api.models';
 import { MeService } from '../../../core/api/me.service';
-import { ClerkService } from '../../../core/auth/clerk.service';
+import { SupabaseAuthService } from '../../../core/auth/supabase-auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
@@ -28,11 +28,14 @@ const UNITS: readonly { id: Units; label: string; name: string }[] = [
   { id: 'ft', label: 'ft', name: 'Feet' },
 ];
 
+/** Supabase's own default minimum; kept next to the hint that states it. */
+const MIN_PASSWORD_LENGTH = 6;
+
 const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
 
 /**
- * `/dashboard/settings` (and everything beneath it) — preferences plus Clerk's
- * own account UI.
+ * `/dashboard/settings` (and everything beneath it) — drawing preferences,
+ * email notifications, and the account pane.
  *
  * Design decisions:
  *  - **Every control saves itself.** There is no Save button: each change fires
@@ -43,9 +46,21 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
  *  - **Theme applies before it persists.** Clicking a swatch calls
  *    `ThemeService.setTheme` first; if the PATCH fails the toast says so and the
  *    stored preference is what reverts on next load — never the UI mid-click.
- *  - **Clerk owns the account pane.** `<UserProfile>` path-routes under
- *    `/dashboard/settings/account`, which is why this route uses a prefix
- *    matcher: its sub-pages must not remount this component.
+ *  - **The account pane is deliberately thin.** Email and connected providers are
+ *    read-only, because Supabase owns them and re-implementing verification or
+ *    provider linking badly would be worse than not owning it. The one write is
+ *    changing the password, offered only when the account actually has one — an
+ *    OAuth-only user has no password to change.
+ *  - **Email toggles are opt-OUT, and invitations are exempt.** Both default to
+ *    on (matching the column default), because a user who never opened this page
+ *    should still hear that something was shared with them. Organization
+ *    invitations are governed by neither: an invitation may go to an address
+ *    with no account, which has no preferences to consult, and it is the only
+ *    way that person learns they were invited. The pane says so out loud rather
+ *    than leaving the absence of a third toggle to be read as an oversight.
+ *  - **`/dashboard/settings/account` and `…/notifications` both resolve here**,
+ *    via the route's prefix matcher, so existing links and bookmarks keep
+ *    working — including the "Manage email preferences" link in every email.
  */
 @Component({
   selector: 'app-settings-page',
@@ -131,22 +146,117 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
     </section>
 
     <section class="st__section">
+      <h2 class="st__heading">Email notifications</h2>
+
+      <div class="st__field">
+        <div class="st__label">
+          <span class="st__label-title">Shares</span>
+          <span class="st__label-hint">When someone shares a drawing or folder with me.</span>
+        </div>
+        <label class="st__switch">
+          <span class="ui-visually-hidden">Email me when someone shares a drawing or folder with me</span>
+          <input
+            type="checkbox"
+            role="switch"
+            [checked]="prefs().emailOnShare"
+            [disabled]="saving()"
+            (change)="toggleEmail('emailOnShare', $event)"
+          />
+          <span class="st__switch-track" aria-hidden="true"><span class="st__switch-knob"></span></span>
+        </label>
+      </div>
+
+      <div class="st__field">
+        <div class="st__label">
+          <span class="st__label-title">Organization activity</span>
+          <span class="st__label-hint">When my role or access in an organization changes.</span>
+        </div>
+        <label class="st__switch">
+          <span class="ui-visually-hidden">Email me when my role or access in an organization changes</span>
+          <input
+            type="checkbox"
+            role="switch"
+            [checked]="prefs().emailOnOrgActivity"
+            [disabled]="saving()"
+            (change)="toggleEmail('emailOnOrgActivity', $event)"
+          />
+          <span class="st__switch-track" aria-hidden="true"><span class="st__switch-knob"></span></span>
+        </label>
+      </div>
+
+      <p class="st__note st__note--spaced">
+        Invitations to join an organization are always delivered — they are the only way someone learns they
+        were invited, and an invitation sent to an address without an account has no preferences to check.
+      </p>
+    </section>
+
+    <section class="st__section">
       <h2 class="st__heading">Account</h2>
-      @if (clerk.enabled()) {
-        @if (!clerk.isLoaded()) {
-          <ui-skeleton width="100%" height="320px" radius="var(--ui-radius-lg)" />
-        } @else if (clerk.loadError(); as message) {
-          <div class="pg__error" role="alert">
-            <ui-icon name="alert" [size]="18" />
-            <div>
-              <p class="pg__error-title">The account panel could not be loaded.</p>
-              <p class="pg__error-msg">{{ message }}</p>
+      @if (!auth.enabled()) {
+        <p class="st__note">Accounts are disabled in this deployment.</p>
+      } @else if (!auth.isLoaded()) {
+        <ui-skeleton width="100%" height="180px" radius="var(--ui-radius-lg)" />
+      } @else if (auth.loadError(); as message) {
+        <div class="pg__error" role="alert">
+          <ui-icon name="alert" [size]="18" />
+          <div>
+            <p class="pg__error-title">The account panel could not be loaded.</p>
+            <p class="pg__error-msg">{{ message }}</p>
+          </div>
+        </div>
+      } @else {
+        <dl class="st__facts">
+          <dt>Email</dt>
+          <dd>{{ auth.userEmail() || '—' }}</dd>
+          <dt>Signed in with</dt>
+          <dd>
+            @if (providers().length) {
+              {{ providers().join(', ') }}
+            } @else {
+              Email and password
+            }
+          </dd>
+        </dl>
+        <p class="st__note">
+          Your email address and the providers you can sign in with are managed by your sign-in provider.
+          <a routerLink="/dashboard/profile">Edit your name</a> on Personal info.
+        </p>
+
+        @if (auth.hasPasswordIdentity()) {
+          <div class="st__password">
+            <h3 class="st__subheading">Password</h3>
+            @if (passwordChanged()) {
+              <p class="st__ok" role="status"><ui-icon name="check" [size]="14" /> Password updated.</p>
+            }
+            <div class="st__password-row">
+              <label class="ui-visually-hidden" for="st-password">New password</label>
+              <input
+                uiInput
+                id="st-password"
+                type="password"
+                autocomplete="new-password"
+                placeholder="New password"
+                [attr.minlength]="minPasswordLength"
+                [value]="newPassword()"
+                [disabled]="changingPassword()"
+                (input)="newPassword.set(inputValue($event))"
+              />
+              <button
+                type="button"
+                uiButton
+                variant="secondary"
+                [disabled]="!canChangePassword()"
+                [loading]="changingPassword()"
+                (click)="changePassword()"
+              >
+                Change password
+              </button>
             </div>
+            <p class="st__hint" [class.st__hint--bad]="!!passwordError()">
+              {{ passwordError() ?? 'At least ' + minPasswordLength + ' characters.' }}
+            </p>
           </div>
         }
-        <div #profile class="st__profile"></div>
-      } @else {
-        <p class="st__note">Accounts are disabled in this deployment.</p>
       }
 
       <div class="st__signout">
@@ -159,7 +269,7 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
   `,
   styles: [
     `
-      :host { display: block; max-width: 860px; }
+      :host { display: block; }
       .pg__head { display: flex; align-items: center; gap: var(--ui-space-3); margin-bottom: var(--ui-space-6); }
       .pg__title { margin: 0; font-size: var(--ui-text-xl); font-weight: 600; letter-spacing: -.01em; color: var(--ui-text-strong); }
       .st__status { display: inline-flex; align-items: center; gap: 5px; font-size: var(--ui-text-sm); color: var(--ui-text-dim); }
@@ -182,6 +292,35 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
       }
       .st__heading { margin: 0 0 var(--ui-space-4); font-size: var(--ui-text-base); font-weight: 600; color: var(--ui-text-strong); }
       .st__note { margin: 0; font-size: var(--ui-text-md); color: var(--ui-text-dim); }
+      .st__note--spaced { padding-top: var(--ui-space-4); border-top: 1px solid var(--ui-border); font-size: var(--ui-text-sm); }
+
+      /* A checkbox styled as a switch: the input stays the real control (so it
+         keeps keyboard, label and screen-reader behaviour) and is drawn on top
+         of the track at zero opacity rather than hidden, because a display:none
+         input is unfocusable in some browsers. */
+      .st__switch { position: relative; flex: 0 0 auto; display: inline-flex; cursor: pointer; }
+      .st__switch input {
+        position: absolute; inset: 0; margin: 0;
+        width: 100%; height: 100%; opacity: 0; cursor: pointer;
+      }
+      .st__switch input:disabled { cursor: not-allowed; }
+      .st__switch-track {
+        display: block; width: 40px; height: 24px; padding: 3px;
+        background: var(--ui-surface-raised); border: 1px solid var(--ui-border);
+        border-radius: var(--ui-radius-full);
+        transition: background .15s ease, border-color .15s ease;
+      }
+      .st__switch-knob {
+        display: block; width: 16px; height: 16px;
+        background: var(--ui-text-dim); border-radius: var(--ui-radius-full);
+        transition: transform .15s ease, background .15s ease;
+      }
+      .st__switch input:checked + .st__switch-track { background: var(--ui-accent); border-color: var(--ui-accent); }
+      .st__switch input:checked + .st__switch-track .st__switch-knob {
+        background: var(--ui-on-accent); transform: translateX(16px);
+      }
+      .st__switch input:focus-visible + .st__switch-track { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+      .st__switch input:disabled + .st__switch-track { opacity: .6; }
 
       .st__field {
         display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-6);
@@ -232,15 +371,26 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
     `,
   ],
 })
-export class SettingsPage implements AfterViewInit, OnDestroy {
-  protected readonly clerk = inject(ClerkService);
+export class SettingsPage {
+  protected readonly auth = inject(SupabaseAuthService);
   private readonly me = inject(MeService);
   private readonly theme = inject(ThemeService);
   private readonly notify = inject(NotificationService);
 
-  private readonly profile = viewChild<ElementRef<HTMLDivElement>>('profile');
-  private mounted: HTMLDivElement | null = null;
-  private destroyed = false;
+  protected readonly minPasswordLength = MIN_PASSWORD_LENGTH;
+  protected readonly newPassword = signal('');
+  protected readonly changingPassword = signal(false);
+  protected readonly passwordChanged = signal(false);
+  protected readonly passwordError = signal<string | null>(null);
+
+  /** Provider names, title-cased for display (`google` → `Google`). */
+  protected readonly providers = computed(() =>
+    this.auth.identities().map((p) => p.charAt(0).toUpperCase() + p.slice(1)),
+  );
+
+  protected readonly canChangePassword = computed(
+    () => !this.changingPassword() && this.newPassword().length >= MIN_PASSWORD_LENGTH,
+  );
 
   protected readonly units = UNITS;
   protected readonly intervals = AUTOSAVE_INTERVALS;
@@ -255,22 +405,44 @@ export class SettingsPage implements AfterViewInit, OnDestroy {
     void this.me.load().catch(() => undefined);
   }
 
-  async ngAfterViewInit(): Promise<void> {
-    if (!this.clerk.enabled()) return;
-    await this.clerk.load();
-    if (this.destroyed || this.clerk.loadError()) return;
-    const el = this.profile()?.nativeElement;
-    if (!el) return;
-    this.clerk.mountUserProfile(el);
-    this.mounted = el;
+  protected inputValue(event: Event): string {
+    this.passwordError.set(null);
+    this.passwordChanged.set(false);
+    return (event.target as HTMLInputElement).value;
   }
 
-  ngOnDestroy(): void {
-    this.destroyed = true;
-    if (this.mounted) {
-      this.clerk.unmountUserProfile(this.mounted);
-      this.mounted = null;
+  /**
+   * Sets a new password. Supabase keeps the current session valid afterwards, so
+   * there is nothing to re-authenticate — the field is just cleared.
+   */
+  protected async changePassword(): Promise<void> {
+    if (!this.canChangePassword()) return;
+    this.changingPassword.set(true);
+    this.passwordError.set(null);
+    const result = await this.auth.updatePassword(this.newPassword());
+    this.changingPassword.set(false);
+    if (!result.ok) {
+      this.passwordError.set(result.error);
+      return;
     }
+    this.newPassword.set('');
+    this.passwordChanged.set(true);
+  }
+
+  /**
+   * Saves one email toggle, putting the checkbox back if the PATCH fails.
+   *
+   * The revert has to touch the DOM directly: `[checked]` is bound to
+   * `prefs()`, which only changes once the server has accepted the value, so
+   * on failure the bound value never changed and Angular has nothing to
+   * re-render — the box would sit visibly "on" while the account said "off".
+   * Same idiom as the permission select in the share dialog.
+   */
+  protected async toggleEmail(key: 'emailOnShare' | 'emailOnOrgActivity', event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const next = input.checked;
+    const ok = await this.save({ [key]: next });
+    if (!ok) input.checked = !next;
   }
 
   protected onAutosave(event: Event): void {
@@ -284,14 +456,17 @@ export class SettingsPage implements AfterViewInit, OnDestroy {
     void this.save({ theme: id });
   }
 
-  protected async save(patch: Partial<PreferencesDto>): Promise<void> {
-    if (this.saving()) return;
+  /** Persists a patch. Returns whether it stuck, so a caller can revert. */
+  protected async save(patch: Partial<PreferencesDto>): Promise<boolean> {
+    if (this.saving()) return false;
     this.saving.set(true);
     try {
       await this.me.updatePreferences(patch);
       this.savedOnce.set(true);
+      return true;
     } catch (e) {
       this.notify.error(messageOf(e));
+      return false;
     } finally {
       this.saving.set(false);
     }
@@ -299,6 +474,6 @@ export class SettingsPage implements AfterViewInit, OnDestroy {
 
   protected async signOut(): Promise<void> {
     this.me.invalidate();
-    await this.clerk.signOut();
+    await this.auth.signOut();
   }
 }

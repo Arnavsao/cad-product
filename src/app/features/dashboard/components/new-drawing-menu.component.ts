@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
+import { WorkspaceService } from '../../../core/api/workspace.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
@@ -81,6 +82,8 @@ export class NewDrawingMenuComponent {
   private readonly drawings = inject(DrawingsApiService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  /** New drawings land in whichever workspace the dashboard is showing. */
+  private readonly workspace = inject(WorkspaceService);
 
   protected readonly menu = [...MENU];
   protected readonly creating = signal(false);
@@ -89,7 +92,11 @@ export class NewDrawingMenuComponent {
     if (this.creating()) return;
     this.creating.set(true);
     try {
-      const drawing = await this.drawings.create({ name: 'Untitled drawing', folderId: this.folderId() });
+      const drawing = await this.drawings.create({
+        name: 'Untitled drawing',
+        folderId: this.folderId(),
+        organizationId: this.workspace.activeOrgId(),
+      });
       this.created.emit(drawing.id);
       if (kind === 'template') {
         this.notify.info('Templates are on the way — we created a blank drawing for now.');

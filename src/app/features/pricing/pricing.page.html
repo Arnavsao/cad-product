@@ -1,0 +1,149 @@
+<div class="pr">
+  <header class="pr__top">
+    <a class="pr__brand" routerLink="/" [attr.aria-label]="appName + ' home'">
+      <span class="pr__brand-mark" aria-hidden="true"><ui-icon name="grid" [size]="16" /></span>
+      <span>{{ appName }}</span>
+    </a>
+    <a uiButton variant="secondary" size="sm" [routerLink]="homeLink()">
+      {{ signedIn() ? 'Back to dashboard' : 'Back to home' }}
+    </a>
+  </header>
+
+  <main class="pr__main">
+    <section class="pr__hero">
+      <h1 class="pr__title">Simple pricing for browser-native CAD</h1>
+      <p class="pr__lede">
+        Start free and stay free for occasional work. Upgrade when your drawings — or your studio — outgrow it.
+      </p>
+
+      <div class="pr__toggle" role="radiogroup" aria-label="Billing period">
+        <button
+          type="button"
+          class="pr__toggle-btn"
+          role="radio"
+          [class.pr__toggle-btn--on]="!annual()"
+          [attr.aria-checked]="!annual()"
+          (click)="annual.set(false)"
+        >
+          Monthly
+        </button>
+        <button
+          type="button"
+          class="pr__toggle-btn"
+          role="radio"
+          [class.pr__toggle-btn--on]="annual()"
+          [attr.aria-checked]="annual()"
+          (click)="annual.set(true)"
+        >
+          Annual
+          <span class="pr__toggle-save">save 20%</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="pr__tiers" aria-label="Plans">
+      @for (tier of tiers; track tier.id) {
+        <article class="pr__tier" [class.pr__tier--featured]="tier.featured">
+          @if (tier.featured) {
+            <span class="pr__tier-flag">Most popular</span>
+          }
+          <h2 class="pr__tier-name">{{ tier.name }}</h2>
+          <p class="pr__tier-tagline">{{ tier.tagline }}</p>
+
+          <p class="pr__price">
+            <span class="pr__price-amount">{{ currency }}{{ priceOf(tier) }}</span>
+            @if (priceOf(tier) > 0) {
+              <span class="pr__price-unit">/user/month</span>
+            }
+          </p>
+          @if (annual() && savingOf(tier) > 0) {
+            <p class="pr__price-note">billed annually — save {{ savingOf(tier) }}%</p>
+          } @else if (priceOf(tier) > 0) {
+            <p class="pr__price-note">billed monthly</p>
+          } @else {
+            <p class="pr__price-note">free forever</p>
+          }
+
+          <a uiButton class="pr__tier-cta" [variant]="tier.featured ? 'primary' : 'secondary'" [routerLink]="ctaLink()">
+            {{ ctaFor(tier) }}
+          </a>
+
+          <ul class="pr__features">
+            @for (feature of tier.highlights; track feature) {
+              <li><ui-icon name="check" [size]="14" /> {{ feature }}</li>
+            }
+          </ul>
+        </article>
+      }
+    </section>
+
+    <section class="pr__compare" aria-labelledby="pr-compare-title">
+      <h2 id="pr-compare-title" class="pr__section-title">Compare plans</h2>
+      <div class="pr__table-wrap">
+        <table class="pr__table">
+          <caption class="ui-visually-hidden">Feature comparison across the Free, Pro and Team plans</caption>
+          <thead>
+            <tr>
+              <th scope="col">Feature</th>
+              @for (tier of tiers; track tier.id) {
+                <th scope="col">{{ tier.name }}</th>
+              }
+            </tr>
+          </thead>
+          @for (group of comparison; track group.title) {
+            <tbody>
+              <tr class="pr__group">
+                <th scope="rowgroup" [attr.colspan]="tiers.length + 1">{{ group.title }}</th>
+              </tr>
+              @for (row of group.rows; track row.label) {
+                <tr>
+                  <th scope="row">{{ row.label }}</th>
+                  @for (tier of tiers; track tier.id) {
+                    <td>
+                      @if (cell(row, tier.id) === true) {
+                        <ui-icon class="pr__yes" name="check" [size]="15" />
+                        <span class="ui-visually-hidden">Included</span>
+                      } @else if (cell(row, tier.id) === false) {
+                        <span class="pr__no" aria-hidden="true">—</span>
+                        <span class="ui-visually-hidden">Not included</span>
+                      } @else {
+                        {{ cell(row, tier.id) }}
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          }
+        </table>
+      </div>
+    </section>
+
+    <section class="pr__faq" aria-labelledby="pr-faq-title">
+      <h2 id="pr-faq-title" class="pr__section-title">Questions</h2>
+      <div class="pr__faq-list">
+        @for (faq of faqs; track faq.q) {
+          <details class="pr__faq-item">
+            <summary>{{ faq.q }}<ui-icon name="chevron-down" [size]="16" /></summary>
+            <p>{{ faq.a }}</p>
+          </details>
+        }
+      </div>
+    </section>
+
+    <section class="pr__cta">
+      <h2 class="pr__cta-title">Ready to draw?</h2>
+      <p class="pr__cta-text">No install, no licence server. Open a browser and start.</p>
+      <a uiButton size="lg" [routerLink]="ctaLink()">{{ signedIn() ? 'Go to dashboard' : 'Create your account' }}</a>
+    </section>
+  </main>
+
+  <footer class="pr__foot">
+    <span>© {{ year }} {{ appName }}</span>
+    <nav class="pr__foot-links" aria-label="Footer">
+      <a routerLink="/whats-new">What's New</a>
+      <a routerLink="/terms">Terms</a>
+      <a routerLink="/privacy">Privacy</a>
+    </nav>
+  </footer>
+</div>

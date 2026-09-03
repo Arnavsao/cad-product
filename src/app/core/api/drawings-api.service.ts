@@ -3,19 +3,33 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, firstValueFrom } from 'rxjs';
 import { HttpManagerService } from '../services/http-manager.service';
 import {
+  AcceptSharedLinkDto,
+  CopyDrawingRequest,
   CreateDrawingRequest,
+  CreateShareLinkRequest,
   DeletedDto,
   DrawingDto,
   DrawingSummaryDto,
+  EmailedShareLinkDto,
+  EmailShareLinkRequest,
+  EmptyTrashDto,
   ImportDrawingRequest,
   ListDrawingsQuery,
+  MoveDrawingRequest,
   Page,
   PresignDto,
   PresignUploadRequest,
   SaveResultDto,
+  ShareDto,
+  ShareLinkDto,
+  SharedLinkDto,
+  SharesDto,
   ThumbnailDto,
   TrashedDto,
   UpdateDrawingRequest,
+  UpsertShareRequest,
+  VersionDownloadDto,
+  VersionDto,
 } from './api.models';
 
 /**
@@ -35,23 +49,54 @@ export class DrawingsApiService {
 
   // ── listing ─────────────────────────────────────────────────────────────
 
-  /** `GET /drawings` — paginated, filtered by folder / search / sort. */
+  /**
+   * `GET /drawings` — filtered by workspace / folder / search / sort.
+   *
+   * Pass `page` for a numbered page (the response then carries `total`), or
+   * `cursor` to walk forward. Sending neither returns the first page.
+   */
   list(q: ListDrawingsQuery = {}): Promise<Page<DrawingSummaryDto>> {
     return firstValueFrom(
       this.api.get<Page<DrawingSummaryDto>>('drawings', {
-        params: { folderId: q.folderId, q: q.q, sort: q.sort, cursor: q.cursor, limit: q.limit },
+        params: {
+          folderId: q.folderId,
+          organizationId: q.organizationId ?? undefined,
+          q: q.q,
+          sort: q.sort,
+          cursor: q.cursor,
+          page: q.page,
+          limit: q.limit,
+          // Omitted rather than sent as 'workspace', so an older API that does
+          // not know the parameter behaves exactly as it does today.
+          scope: q.scope === 'shared' ? 'shared' : undefined,
+        },
       }),
     );
   }
 
   /** `GET /drawings/recent` — most recently opened first. */
-  recent(limit?: number): Promise<DrawingSummaryDto[]> {
-    return firstValueFrom(this.api.get<DrawingSummaryDto[]>('drawings/recent', { params: { limit } }));
+  recent(limit?: number, organizationId?: string | null): Promise<DrawingSummaryDto[]> {
+    return firstValueFrom(
+      this.api.get<DrawingSummaryDto[]>('drawings/recent', {
+        params: { limit, organizationId: organizationId ?? undefined },
+      }),
+    );
   }
 
-  /** `GET /drawings/trash`. */
-  trash(cursor?: string, limit?: number): Promise<Page<DrawingSummaryDto>> {
-    return firstValueFrom(this.api.get<Page<DrawingSummaryDto>>('drawings/trash', { params: { cursor, limit } }));
+  /** `GET /drawings/trash` — same two paging modes as `list`. */
+  trash(
+    opts: { cursor?: string; page?: number; limit?: number; organizationId?: string | null } = {},
+  ): Promise<Page<DrawingSummaryDto>> {
+    return firstValueFrom(
+      this.api.get<Page<DrawingSummaryDto>>('drawings/trash', {
+        params: {
+          cursor: opts.cursor,
+          page: opts.page,
+          limit: opts.limit,
+          organizationId: opts.organizationId ?? undefined,
+        },
+      }),
+    );
   }
 
   // ── lifecycle ───────────────────────────────────────────────────────────
@@ -102,9 +147,26 @@ export class DrawingsApiService {
     );
   }
 
-  /** `PATCH /drawings/:id` — rename and/or move. */
+  /** `PATCH /drawings/:id` — rename and/or move *within* the workspace. */
   patch(id: string, req: UpdateDrawingRequest): Promise<DrawingSummaryDto> {
     return firstValueFrom(this.api.patch<DrawingSummaryDto>(`drawings/${enc(id)}`, req));
+  }
+
+  /**
+   * `POST /drawings/:id/move` — move including across workspaces.
+   *
+   * Separate from `patch` because it is a different permission (`manage` on the
+   * source once the workspace changes) and a different failure surface: 409
+   * `NAME_TAKEN` at the destination, 403 `FORBIDDEN` when the caller is only a
+   * viewer there. The storage key is unchanged by a move — the row is re-tagged.
+   */
+  move(id: string, req: MoveDrawingRequest): Promise<DrawingSummaryDto> {
+    return firstValueFrom(this.api.post<DrawingSummaryDto>(`drawings/${enc(id)}/move`, req));
+  }
+
+  /** `POST /drawings/:id/copy` — 201 with the copy; the caller becomes its owner. */
+  copy(id: string, req: CopyDrawingRequest): Promise<DrawingSummaryDto> {
+    return firstValueFrom(this.api.post<DrawingSummaryDto>(`drawings/${enc(id)}/copy`, req));
   }
 
   /** `POST /drawings/:id/duplicate`. */
@@ -125,6 +187,16 @@ export class DrawingsApiService {
   /** `DELETE /drawings/:id/permanent` — irreversible. */
   deletePermanently(id: string): Promise<DeletedDto> {
     return firstValueFrom(this.api.delete<DeletedDto>(`drawings/${enc(id)}/permanent`));
+  }
+
+  /**
+   * `DELETE /drawings/trash` — permanently deletes every trashed row of one
+   * workspace. In an organization this needs ADMIN and up (403 otherwise).
+   */
+  emptyTrash(organizationId?: string | null): Promise<EmptyTrashDto> {
+    return firstValueFrom(
+      this.api.delete<EmptyTrashDto>('drawings/trash', { params: { organizationId: organizationId ?? undefined } }),
+    );
   }
 
   /** `PUT /drawings/:id/thumbnail` — PNG ≤ 512 KB. */
@@ -156,6 +228,86 @@ export class DrawingsApiService {
   /** `POST /drawings/import` — turn a staged upload into a drawing. */
   importDrawing(req: ImportDrawingRequest): Promise<DrawingSummaryDto> {
     return firstValueFrom(this.api.post<DrawingSummaryDto>('drawings/import', req));
+  }
+
+  // ── version history ─────────────────────────────────────────────────────
+
+  /** `GET /drawings/:id/versions` — newest first; pruned versions are absent. */
+  versions(id: string): Promise<VersionDto[]> {
+    return firstValueFrom(this.api.get<VersionDto[]>(`drawings/${enc(id)}/versions`));
+  }
+
+  /** `GET /drawings/:id/versions/:version` — a presigned URL for those bytes. */
+  versionDownload(id: string, version: number): Promise<VersionDownloadDto> {
+    return firstValueFrom(this.api.get<VersionDownloadDto>(`drawings/${enc(id)}/versions/${version}`));
+  }
+
+  /**
+   * `POST /drawings/:id/versions/:version/restore` — append-only: restoring v3
+   * of a drawing at v7 produces v8 carrying v3's bytes, so nothing is lost.
+   */
+  restoreVersion(id: string, version: number, ifMatchVersion: number | null = null): Promise<SaveResultDto> {
+    return firstValueFrom(
+      this.api.post<SaveResultDto>(`drawings/${enc(id)}/versions/${version}/restore`, {}, { headers: ifMatch(ifMatchVersion) }),
+    );
+  }
+
+  // ── sharing ─────────────────────────────────────────────────────────────
+
+  /** `GET /drawings/:id/shares` — people, organizations and links (`manage`). */
+  shares(id: string): Promise<SharesDto> {
+    return firstValueFrom(this.api.get<SharesDto>(`drawings/${enc(id)}/shares`));
+  }
+
+  /**
+   * `PUT /drawings/:id/shares` — add or re-permission one target.
+   *
+   * Codes worth branching on: 422 `SHARE_SELF`, 422 `SHARE_SAME_ORG` (the
+   * drawing already lives in that org), 422 `SHARE_TARGET_REQUIRED` and 404
+   * `ORG_NOT_FOUND` (an org the caller does not belong to).
+   */
+  upsertShare(id: string, req: UpsertShareRequest): Promise<ShareDto> {
+    return firstValueFrom(this.api.put<ShareDto>(`drawings/${enc(id)}/shares`, req));
+  }
+
+  /** `DELETE /drawings/:id/shares/:shareId`. */
+  removeShare(id: string, shareId: string): Promise<{ id: string }> {
+    return firstValueFrom(this.api.delete<{ id: string }>(`drawings/${enc(id)}/shares/${enc(shareId)}`));
+  }
+
+  /** `POST /drawings/:id/links` — a fresh view/edit link. */
+  createLink(id: string, req: CreateShareLinkRequest): Promise<ShareLinkDto> {
+    return firstValueFrom(this.api.post<ShareLinkDto>(`drawings/${enc(id)}/links`, req));
+  }
+
+  /** `DELETE /drawings/:id/links/:linkId` — revokes it for everyone. */
+  revokeLink(id: string, linkId: string): Promise<{ id: string }> {
+    return firstValueFrom(this.api.delete<{ id: string }>(`drawings/${enc(id)}/links/${enc(linkId)}`));
+  }
+
+  /**
+   * `POST /drawings/:id/links/:linkId/email` — mail an existing link out.
+   *
+   * Needs `manage`, like the rest of the link routes. Codes worth branching
+   * on: 404 `LINK_INVALID` (revoked or expired since the dialog loaded), 400
+   * `VALIDATION_ERROR` (a malformed address, or more than ten of them) and 429
+   * — the route is rate-limited to ten calls a minute so it cannot be used as
+   * a relay.
+   */
+  emailLink(id: string, linkId: string, req: EmailShareLinkRequest): Promise<EmailedShareLinkDto> {
+    return firstValueFrom(
+      this.api.post<EmailedShareLinkDto>(`drawings/${enc(id)}/links/${enc(linkId)}/email`, req),
+    );
+  }
+
+  /** `GET /shared/:token` — what the link points at. 404 `LINK_INVALID` when dead. */
+  sharedLink(token: string): Promise<SharedLinkDto> {
+    return firstValueFrom(this.api.get<SharedLinkDto>(`shared/${enc(token)}`));
+  }
+
+  /** `POST /shared/:token/accept` — turns the link into a durable share for the caller. */
+  acceptSharedLink(token: string): Promise<AcceptSharedLinkDto> {
+    return firstValueFrom(this.api.post<AcceptSharedLinkDto>(`shared/${enc(token)}/accept`, {}));
   }
 }
 
