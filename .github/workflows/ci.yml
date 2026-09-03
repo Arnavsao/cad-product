@@ -16,6 +16,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      # Regenerates en.json from the editor registries and checks all 14
+      # languages against it. Catches the failure that ships silently: a new
+      # key that only exists in English renders in English for everyone else
+      # and never errors at runtime. See docs/TRANSLATING.md.
+      - run: npm run i18n
+      # Fails the build if the generated en.json is not what is committed —
+      # otherwise a tool added to the catalog without running `npm run i18n`
+      # leaves the translation files permanently one key behind.
+      - name: en.json is up to date with the registries
+        run: git diff --exit-code -- public/i18n/en.json
       - run: npm run build
       - run: npm run test:ci
       - uses: actions/upload-artifact@v4

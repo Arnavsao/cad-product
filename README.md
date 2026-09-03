@@ -5,7 +5,7 @@ accounts, cloud drawing storage and a file dashboard behind it.
 
 The editor provides DXF import/export, paper-space layouts and viewports, blocks with attributes, dimensions and
 dimension styles, hatches, tables, text/MText editing, an object library, PDF/SVG plotting and an AI drafting
-assistant. Around it sit Supabase authentication, onboarding, a drawings dashboard, and a NestJS API backed by Postgres
+assistant. The whole UI, command prompts included, is available in the same fourteen languages AutoCAD ships in. Around it sit Supabase authentication, onboarding, a drawings dashboard, and a NestJS API backed by Postgres
 and S3-compatible object storage.
 
 The editor can still be embedded in a host application that owns identity — leave the Supabase keys empty and it
@@ -74,6 +74,53 @@ can override it to supply its own.
 The API reads `server/.env` (see `server/.env.example`): `DATABASE_URL` + `DIRECT_DATABASE_URL` (pooled and direct —
 Neon needs both), the `SUPABASE_*` keys, and the `S3_*` block pointing at MinIO locally or R2/S3 in production.
 
+## Languages
+
+The UI ships in fourteen languages — deliberately AutoCAD's set, so a drafter arriving from AutoCAD finds both their
+language and their terminology:
+
+English · Čeština · Deutsch · Español · Français · Magyar · Italiano · 日本語 · 한국어 · Polski ·
+Português (Brasil) · Русский · 简体中文 · 繁體中文
+
+The language is resolved from `localStorage['cad.locale']`, then the browser's `navigator.languages`, then English;
+signing in applies the account's stored `locale` on top. Users switch it in **Settings → Language**, and the choice
+persists to the account and follows them across devices. `LanguageService`
+(`src/app/core/i18n/language.service.ts`) is shaped like `ThemeService` on purpose — both are runtime preferences with
+the same lifecycle.
+
+Translation files live in `public/i18n/<code>.json` and are served from the web root. **`en.json` is generated** —
+the editor's ~465 command prompts and tool names are extracted from
+`command-prompts.registry.ts` and `tool-catalog.service.ts` rather than hand-maintained, so adding a tool cannot ship
+an untranslatable name. Edit `scripts/i18n/app-strings.en.json` for app text, then run `npm run i18n`.
+
+A key missing from a language falls back to its English text rather than rendering the key name, which is what makes a
+partially-translated language safe to ship — and also what makes a gap invisible at runtime. `npm run i18n:validate`
+runs in CI and is the only thing that surfaces it.
+
+> **The non-English files are drafted, not professionally reviewed.** They follow established AutoCAD terminology per
+> language, but each should be read by a native-speaking drafter before you call that language done. Command prompts
+> are the highest-risk area — they are read mid-task by someone who will not tolerate a wrong term.
+
+See [docs/TRANSLATING.md](docs/TRANSLATING.md) for the conventions, what must never be translated, and how to add a
+language.
+
+## Billing
+
+Pro and Team are sold as subscriptions through [Dodo Payments](https://dodopayments.com).
+Checkout and the customer portal are both hosted by Dodo; the API records which plan an
+account is entitled to and never decides it locally.
+
+Billing is **off until configured**. With no `DODO_API_KEY` the checkout endpoints answer
+`503 BILLING_NOT_CONFIGURED` and the webhook route rejects every delivery — it fails closed,
+because an unauthenticated route that changes what someone has paid for must never accept an
+unverified body. Everything else in the app works normally, reporting the Free plan.
+
+Plan entitlement is recorded but **not yet enforced**: the Free tier's advertised limits are
+not applied. `BillingService.effectivePlan()` is the one place to read when adding gating.
+
+See [docs/BILLING.md](docs/BILLING.md) for product setup, the webhook endpoint, the
+checkout/webhook race, and the four safety properties of the webhook route.
+
 ## Deployment
 
 Two containers: nginx serving the Angular build, and the API.
@@ -119,6 +166,7 @@ src/
 ├── app/
 │   ├── core/                 HTTP wrapper, typed API clients, Supabase auth + guards, notifications,
 │   │                         global error handler, auth-token provider, preload strategy
+│   │   └── i18n/             14-language registry, LanguageService, Transloco loader + providers
 │   ├── shared/ui/            Design-system primitives: button, input, card, dialog, menu,
 │   │                         empty state, skeleton, icon, account button, pipes
 │   └── features/
@@ -138,6 +186,7 @@ server/                       NestJS API (own package)
 ├── prisma/schema.prisma      User, Folder, Drawing, DrawingVersion, ShareLink, WebhookEvent
 └── src/
     ├── auth/                 SupabaseAuthGuard, jose verifier, lazy local-user creation
+    ├── billing/              Dodo Payments: checkout, customer portal, signed webhooks
     ├── drawings/ folders/    CRUD, versioned saves, uploads/import, thumbnails
     ├── storage/              S3-compatible object store (MinIO / R2 / S3)
     ├── users/                /me + onboarding, profile mirrored from token claims
@@ -158,6 +207,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layering rules and the 
 ## Documentation
 
 * [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layers, key services, data flow, extension points.
+* [docs/TRANSLATING.md](docs/TRANSLATING.md) — the fourteen languages, translation conventions, what not to translate.
+* [docs/BILLING.md](docs/BILLING.md) — Dodo Payments setup, the checkout/webhook flow, and how to add feature gating.
 * [docs/INTEGRATION.md](docs/INTEGRATION.md) — embedding the editor and handing drawings to it from a host app.
 * [docs/MIGRATION.md](docs/MIGRATION.md) — what was moved from the bridge repository, what stayed, and how the bridge
   app should consume this package going forward.
