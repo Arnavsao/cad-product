@@ -1,10 +1,39 @@
 import { HttpStatus } from '@nestjs/common';
 import { ApiException } from '../errors/api-error';
 
-/** Wire shape of a paginated list (plan §1 `Page<T>`). */
+/**
+ * Wire shape of a paginated list (plan §1 `Page<T>`).
+ *
+ * Both paging modes share this envelope. `nextCursor` is the keyset mode used
+ * by feed-like callers that only ever walk forward (the editor's drawing
+ * browser, the notification inbox). `total`/`page`/`pageSize` describe the
+ * offset mode the dashboard file table needs, because numbered pages and an
+ * "x–y of N" count cannot be derived from a cursor.
+ *
+ * The offset fields are optional so the cursor callers are unaffected: a
+ * response either carries them (offset request) or does not (cursor request).
+ */
 export interface Page<T> {
   items: T[];
   nextCursor: string | null;
+  /** Rows matching the filter, ignoring paging. Offset mode only. */
+  total?: number;
+  /** 1-based index of the page returned. Offset mode only. */
+  page?: number;
+  /** Rows per page the server actually used, after clamping. Offset mode only. */
+  pageSize?: number;
+}
+
+/**
+ * Clamps a 1-based page number. Out-of-range values are clamped rather than
+ * rejected: a stale "last page" link after rows were deleted should show the
+ * final page, not a 400.
+ */
+export function clampPage(page: number | undefined): number {
+  if (page === undefined || Number.isNaN(page)) {
+    return 1;
+  }
+  return Math.max(Math.trunc(page), 1);
 }
 
 /**

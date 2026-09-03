@@ -2,7 +2,7 @@ import { createParamDecorator, ExecutionContext, InternalServerErrorException } 
 import type { AuthenticatedRequest, AuthUser } from '../../auth/auth.types';
 
 /**
- * Injects the principal set by `ClerkAuthGuard`.
+ * Injects the principal set by `SupabaseAuthGuard`.
  *
  *   @Get() list(@CurrentUser() user: AuthUser)
  *   @Get() list(@CurrentUser('id') ownerId: string)
@@ -14,7 +14,7 @@ export const CurrentUser = createParamDecorator((field: keyof AuthUser | undefin
   const req = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
   const user = req.user;
   if (!user) {
-    throw new InternalServerErrorException('@CurrentUser() used on a route without ClerkAuthGuard');
+    throw new InternalServerErrorException('@CurrentUser() used on a route without SupabaseAuthGuard');
   }
   return field ? user[field] : user;
 });

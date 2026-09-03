@@ -1,25 +1,40 @@
 import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
+import type { Actor } from '../common/access';
 import type { ApiException } from '../common/errors/api-error';
 import type { Folder } from '../generated/prisma/client';
+import type { OrganizationsService } from '../organizations/organizations.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { FoldersService } from './folders.service';
 
 /**
- * Unit spec for the invariants the database cannot express: root-level name
- * uniqueness (Postgres treats NULL `parent_id` values as distinct, so the
- * composite unique index does not cover the root) and cycle-free moves.
+ * Unit spec for the invariants the service owns rather than the database:
+ * sibling-name uniqueness at the root (Postgres treats NULL `parent_id` values
+ * as distinct, so the pre-check is what produces a usable 409), cycle-free
+ * moves, and the workspace boundary between personal and organization trees.
  */
 
 const USER = 'cuser00000000000000000001';
 const FOLDER = 'cfold00000000000000000001';
 const PARENT = 'cfold00000000000000000002';
 const CHILD = 'cfold00000000000000000003';
+const ORG = 'corg000000000000000000001';
+
+/** The `WHERE` fragment `folderScope` produces for a personal workspace. */
+const PERSONAL_SCOPE = { ownerId: USER, organizationId: null };
+
+/** The caller as `common/access.ts` wants them: an id plus a lowercased email. */
+function actorOf(userId: string): Actor {
+  return { userId, email: `${userId}@example.com` };
+}
+
+const ME = actorOf(USER);
 
 function folderRow(overrides: Partial<Folder> = {}): Folder {
   const now = new Date('2026-08-29T10:00:00.000Z');
   return {
     id: FOLDER,
     ownerId: USER,
+    organizationId: null,
     parentId: null,
     name: 'Site plans',
     createdAt: now,
@@ -39,14 +54,27 @@ async function rejection(promise: Promise<unknown>): Promise<ApiException> {
 
 describe('FoldersService', () => {
   let prisma: DeepMockProxy<PrismaService>;
+  let organizations: DeepMockProxy<OrganizationsService>;
   let service: FoldersService;
 
   beforeEach(() => {
     prisma = mockDeep<PrismaService>();
+    organizations = mockDeep<OrganizationsService>();
+    // Default: every request resolves to the caller's personal workspace.
+    organizations.resolveWorkspace.mockImplementation(async (userId, organizationId) => ({
+      userId,
+      organizationId: organizationId ?? null,
+    }));
     (prisma.$transaction as unknown as jest.Mock).mockImplementation(async (arg: unknown) =>
       typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prisma) : Promise.all(arg as Promise<unknown>[]),
     );
-    service = new FoldersService(prisma);
+    // Access resolution (`common/access.ts`) asks two more questions on every
+    // single-row path: the caller's membership of the row's org, and the live
+    // shares reaching them. Default: neither exists, so a personal folder
+    // resolves purely from `ownerId`.
+    prisma.orgMembership.findUnique.mockResolvedValue(null);
+    prisma.share.findMany.mockResolvedValue([]);
+    service = new FoldersService(prisma, organizations);
   });
 
   // ---------------------------------------------------------------------------
@@ -55,13 +83,13 @@ describe('FoldersService', () => {
 
   it("answers 404 (not 403) for another user's folder", async () => {
     prisma.folder.findFirst.mockResolvedValue(null);
-    const error = await rejection(service.get('cothr00000000000000000001', FOLDER));
+    const error = await rejection(service.get(actorOf('cothr00000000000000000001'), FOLDER));
     expect(error.getStatus()).toBe(404);
     expect(error.code).toBe('FOLDER_NOT_FOUND');
   });
 
   it('answers 404 for a malformed id without querying the database', async () => {
-    const error = await rejection(service.get(USER, 'nope'));
+    const error = await rejection(service.get(ME, 'nope'));
     expect(error.getStatus()).toBe(404);
     expect(prisma.folder.findFirst).not.toHaveBeenCalled();
   });
@@ -74,12 +102,12 @@ describe('FoldersService', () => {
     it('rejects a second root folder with the same name (the unique index cannot)', async () => {
       prisma.folder.findFirst.mockResolvedValue({ id: 'existing' } as unknown as Folder);
 
-      const error = await rejection(service.create(USER, { name: 'Site plans' }));
+      const error = await rejection(service.create(ME, { name: 'Site plans' }));
 
       expect(error.getStatus()).toBe(409);
       expect(error.code).toBe('NAME_TAKEN');
       expect(prisma.folder.findFirst).toHaveBeenCalledWith({
-        where: { ownerId: USER, parentId: null, name: 'Site plans' },
+        where: { ...PERSONAL_SCOPE, parentId: null, name: 'Site plans' },
         select: { id: true },
       });
       expect(prisma.folder.create).not.toHaveBeenCalled();
@@ -89,13 +117,15 @@ describe('FoldersService', () => {
       prisma.folder.findFirst.mockResolvedValue(null);
       prisma.folder.create.mockResolvedValue(folderRow());
 
-      await expect(service.create(USER, { name: '  Site plans  ' })).resolves.toMatchObject({
+      await expect(service.create(ME, { name: '  Site plans  ' })).resolves.toMatchObject({
         id: FOLDER,
         name: 'Site plans',
         parentId: null,
+        organizationId: null,
       });
       expect(prisma.folder.create).toHaveBeenCalledWith({
-        data: { ownerId: USER, parentId: null, name: 'Site plans' },
+        data: { ownerId: USER, organizationId: null, parentId: null, name: 'Site plans' },
+        include: expect.anything() as never,
       });
     });
 
@@ -103,7 +133,7 @@ describe('FoldersService', () => {
       prisma.folder.findFirst.mockResolvedValue(null);
       prisma.folder.create.mockRejectedValue(Object.assign(new Error('unique'), { code: 'P2002', clientVersion: '7' }));
 
-      const error = await rejection(service.create(USER, { name: 'Site plans' }));
+      const error = await rejection(service.create(ME, { name: 'Site plans' }));
       expect(error.getStatus()).toBe(409);
       expect(error.code).toBe('NAME_TAKEN');
     });
@@ -122,7 +152,7 @@ describe('FoldersService', () => {
         return null;
       }) as never);
 
-      const error = await rejection(service.update(USER, FOLDER, { parentId: CHILD }));
+      const error = await rejection(service.update(ME, FOLDER, { parentId: CHILD }));
       expect(error.getStatus()).toBe(422);
       expect(error.code).toBe('FOLDER_CYCLE');
       expect(prisma.folder.update).not.toHaveBeenCalled();
@@ -130,7 +160,7 @@ describe('FoldersService', () => {
 
     it('rejects moving a folder into itself', async () => {
       prisma.folder.findFirst.mockResolvedValue(folderRow());
-      const error = await rejection(service.update(USER, FOLDER, { parentId: FOLDER }));
+      const error = await rejection(service.update(ME, FOLDER, { parentId: FOLDER }));
       expect(error.getStatus()).toBe(422);
       expect(error.code).toBe('FOLDER_CYCLE');
     });
@@ -142,7 +172,7 @@ describe('FoldersService', () => {
         return folderRow({ id: PARENT, parentId: PARENT });
       }) as never);
 
-      const error = await rejection(service.update(USER, FOLDER, { parentId: PARENT }));
+      const error = await rejection(service.update(ME, FOLDER, { parentId: PARENT }));
       expect(error.code).toBe('FOLDER_CYCLE');
     });
   });
@@ -154,7 +184,7 @@ describe('FoldersService', () => {
       return null;
     }) as never);
 
-    const dto = await service.get(USER, CHILD);
+    const dto = await service.get(ME, CHILD);
     expect(dto.path).toEqual([
       { id: PARENT, name: 'Level 1' },
       { id: CHILD, name: 'Level 2' },
@@ -172,7 +202,7 @@ describe('FoldersService', () => {
       prisma.folder.count.mockResolvedValue(1);
       prisma.drawing.count.mockResolvedValue(2);
 
-      const error = await rejection(service.remove(USER, FOLDER, false));
+      const error = await rejection(service.remove(ME, FOLDER, false));
       expect(error.getStatus()).toBe(409);
       expect(error.code).toBe('FOLDER_NOT_EMPTY');
       expect(error.extra).toEqual({ folders: 1, drawings: 2 });
@@ -189,10 +219,10 @@ describe('FoldersService', () => {
       prisma.drawing.updateMany.mockResolvedValue({ count: 2 });
       prisma.folder.delete.mockResolvedValue(folderRow());
 
-      await expect(service.remove(USER, FOLDER, true)).resolves.toEqual({ id: FOLDER, trashedDrawings: 2 });
+      await expect(service.remove(ME, FOLDER, true)).resolves.toEqual({ id: FOLDER, trashedDrawings: 2 });
 
       expect(prisma.drawing.updateMany).toHaveBeenCalledWith({
-        where: { ownerId: USER, folderId: { in: [FOLDER, CHILD] }, deletedAt: null },
+        where: { ...PERSONAL_SCOPE, folderId: { in: [FOLDER, CHILD] }, deletedAt: null },
         data: { deletedAt: expect.any(Date) as unknown as Date },
       });
       expect(prisma.folder.delete).toHaveBeenCalledWith({ where: { id: FOLDER } });
@@ -206,7 +236,72 @@ describe('FoldersService', () => {
       prisma.drawing.updateMany.mockResolvedValue({ count: 0 });
       prisma.folder.delete.mockResolvedValue(folderRow());
 
-      await expect(service.remove(USER, FOLDER, false)).resolves.toEqual({ id: FOLDER, trashedDrawings: 0 });
+      await expect(service.remove(ME, FOLDER, false)).resolves.toEqual({ id: FOLDER, trashedDrawings: 0 });
+    });
+
+    it("scopes the trash sweep to the org, so a teammate's drawings are counted", async () => {
+      // Regression guard: scoping by `ownerId` here would report the folder as
+      // empty and then bin drawings the caller did not create.
+      prisma.folder.findFirst.mockResolvedValue(folderRow({ organizationId: ORG }));
+      prisma.orgMembership.findUnique.mockResolvedValue({ role: 'MEMBER' } as never);
+      prisma.folder.findMany.mockResolvedValue([]);
+      prisma.folder.count.mockResolvedValue(0);
+      prisma.drawing.count.mockResolvedValue(3);
+
+      const error = await rejection(service.remove(ME, FOLDER, false));
+      expect(error.code).toBe('FOLDER_NOT_EMPTY');
+      expect(error.extra).toEqual({ folders: 0, drawings: 3 });
+      expect(prisma.drawing.count).toHaveBeenCalledWith({
+        where: {
+          organizationId: ORG,
+          organization: { memberships: { some: { userId: USER } } },
+          folderId: { in: [FOLDER] },
+          deletedAt: null,
+        },
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Workspaces
+  // ---------------------------------------------------------------------------
+
+  describe('workspaces', () => {
+    it('inherits the parent folder’s organization instead of the requested one', async () => {
+      // The body asks for a personal folder, but the parent is an org folder;
+      // honouring the body would leave the subtree straddling two workspaces.
+      prisma.folder.findFirst
+        .mockResolvedValueOnce(folderRow({ id: PARENT, organizationId: ORG }))
+        .mockResolvedValueOnce(null);
+      prisma.orgMembership.findUnique.mockResolvedValue({ role: 'MEMBER' } as never);
+      prisma.folder.create.mockResolvedValue(folderRow({ organizationId: ORG }));
+
+      await service.create(ME, { name: 'Sub', parentId: PARENT, organizationId: null });
+
+      expect(prisma.folder.create).toHaveBeenCalledWith({
+        data: { ownerId: USER, organizationId: ORG, parentId: PARENT, name: 'Sub' },
+        include: expect.anything() as never,
+      });
+    });
+
+    it('refuses to move a personal folder under an org folder', async () => {
+      prisma.folder.findFirst
+        .mockResolvedValueOnce(folderRow({ id: FOLDER, organizationId: null }))
+        .mockResolvedValueOnce(folderRow({ id: PARENT, organizationId: ORG }));
+      prisma.orgMembership.findUnique.mockResolvedValue({ role: 'MEMBER' } as never);
+
+      const error = await rejection(service.update(ME, FOLDER, { parentId: PARENT }));
+      expect(error.getStatus()).toBe(422);
+      expect(error.code).toBe('CROSS_WORKSPACE_MOVE');
+      expect(prisma.folder.update).not.toHaveBeenCalled();
+    });
+
+    it('checks membership before listing an org tree', async () => {
+      organizations.resolveWorkspace.mockRejectedValue(
+        Object.assign(new Error('nope'), { code: 'ORG_NOT_FOUND' }),
+      );
+      await expect(service.list(ME, { organizationId: ORG })).rejects.toBeDefined();
+      expect(prisma.folder.findMany).not.toHaveBeenCalled();
     });
   });
 });
