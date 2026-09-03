@@ -28,6 +28,113 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Boot splash. Lives inside <app-root> below, so Angular discards it the
+       moment the root component renders — nothing to hide, nothing to time.
+       It is the same choreography as UiLogoLoaderComponent
+       (src/app/shared/ui/logo-loader.component.ts), inlined because nothing
+       from the bundle exists yet. Change one, change both. -->
+  <style>
+    .boot {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 26px;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .boot__stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 88px;
+      height: 88px;
+      color: #4c9aff;
+    }
+    .boot__mark {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      transform-origin: 50% 50%;
+      filter: drop-shadow(0 0 12px rgba(76, 154, 255, .6));
+      animation:
+        boot-orbit 2.8s cubic-bezier(.68, -.55, .27, 1.55) infinite,
+        boot-hue 7s linear infinite;
+    }
+    .boot__tile {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: boot-scatter 2.8s cubic-bezier(.2, .8, .2, 1) infinite;
+    }
+    .boot__tile:nth-child(1) { --dx: -1; --dy: -1; }
+    .boot__tile:nth-child(2) { --dx:  1; --dy: -1; }
+    .boot__tile:nth-child(3) { --dx: -1; --dy:  1; }
+    .boot__tile:nth-child(4) { --dx:  1; --dy:  1; }
+    .boot__ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      opacity: 0;
+      animation: boot-pulse 1.4s cubic-bezier(.2, .6, .3, 1) infinite;
+    }
+    .boot__ring--late { animation-delay: .7s; }
+    .boot__label {
+      font: 500 12px/1 Inter, system-ui, sans-serif;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #8b93a1;
+      animation: boot-blink 1.4s ease-in-out infinite;
+    }
+    @keyframes boot-orbit {
+      0%   { transform: rotate(0deg)   scale(1); }
+      9%   { transform: rotate(45deg)  scale(1.16); }
+      18%  { transform: rotate(90deg)  scale(1); }
+      25%  { transform: rotate(90deg)  scale(1); }
+      34%  { transform: rotate(135deg) scale(1.16); }
+      43%  { transform: rotate(180deg) scale(1); }
+      50%  { transform: rotate(180deg) scale(1); }
+      59%  { transform: rotate(225deg) scale(1.16); }
+      68%  { transform: rotate(270deg) scale(1); }
+      75%  { transform: rotate(270deg) scale(1); }
+      84%  { transform: rotate(315deg) scale(1.16); }
+      93%  { transform: rotate(360deg) scale(1); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+    @keyframes boot-scatter {
+      0%, 18%, 25%, 43%, 50%, 68%, 75%, 93%, 100% {
+        transform: translate(0, 0) rotate(0deg) scale(1);
+      }
+      9%, 34%, 59%, 84% {
+        transform:
+          translate(calc(var(--dx) * 17px), calc(var(--dy) * 17px))
+          rotate(calc(var(--dx) * var(--dy) * 180deg))
+          scale(.5);
+      }
+    }
+    @keyframes boot-hue {
+      0%   { filter: drop-shadow(0 0 12px rgba(76, 154, 255, .6)) hue-rotate(0deg); }
+      100% { filter: drop-shadow(0 0 12px rgba(76, 154, 255, .6)) hue-rotate(360deg); }
+    }
+    @keyframes boot-pulse {
+      0%   { transform: scale(.55); opacity: .55; }
+      100% { transform: scale(1.75); opacity: 0; }
+    }
+    @keyframes boot-blink {
+      0%, 100% { opacity: .45; }
+      50%      { opacity: .85; }
+    }
+    @keyframes boot-breathe {
+      0%, 100% { opacity: .55; }
+      50%      { opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .boot__mark { animation: boot-breathe 2s ease-in-out infinite; filter: none; }
+      .boot__tile, .boot__label { animation: none; }
+      .boot__ring { display: none; }
+    }
+  </style>
   <script>
     // Paint the persisted theme's background before first paint, so the page
     // never flashes the wrong colour. Dark is the default when nothing is saved.
@@ -39,7 +146,21 @@
   </script>
 </head>
 <body>
-  <app-root></app-root>
+  <app-root>
+    <div class="boot" role="status" aria-live="polite" aria-label="Loading CADOnline">
+      <div class="boot__stage">
+        <span class="boot__ring" aria-hidden="true"></span>
+        <span class="boot__ring boot__ring--late" aria-hidden="true"></span>
+        <svg class="boot__mark" viewBox="0 0 100 100" fill="currentColor" fill-rule="evenodd" aria-hidden="true" focusable="false">
+          <path class="boot__tile" d="M8.3 0h28.6a8.3 8.3 0 0 1 8.3 8.3v28.6a8.3 8.3 0 0 1 -8.3 8.3h-28.6a8.3 8.3 0 0 1 -8.3 -8.3v-28.6a8.3 8.3 0 0 1 8.3 -8.3ZM8.9 8.9h27.4v27.4h-27.4Z"/>
+          <path class="boot__tile" d="M63.1 0h28.6a8.3 8.3 0 0 1 8.3 8.3v28.6a8.3 8.3 0 0 1 -8.3 8.3h-28.6a8.3 8.3 0 0 1 -8.3 -8.3v-28.6a8.3 8.3 0 0 1 8.3 -8.3ZM63.7 8.9h27.4v27.4h-27.4Z"/>
+          <path class="boot__tile" d="M8.3 54.8h28.6a8.3 8.3 0 0 1 8.3 8.3v28.6a8.3 8.3 0 0 1 -8.3 8.3h-28.6a8.3 8.3 0 0 1 -8.3 -8.3v-28.6a8.3 8.3 0 0 1 8.3 -8.3ZM8.9 63.7h27.4v27.4h-27.4Z"/>
+          <path class="boot__tile" d="M63.1 54.8h28.6a8.3 8.3 0 0 1 8.3 8.3v28.6a8.3 8.3 0 0 1 -8.3 8.3h-28.6a8.3 8.3 0 0 1 -8.3 -8.3v-28.6a8.3 8.3 0 0 1 8.3 -8.3ZM63.7 63.7h27.4v27.4h-27.4Z"/>
+        </svg>
+      </div>
+      <span class="boot__label">CADOnline</span>
+    </div>
+  </app-root>
   <script>
     try {
       if (localStorage.getItem('theme') !== 'light') document.body.classList.add('dark-theme');

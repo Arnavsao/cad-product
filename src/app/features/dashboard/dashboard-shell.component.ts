@@ -11,6 +11,7 @@ import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiDialogService } from '../../shared/ui/dialog/ui-dialog.service';
 import { UiIconComponent } from '../../shared/ui/icon.component';
 import { UiInputDirective } from '../../shared/ui/input.directive';
+import { UiLogoComponent } from '../../shared/ui/logo.component';
 import type { UiMenuItem } from '../../shared/ui/menu/ui-menu.component';
 import { UiMenuTriggerDirective } from '../../shared/ui/menu/ui-menu-trigger.directive';
 import { FileSizePipe } from '../../shared/ui/pipes/file-size.pipe';
@@ -89,6 +90,7 @@ const HELP_MENU: UiMenuItem[] = [
     UiButtonDirective,
     UiIconComponent,
     UiInputDirective,
+    UiLogoComponent,
     UiMenuTriggerDirective,
     UiSkeletonComponent,
     FileSizePipe,

@@ -136,7 +136,8 @@ import { AiToolRegistryService } from './features/ai-agent/services/ai-tool-regi
 import { CursorSizeTool } from './tools/options/cursor-size-tool';
 import { PickboxTool } from './tools/options/pickbox-tool';
 import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.component';
-import { UiIconComponent } from '../../shared/ui/icon.component';
+import { UiLogoComponent } from '../../shared/ui/logo.component';
+import { UiLogoLoaderComponent } from '../../shared/ui/logo-loader.component';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -144,7 +145,8 @@ import { environment } from '../../../environments/environment';
   selector: 'app-cad-editor',
   standalone: true,
   imports: [
-    UiIconComponent,
+    UiLogoComponent,
+    UiLogoLoaderComponent,
     CanvasComponent,
     ToolbarComponent,
     SidebarComponent,

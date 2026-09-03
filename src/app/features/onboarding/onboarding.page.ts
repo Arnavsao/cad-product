@@ -6,6 +6,7 @@ import { SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { ThemeService } from '../cad-editor/core/services/theme.service';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiIconComponent } from '../../shared/ui/icon.component';
+import { UiLogoComponent } from '../../shared/ui/logo.component';
 import { OnboardingDraft, roleOf } from './onboarding.model';
 import { OnboardingDefaultsStepComponent } from './steps/defaults-step.component';
 import { OnboardingFinishStepComponent } from './steps/finish-step.component';
@@ -36,6 +37,7 @@ const LAST_STEP = STEP_TITLES.length;
     RouterLink,
     UiButtonDirective,
     UiIconComponent,
+    UiLogoComponent,
     OnboardingProfileStepComponent,
     OnboardingDefaultsStepComponent,
     OnboardingFinishStepComponent,
@@ -44,7 +46,7 @@ const LAST_STEP = STEP_TITLES.length;
     <div class="ob">
       <header class="ob__top">
         <a class="brand" routerLink="/" aria-label="CADOnline home">
-          <span class="brand__mark" aria-hidden="true"><ui-icon name="grid" [size]="16" /></span>
+          <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
           <span class="brand__name">{{ appName }}</span>
         </a>
         <button type="button" uiButton variant="ghost" size="sm" [disabled]="submitting()" (click)="skip()">

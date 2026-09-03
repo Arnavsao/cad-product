@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { UiIconComponent } from '../../shared/ui/icon.component';
+import { UiLogoComponent } from '../../shared/ui/logo.component';
 
 /**
  * Two-column frame for the auth pages: a brand rail (≥960px) with the value
@@ -12,12 +13,12 @@ import { UiIconComponent } from '../../shared/ui/icon.component';
   selector: 'app-auth-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiIconComponent],
+  imports: [RouterLink, UiIconComponent, UiLogoComponent],
   template: `
     <div class="auth">
       <aside class="auth__rail">
         <a class="brand" routerLink="/" aria-label="CADOnline home">
-          <span class="brand__mark" aria-hidden="true"><ui-icon name="grid" [size]="16" /></span>
+          <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
           <span class="brand__name">{{ appName }}</span>
         </a>
         <div class="auth__pitch">
@@ -38,7 +39,7 @@ import { UiIconComponent } from '../../shared/ui/icon.component';
       <main class="auth__main">
         <div class="auth__topbar">
           <a class="brand brand--compact" routerLink="/" aria-label="CADOnline home">
-            <span class="brand__mark" aria-hidden="true"><ui-icon name="grid" [size]="16" /></span>
+            <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
             <span class="brand__name">{{ appName }}</span>
           </a>
           <a class="auth__back" routerLink="/"><ui-icon name="back" [size]="14" /> Back to home</a>

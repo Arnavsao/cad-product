@@ -10,6 +10,8 @@ export { UiEmptyStateComponent } from './empty-state.component';
 export { UiSkeletonComponent } from './skeleton.component';
 export { PAGE_SIZES, UiPaginatorComponent } from './paginator.component';
 export { ICON_PATHS, UiIconComponent, type UiIconName } from './icon.component';
+export { LOGO_TILE_PATHS, LOGO_VIEWBOX, UiLogoComponent } from './logo.component';
+export { UiLogoLoaderComponent } from './logo-loader.component';
 export { AccountButtonComponent } from './account-button.component';
 export { UI_DIALOG_DATA, UiDialogRef, type UiDialogAction, type UiDialogData } from './dialog/ui-dialog-ref';
 export { UiDialogComponent } from './dialog/ui-dialog.component';

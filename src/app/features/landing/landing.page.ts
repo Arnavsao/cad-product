@@ -4,6 +4,7 @@ import { environment } from '../../../environments/environment';
 import { SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiIconComponent } from '../../shared/ui/icon.component';
+import { UiLogoComponent } from '../../shared/ui/logo.component';
 import { UiSkeletonComponent } from '../../shared/ui/skeleton.component';
 
 /**
@@ -16,7 +17,7 @@ import { UiSkeletonComponent } from '../../shared/ui/skeleton.component';
   selector: 'app-landing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiButtonDirective, UiIconComponent, UiSkeletonComponent],
+  imports: [RouterLink, UiButtonDirective, UiIconComponent, UiLogoComponent, UiSkeletonComponent],
   templateUrl: './landing.page.html',
   styleUrl: './landing.page.scss',
 })
