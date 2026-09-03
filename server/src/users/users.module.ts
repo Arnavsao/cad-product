@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BillingModule } from '../billing/billing.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { UsersController } from './users.controller';
@@ -10,12 +11,14 @@ import { UsersService } from './users.service';
  * profile is mirrored from token claims rather than a provider SDK.
  *
  * `NotificationsModule` is imported so completing onboarding can publish a
- * welcome notification, and `OrganizationsModule` so `/me` can carry the
- * workspace list the dashboard switcher needs on first paint. Neither imports
- * this module back, so there is no cycle.
+ * welcome notification, `OrganizationsModule` so `/me` can carry the workspace
+ * list the dashboard switcher needs on first paint, and `BillingModule` so it
+ * can carry the current plan. None imports this module back, so there is no
+ * cycle — `BillingModule` reads `users` through Prisma directly rather than
+ * through `UsersService`, which is what keeps that true.
  */
 @Module({
-  imports: [NotificationsModule, OrganizationsModule],
+  imports: [BillingModule, NotificationsModule, OrganizationsModule],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],

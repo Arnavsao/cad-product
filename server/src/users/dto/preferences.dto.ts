@@ -4,6 +4,30 @@ import { IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Length, Max, Mi
 export const UNITS = ['mm', 'cm', 'm', 'in', 'ft'] as const;
 export type UnitsWire = (typeof UNITS)[number];
 
+/**
+ * Shipped UI languages (BCP 47). Must stay in step with the frontend's
+ * `src/app/core/i18n/locales.ts` — that file is the source of truth for what
+ * the picker offers; this list is the server-side guard so a hand-rolled PATCH
+ * cannot store a language the app cannot load.
+ */
+export const LOCALES = [
+  'en',
+  'cs',
+  'de',
+  'es',
+  'fr',
+  'hu',
+  'it',
+  'ja',
+  'ko',
+  'pl',
+  'pt-BR',
+  'ru',
+  'zh-Hans',
+  'zh-Hant',
+] as const;
+export type LocaleWire = (typeof LOCALES)[number];
+
 /** Wire values for `UserRole`. */
 export const USER_ROLES = ['architect', 'engineer', 'student', 'other'] as const;
 export type UserRoleWire = (typeof USER_ROLES)[number];
@@ -20,6 +44,8 @@ export interface PreferencesDto {
   units: UnitsWire;
   /** Theme-registry id (frontend `ThemeService`). */
   theme: string;
+  /** BCP 47 UI language tag (frontend `LanguageService`). */
+  locale: LocaleWire;
   role: UserRoleWire | null;
   defaultTemplate: string;
   autosaveIntervalSec: number;
@@ -40,6 +66,10 @@ export class UpdatePreferencesDto {
   @IsString()
   @Length(1, 64)
   theme?: string;
+
+  @IsOptional()
+  @IsIn(LOCALES)
+  locale?: LocaleWire;
 
   @IsOptional()
   @IsIn(USER_ROLES)

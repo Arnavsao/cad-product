@@ -1,4 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { TranslocoService } from '@jsverse/transloco';
+import { translateOr } from '../../../../core/i18n/translate-or';
 
 export interface ToolMeta {
   id: string;
@@ -437,7 +439,7 @@ const SYSTEM: ToolMeta[] = [
 
 
 
-const SECTIONS: ToolSection[] = [
+export const SECTIONS: ToolSection[] = [
   { label: 'Draw', tools: DRAW },
   { label: 'Modify', tools: MODIFY },
   { label: 'Annotate', tools: ANNOTATE },
@@ -459,15 +461,44 @@ SYSTEM.forEach(_addTool);
 
 @Injectable({ providedIn: 'root' })
 export class ToolCatalogService {
+  // Optional: the editor is embeddable in hosts that never call provideI18n(),
+  // and specs construct this service without a Transloco provider. Both must
+  // keep working, in English.
+  private readonly transloco = inject(TranslocoService, { optional: true });
+
+  /**
+   * Translate a tool title while preserving its keyboard alias.
+   *
+   * Titles are authored as `'Line (L)'`. The `(L)` is a shortcut the user
+   * types, not prose, so it must survive untranslated and stay attached — the
+   * toolbar tooltip is where people learn the shortcut. Only the leading name
+   * is translated, then the original suffix is re-appended verbatim.
+   */
+  private title(tool: ToolMeta): string {
+    const match = /^(.*?)(\s*\([^)]*\))\s*$/.exec(tool.title);
+    const base = (match ? match[1] : tool.title).trim();
+    const suffix = match ? match[2] : '';
+    return translateOr(this.transloco, `editor.tool.${tool.id}.title`, base) + suffix;
+  }
+
+  private sectionLabel(label: string): string {
+    const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return translateOr(this.transloco, `editor.toolSection.${slug}`, label);
+  }
+
   getGrouped(): ToolSection[] {
     return SECTIONS
       .map((section) => ({
         ...section,
+        label: this.sectionLabel(section.label),
         tools: section.tools
           .filter((tool) => !tool.hidden)
           .map((tool) => ({
             ...tool,
-            subTools: tool.subTools?.filter((subTool) => !subTool.hidden),
+            title: this.title(tool),
+            subTools: tool.subTools
+              ?.filter((subTool) => !subTool.hidden)
+              .map((subTool) => ({ ...subTool, title: this.title(subTool) })),
           })),
       }))
       .filter((section) => section.tools.length > 0);
@@ -485,6 +516,11 @@ export class ToolCatalogService {
    * Rank-based fuzzy search over id/aliases/title.
    * Rank: exact-alias > id-prefix > title-prefix > alias-prefix > id-substring > title-substring.
    * De-duplicates by id, returns top 8, skips stubs.
+   *
+   * Both the English title and the translated one are matched. A French user
+   * types "cercle" because that is what the toolbar shows them; the same user
+   * following an English tutorial types "circle". Dropping either would break
+   * one of those, so the rank is the better of the two.
    */
   search(query: string): ToolMeta[] {
     const q = query.trim().toLowerCase();
@@ -496,16 +532,26 @@ export class ToolCatalogService {
     for (const t of ALL) {
       if (t.stub) continue;
       const id = t.id.toLowerCase();
-      const title = t.title.toLowerCase();
+      const english = t.title.toLowerCase();
+      const localised = this.title(t).toLowerCase();
       const aliases = t.aliases.map((a) => a.toLowerCase());
+
+      const rankTitle = (title: string): number => {
+        if (title.startsWith(q)) return 2;
+        if (title.includes(q)) return 5;
+        return -1;
+      };
 
       let rank = -1;
       if (aliases.includes(q)) rank = 0;
       else if (id.startsWith(q)) rank = 1;
-      else if (title.startsWith(q)) rank = 2;
       else if (aliases.some((a) => a.startsWith(q))) rank = 3;
       else if (id.includes(q)) rank = 4;
-      else if (title.includes(q)) rank = 5;
+
+      // Title matches rank 2 / 5, either language. Take the strongest signal:
+      // an alias or id hit still wins, but a title prefix beats an id substring.
+      const titleRank = Math.max(rankTitle(english), rankTitle(localised));
+      if (titleRank >= 0 && (rank < 0 || titleRank < rank)) rank = titleRank;
 
       if (rank >= 0) hits.push({ tool: t, rank });
     }

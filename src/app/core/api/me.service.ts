@@ -1,13 +1,36 @@
 import { Injectable, Injector, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { LanguageService } from '../i18n/language.service';
 import { ThemeService } from '../../features/cad-editor/core/services/theme.service';
 import { HttpManagerService } from '../services/http-manager.service';
-import { CompleteOnboardingRequest, MeDto, PreferencesDto } from './api.models';
+import { BillingStateDto, CompleteOnboardingRequest, MeDto, PreferencesDto } from './api.models';
+
+/**
+ * Billing state assumed before `/me` has answered (and in embedded mode).
+ *
+ * Free rather than null so nothing downstream has to handle "unknown plan".
+ * The pessimistic default is the right one: briefly showing Free to a Pro user
+ * while `/me` is in flight is a cosmetic glitch, whereas briefly showing Pro to
+ * a Free user would flash paid features they do not have.
+ */
+export const DEFAULT_BILLING: BillingStateDto = {
+  plan: 'free',
+  status: null,
+  currentPeriodEnd: null,
+  cancelAtPeriodEnd: false,
+  trialEndsAt: null,
+  manageable: false,
+};
 
 /** Preferences assumed before `/me` has answered (and for embedded mode). */
 export const DEFAULT_PREFERENCES: PreferencesDto = {
   units: 'mm',
   theme: 'cad-dark',
+  // Not the resolved browser language: this default only applies before `/me`
+  // answers, and LanguageService has already picked the right language from
+  // localStorage or the browser by then. Putting anything else here would make
+  // `applyPreferences` fight that choice on every load.
+  locale: 'en',
   role: null,
   defaultTemplate: 'blank',
   autosaveIntervalSec: 30,
@@ -39,6 +62,7 @@ export const DEFAULT_PREFERENCES: PreferencesDto = {
 export class MeService {
   private readonly api = inject(HttpManagerService);
   private readonly theme = inject(ThemeService);
+  private readonly language = inject(LanguageService);
   private readonly injector = inject(Injector);
 
   private inflight: Promise<MeDto> | null = null;
@@ -49,6 +73,15 @@ export class MeService {
   readonly onboarded = computed(() => this.me()?.onboarded ?? false);
   /** Effective preferences — server values when known, sensible defaults otherwise. */
   readonly preferences = computed<PreferencesDto>(() => this.me()?.preferences ?? DEFAULT_PREFERENCES);
+
+  /** Current plan and period. Free until `/me` says otherwise. */
+  readonly billing = computed<BillingStateDto>(() => this.me()?.billing ?? DEFAULT_BILLING);
+
+  /** The effective plan, for feature checks and the plan badge. */
+  readonly plan = computed(() => this.billing().plan);
+
+  /** True on any paid plan. */
+  readonly isPaid = computed(() => this.plan() !== 'free');
 
   /** Cached `/me`, fetching once if needed. Concurrent callers share one request. */
   load(): Promise<MeDto> {
@@ -89,9 +122,21 @@ export class MeService {
     return prefs;
   }
 
+  /**
+   * Replace the cached billing state after a checkout return or a portal visit.
+   *
+   * Patches the cached `/me` rather than invalidating it: re-reading all of
+   * `/me` would refetch the workspace list and usage for a change that touched
+   * one field, and would make the settings pane flash its skeletons.
+   */
+  setBilling(billing: BillingStateDto): void {
+    this.me.update((m) => (m ? { ...m, billing } : m));
+  }
+
   /** Push preferences into the running editor services (theme, autosave). */
   applyPreferences(prefs: PreferencesDto): void {
     if (prefs.theme) this.theme.setTheme(prefs.theme); // unknown ids are ignored by ThemeService
+    if (prefs.locale) this.language.setLocale(prefs.locale); // unknown codes are ignored by LanguageService
     if (prefs.autosaveIntervalSec > 0) void this.applyAutosaveInterval(prefs.autosaveIntervalSec);
   }
 

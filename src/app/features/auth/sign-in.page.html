@@ -1,47 +1,67 @@
-<app-auth-layout>
+<!--
+  `*transloco="let t"` on the root element rather than a `| transloco` pipe per
+  string: it creates ONE subscription for the whole template and re-renders it
+  as a unit on a language change, which is both cheaper and what Transloco
+  recommends. Every `t(...)` below reads from that single scope.
+-->
+<app-auth-layout *transloco="let t">
   @if (!auth.enabled()) {
     <div class="auth-notice" role="status">
       <ui-icon name="alert" [size]="18" />
       <div>
-        <strong>Authentication is not configured</strong>
+        <strong>{{ t('auth.notConfigured.title') }}</strong>
+        <!--
+          The code identifiers stay outside the translated string. Interpolating
+          them in would invite a translator to "translate" `supabaseUrl`, and the
+          markup would have to be rebuilt per language.
+        -->
         <p>
-          Set <code>supabaseUrl</code> and <code>supabaseAnonKey</code> in
-          <code>src/environments/environment.ts</code> to enable sign-in. Until then the editor runs without an
-          account.
+          {{ t('auth.notConfigured.body.before') }} <code>supabaseUrl</code>
+          {{ t('common.and') }} <code>supabaseAnonKey</code>
+          {{ t('auth.notConfigured.body.middle') }} <code>src/environments/environment.ts</code>
+          {{ t('auth.notConfigured.body.after') }}
         </p>
-        <a uiButton variant="primary" routerLink="/editor">Open editor</a>
+        <a uiButton variant="primary" routerLink="/editor">{{ t('auth.notConfigured.openEditor') }}</a>
       </div>
     </div>
   } @else if (auth.loadError(); as err) {
     <div class="auth-notice auth-notice--error" role="alert">
       <ui-icon name="alert" [size]="18" />
       <div>
-        <strong>Sign-in could not be loaded</strong>
+        <strong>{{ t('auth.loadFailed.title') }}</strong>
         <p>{{ err }}</p>
-        <button type="button" uiButton variant="primary" (click)="retry()">Retry</button>
+        <button type="button" uiButton variant="primary" (click)="retry()">{{ t('common.retry') }}</button>
       </div>
     </div>
   } @else if (linkSent()) {
     <div class="auth-card">
       <div class="auth-sent" role="status">
         <span class="auth-sent__mark" aria-hidden="true"><ui-icon name="check" [size]="20" /></span>
-        <h2>Check your email</h2>
-        <p>We sent a sign-in link to <strong>{{ email() }}</strong>. Open it on this device to continue.</p>
-        <button type="button" uiButton variant="ghost" (click)="linkSent.set(false)">Use a password instead</button>
+        <h2>{{ t('auth.magicSent.title') }}</h2>
+        <!--
+          The address is a parameter, not a concatenation: languages put it in
+          different places in the sentence, and `<strong>` has to wrap it in all
+          of them. Transloco renders `{{ '{' }}email{{ '}' }}` inside the value,
+          so the translator controls word order.
+        -->
+        <p [innerHTML]="t('auth.magicSent.body', { email: email() })"></p>
+        <button type="button" uiButton variant="ghost" (click)="linkSent.set(false)">
+          {{ t('auth.magicSent.usePassword') }}
+        </button>
       </div>
     </div>
   } @else {
     <div class="auth-card">
-      <h1 class="auth-card__title">Sign in</h1>
-      <p class="auth-card__sub">Welcome back. Pick up where you left off.</p>
+      <h1 class="auth-card__title">{{ t('auth.signIn.title') }}</h1>
+      <p class="auth-card__sub">{{ t('auth.signIn.subtitle') }}</p>
 
-      <app-oauth-buttons verb="Continue" [redirectAfter]="redirectUrl()" (failed)="error.set($event)" />
+      <app-oauth-buttons mode="continue" [redirectAfter]="redirectUrl()" (failed)="error.set($event)" />
 
-      <div class="auth-sep">or</div>
+      <div class="auth-sep">{{ t('common.or') }}</div>
 
       <form class="auth-form" (ngSubmit)="submit()">
         <div class="auth-field">
-          <label class="auth-field__label" for="si-email">Email</label>
+          <label class="auth-field__label" for="si-email">{{ t('common.email') }}</label>
           <input
             uiInput
             id="si-email"
@@ -58,8 +78,8 @@
         @if (!magicMode()) {
           <div class="auth-field">
             <label class="auth-field__label" for="si-password">
-              Password
-              <a routerLink="/reset-password">Forgot password?</a>
+              {{ t('common.password') }}
+              <a routerLink="/reset-password">{{ t('auth.signIn.forgot') }}</a>
             </label>
             <input
               uiInput
@@ -80,17 +100,19 @@
         }
 
         <button type="submit" uiButton class="auth-submit" [disabled]="!canSubmit()" [loading]="busy()">
-          {{ magicMode() ? 'Email me a sign-in link' : 'Sign in' }}
+          {{ magicMode() ? t('auth.signIn.submitMagic') : t('auth.signIn.submit') }}
         </button>
       </form>
 
       <p class="auth-alt">
         <button type="button" class="auth-link" [disabled]="busy()" (click)="toggleMagic()">
-          {{ magicMode() ? 'Sign in with a password' : 'Sign in with an email link instead' }}
+          {{ magicMode() ? t('auth.signIn.usePassword') : t('auth.signIn.useMagic') }}
         </button>
       </p>
 
-      <p class="auth-alt">No account yet? <a routerLink="/sign-up">Create one</a></p>
+      <p class="auth-alt">
+        {{ t('auth.signIn.noAccount') }} <a routerLink="/sign-up">{{ t('auth.signIn.createOne') }}</a>
+      </p>
     </div>
   }
 </app-auth-layout>

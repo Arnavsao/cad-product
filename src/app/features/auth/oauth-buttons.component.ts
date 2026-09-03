@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { SupabaseAuthService, type OAuthProvider } from '../../core/auth/supabase-auth.service';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 
 interface BrandPath {
@@ -81,9 +82,9 @@ const PROVIDERS: readonly ProviderOption[] = [
   selector: 'app-oauth-buttons',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective],
+  imports: [TranslocoDirective, UiButtonDirective],
   template: `
-    <div class="auth-providers">
+    <div class="auth-providers" *transloco="let t">
       @for (provider of visible(); track provider.id) {
         <button
           type="button"
@@ -99,7 +100,14 @@ const PROVIDERS: readonly ProviderOption[] = [
               <path [attr.d]="path.d" [attr.fill]="path.fill ?? 'currentColor'" />
             }
           </svg>
-          {{ verb() }} with {{ provider.label }}
+          <!--
+            One parameterised key, not a verb glued onto " with " and the
+            provider name. Word order differs by language — Japanese renders
+            the provider first — so the whole sentence has to be the
+            translator's to arrange. The mode input picks which sentence; the
+            provider name is a parameter and is never itself translated.
+          -->
+          {{ t('auth.oauth.' + mode() + 'With', { provider: provider.label }) }}
         </button>
       }
     </div>
@@ -118,8 +126,15 @@ export class OAuthButtonsComponent {
 
   /** Which providers to show. Trim this when one is not configured upstream. */
   readonly available = input<readonly OAuthProvider[]>(['google', 'github', 'azure']);
-  /** "Continue" on sign-in, "Sign up" on sign-up. */
-  readonly verb = input<string>('Continue');
+  /**
+   * Which sentence to render: `continue` on sign-in, `signUp` on sign-up.
+   *
+   * Replaces the former free-text `verb` input. A caller passing a verb to be
+   * glued onto " with <provider>" could not survive translation — the glue word
+   * and the word order are both language-specific — so the choice is now an
+   * enum that selects a whole translated sentence.
+   */
+  readonly mode = input<'continue' | 'signUp'>('continue');
   /** Where to return after the provider round trip. */
   readonly redirectAfter = input<string | undefined>(undefined);
 

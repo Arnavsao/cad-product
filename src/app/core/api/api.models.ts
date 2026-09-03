@@ -248,12 +248,57 @@ export interface VersionDownloadDto {
   expiresAt: string;
 }
 
+// ── Billing ───────────────────────────────────────────────────────────────
+
+/** Plans, lower-case on the wire like every other enum in this API. */
+export type BillingPlan = 'free' | 'pro' | 'team';
+
+export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'cancelled' | 'incomplete';
+
+/** Intervals sold. Monthly and annual are separate products in Dodo Payments. */
+export type BillingInterval = 'monthly' | 'annual';
+
+/**
+ * Current plan and subscription period.
+ *
+ * `plan` is the *effective* plan — what the account is entitled to right now.
+ * A cancelled Pro subscription reports `free` here even though the server still
+ * records that Pro was what was bought, so the UI never has to work that out.
+ */
+export interface BillingStateDto {
+  plan: BillingPlan;
+  /** Null when nothing has ever been purchased. */
+  status: SubscriptionStatus | null;
+  /** ISO 8601. Shown as "renews on", or "access until" when cancelling. */
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  trialEndsAt: string | null;
+  /** True when this deployment can produce a customer-portal link. */
+  manageable: boolean;
+}
+
+export interface CreateCheckoutRequest {
+  plan: 'pro' | 'team';
+  interval?: BillingInterval;
+}
+
+export interface CheckoutResponse {
+  /** Absolute Dodo-hosted URL. Single-use, expires in 24 hours. */
+  checkoutUrl: string;
+}
+
+export interface PortalResponse {
+  portalUrl: string;
+}
+
 // ── Me ────────────────────────────────────────────────────────────────────
 
 export interface PreferencesDto {
   units: Units;
   /** Theme id from the editor's theme registry (e.g. `cad-dark`). */
   theme: string;
+  /** BCP 47 UI language tag from `src/app/core/i18n/locales.ts` (e.g. `pt-BR`). */
+  locale: string;
   role: UserRole | null;
   defaultTemplate: string;
   autosaveIntervalSec: number;
@@ -286,6 +331,11 @@ export interface MeDto {
   usage: { bytesUsed: number; drawingCount: number };
   /** Workspaces the user belongs to; drives the dashboard switcher. */
   organizations: OrgSummaryDto[];
+  /**
+   * Current plan. Always present — an account that has never bought anything
+   * reports the Free state, so the UI never has to handle a missing value.
+   */
+  billing: BillingStateDto;
 }
 
 // ── Organizations ─────────────────────────────────────────────────────────

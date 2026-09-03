@@ -37,7 +37,7 @@
       <h1 class="auth-card__title">Create your account</h1>
       <p class="auth-card__sub">Free to start. No card, no install.</p>
 
-      <app-oauth-buttons verb="Sign up" (failed)="error.set($event)" />
+      <app-oauth-buttons mode="signUp" (failed)="error.set($event)" />
 
       <div class="auth-sep">or</div>
 

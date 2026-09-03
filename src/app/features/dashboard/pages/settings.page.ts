@@ -18,6 +18,8 @@ import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { UiInputDirective } from '../../../shared/ui/input.directive';
 import { UiSkeletonComponent } from '../../../shared/ui/skeleton.component';
 import { CAD_THEMES, ThemeService } from '../../cad-editor/core/services/theme.service';
+import { LanguageService } from '../../../core/i18n/language.service';
+import { BillingApiService } from '../../../core/api/billing-api.service';
 import { messageOf } from '../data/drawings-list.store';
 
 const UNITS: readonly { id: Units; label: string; name: string }[] = [
@@ -118,6 +120,32 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
         </label>
       </div>
 
+      <div class="st__field">
+        <div class="st__label">
+          <span class="st__label-title">Language</span>
+          <span class="st__label-hint">Applies to the whole app, including the editor's command prompts.</span>
+        </div>
+        <label class="st__control">
+          <span class="ui-visually-hidden">Language</span>
+          <select uiInput [disabled]="saving()" (change)="onLanguage($event)">
+            @for (locale of locales; track locale.code) {
+              <!--
+                The option text is the language's own name and is deliberately
+                NOT translated — someone hunting for their language scans for
+                "Deutsch", not for whatever the current UI calls German. The
+                English name rides along in aria-label for screen readers and
+                for support tickets.
+              -->
+              <option
+                [value]="locale.code"
+                [selected]="locale.code === activeLocale()"
+                [attr.aria-label]="locale.english"
+              >{{ locale.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
       <div class="st__field st__field--stack">
         <div class="st__label">
           <span class="st__label-title">Theme</span>
@@ -143,6 +171,57 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
           }
         </div>
       </div>
+    </section>
+
+    <!--
+      Billing. Carries an id so /dashboard/settings/billing — the checkout
+      return_url — can be scrolled to, and so the manage link is addressable.
+    -->
+    <section class="st__section" id="billing">
+      <h2 class="st__heading">Plan &amp; billing</h2>
+
+      @if (!billingEnabled()) {
+        <p class="st__note">Billing is not enabled in this deployment.</p>
+      } @else {
+        <div class="st__field">
+          <div class="st__label">
+            <span class="st__label-title">Current plan</span>
+            <span class="st__label-hint">{{ planHint() }}</span>
+          </div>
+          <div class="st__plan">
+            <span class="st__plan-badge" [class.st__plan-badge--paid]="plan() !== 'free'">{{ planLabel() }}</span>
+            @if (billing().cancelAtPeriodEnd) {
+              <span class="st__plan-warn">Cancels at period end</span>
+            }
+          </div>
+        </div>
+
+        <div class="st__field">
+          <div class="st__label">
+            <span class="st__label-title">Manage</span>
+            <span class="st__label-hint">
+              Change your card, download invoices or cancel. Opens our payment provider.
+            </span>
+          </div>
+          <div class="st__actions">
+            @if (plan() === 'free') {
+              <a uiButton variant="primary" routerLink="/pricing">View plans</a>
+            } @else {
+              <button type="button" uiButton variant="secondary" [loading]="billingBusy()" (click)="openPortal()">
+                Manage billing
+              </button>
+            }
+            <!--
+              Manual re-read. The browser's return from checkout regularly beats
+              the webhook, so without a way to re-check, a user who has just
+              paid can sit looking at "Free" with no recourse.
+            -->
+            <button type="button" uiButton variant="ghost" [loading]="refreshing()" (click)="refreshBilling()">
+              Refresh
+            </button>
+          </div>
+        </div>
+      }
     </section>
 
     <section class="st__section">
@@ -284,6 +363,16 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
       .pg__error-title { margin: 0; font-size: var(--ui-text-md); font-weight: 600; color: var(--ui-text-strong); }
       .pg__error-msg { margin: 2px 0 0; font-size: var(--ui-text-sm); color: var(--ui-text-dim); }
 
+      .st__plan { display: flex; align-items: center; gap: var(--ui-space-2); flex-wrap: wrap; }
+      .st__plan-badge {
+        display: inline-flex; align-items: center;
+        padding: 2px 10px; border-radius: 999px;
+        border: 1px solid var(--ui-border); background: var(--ui-surface-2);
+        font-size: 12px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
+      }
+      .st__plan-badge--paid { border-color: var(--ui-accent); color: var(--ui-accent); }
+      .st__plan-warn { font-size: 12px; color: var(--ui-warning, var(--ui-text-muted)); }
+      .st__actions { display: flex; gap: var(--ui-space-2); flex-wrap: wrap; }
       .st__section {
         padding: var(--ui-space-5) var(--ui-space-6);
         margin-bottom: var(--ui-space-5);
@@ -375,6 +464,8 @@ export class SettingsPage {
   protected readonly auth = inject(SupabaseAuthService);
   private readonly me = inject(MeService);
   private readonly theme = inject(ThemeService);
+  private readonly language = inject(LanguageService);
+  private readonly billingApi = inject(BillingApiService);
   private readonly notify = inject(NotificationService);
 
   protected readonly minPasswordLength = MIN_PASSWORD_LENGTH;
@@ -395,9 +486,39 @@ export class SettingsPage {
   protected readonly units = UNITS;
   protected readonly intervals = AUTOSAVE_INTERVALS;
   protected readonly themes = CAD_THEMES;
+  protected readonly locales = this.language.locales;
 
   protected readonly prefs = computed(() => this.me.preferences());
   protected readonly activeThemeId = this.theme.themeId;
+  protected readonly activeLocale = this.language.localeCode;
+
+  // ── Billing ──────────────────────────────────────────────────────────────
+  protected readonly billing = this.me.billing;
+  protected readonly plan = this.me.plan;
+  protected readonly billingEnabled = computed(() => this.billing().manageable || this.plan() !== 'free');
+  protected readonly billingBusy = signal(false);
+  protected readonly refreshing = signal(false);
+
+  protected readonly planLabel = computed(() => {
+    const plan = this.plan();
+    return plan === 'free' ? 'Free' : plan === 'pro' ? 'Pro' : 'Team';
+  });
+
+  /** One line describing where the subscription stands. */
+  protected readonly planHint = computed(() => {
+    const b = this.billing();
+    if (this.plan() === 'free') {
+      // Distinguish "never subscribed" from "subscription ended" — the second
+      // is a person who may well want to come back, and telling them their
+      // plan simply says "Free" reads like their payment vanished.
+      return b.status === 'cancelled' ? 'Your subscription has ended.' : 'You are on the free plan.';
+    }
+    const when = b.currentPeriodEnd ? new Date(b.currentPeriodEnd).toLocaleDateString() : null;
+    if (b.status === 'trialing') return when ? `Trial ends ${when}.` : 'You are on a trial.';
+    if (b.status === 'past_due') return 'Your last payment failed. Update your card to keep access.';
+    if (b.cancelAtPeriodEnd) return when ? `Access continues until ${when}.` : 'Cancels at the end of the period.';
+    return when ? `Renews ${when}.` : 'Active.';
+  });
   protected readonly saving = signal(false);
   protected readonly savedOnce = signal(false);
 
@@ -450,10 +571,53 @@ export class SettingsPage {
     if (Number.isFinite(seconds) && seconds > 0) void this.save({ autosaveIntervalSec: seconds });
   }
 
+  /**
+   * Apply the language locally first, then persist it — same order as
+   * `pickTheme`, and for the same reason: the switch must feel instant, and a
+   * failed PATCH should not have prevented the user from reading the UI in
+   * their own language for the rest of the session.
+   */
+  protected onLanguage(event: Event): void {
+    const code = (event.target as HTMLSelectElement).value;
+    this.language.setLocale(code);
+    void this.save({ locale: code });
+  }
+
   /** Apply the theme locally first, then persist it. */
   protected pickTheme(id: string): void {
     this.theme.setTheme(id);
     void this.save({ theme: id });
+  }
+
+  /**
+   * Open Dodo's hosted customer portal.
+   *
+   * A full navigation rather than a new tab: the link is single-use and
+   * short-lived, and a blocked popup would look like a broken button.
+   */
+  protected async openPortal(): Promise<void> {
+    if (this.billingBusy()) return;
+    this.billingBusy.set(true);
+    try {
+      const { portalUrl } = await this.billingApi.createPortalSession();
+      location.assign(portalUrl);
+    } catch (e) {
+      this.billingBusy.set(false);
+      this.notify.error(messageOf(e));
+    }
+  }
+
+  /** Re-read the subscription from the provider and patch the cached `/me`. */
+  protected async refreshBilling(): Promise<void> {
+    if (this.refreshing()) return;
+    this.refreshing.set(true);
+    try {
+      this.me.setBilling(await this.billingApi.refresh());
+    } catch (e) {
+      this.notify.error(messageOf(e));
+    } finally {
+      this.refreshing.set(false);
+    }
   }
 
   /** Persists a patch. Returns whether it stuck, so a caller can revert. */

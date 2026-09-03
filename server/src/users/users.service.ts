@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type { SupabaseSessionClaims } from '../auth/auth.types';
+import { BillingService } from '../billing/billing.service';
 import { ApiException } from '../common/errors/api-error';
 import type { Units, User, UserPreferences, UserRole } from '../generated/prisma/client';
 import { Prisma } from '../generated/prisma/client';
@@ -57,6 +58,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly organizations: OrganizationsService,
+    private readonly billing: BillingService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -135,13 +137,16 @@ export class UsersService {
   // ---------------------------------------------------------------------------
 
   async getMe(userId: string): Promise<MeDto> {
-    const [user, prefs, usage, organizations] = await Promise.all([
+    // Billing joins the existing fan-out rather than adding a round trip: it is
+    // one indexed primary-key read, so `/me` costs the same as before.
+    const [user, prefs, usage, organizations, billing] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.ensurePreferences(userId),
       this.getUsage(userId),
       this.organizations.listForUser(userId),
+      this.billing.stateFor(userId),
     ]);
-    return toMeDto(user, prefs, usage, organizations);
+    return toMeDto(user, prefs, usage, organizations, billing);
   }
 
   async updatePreferences(userId: string, dto: UpdatePreferencesDto): Promise<PreferencesDto> {

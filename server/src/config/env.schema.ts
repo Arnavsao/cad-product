@@ -101,6 +101,39 @@ export const envSchema = z.object({
    */
   APP_BASE_URL: optionalUrl,
 
+  // --- Billing (Dodo Payments) ---------------------------------------------
+  /**
+   * All FOUR keys are OPTIONAL, and billing is off unless the API key and the
+   * two product ids are present. That mirrors `MailModule`'s rule: local
+   * development has no Dodo account, and the checkout endpoints answering
+   * `503 BILLING_NOT_CONFIGURED` is far better than the API refusing to boot
+   * and making every other feature undemonstrable.
+   *
+   * Secret key from the Dodo dashboard (Developer -> API keys). A `sk_test_…`
+   * key selects test mode below; anything else selects live mode.
+   */
+  DODO_API_KEY: optionalString,
+  /**
+   * Signing secret for the webhook endpoint (Developer -> Webhooks -> Overview).
+   *
+   * Without it the webhook route rejects EVERY delivery with 503 rather than
+   * trusting an unverified body. That is deliberate: an unauthenticated route
+   * that mutates a user's plan is the single most dangerous thing in this
+   * module, so "not configured" must fail closed, never open.
+   */
+  DODO_WEBHOOK_KEY: optionalString,
+  /**
+   * Product ids backing the Pro and Team tiers on the pricing page. Ids live in
+   * config rather than in code because they differ between Dodo's test and live
+   * modes, so hardcoding them would make a test-mode checkout impossible.
+   *
+   * Monthly and annual are separate products in Dodo, hence four ids.
+   */
+  DODO_PRODUCT_PRO_MONTHLY: optionalString,
+  DODO_PRODUCT_PRO_ANNUAL: optionalString,
+  DODO_PRODUCT_TEAM_MONTHLY: optionalString,
+  DODO_PRODUCT_TEAM_ANNUAL: optionalString,
+
   // --- Limits -------------------------------------------------------------
   /**
    * Default per-IP request budget, in requests per `RATE_LIMIT_TTL_MS`.

@@ -18,6 +18,8 @@ export const API_PREFIX = 'api/v1';
  *  1. `express.text()` for DXF saves (`text/plain`, 6 MB — 5 MB payload plus
  *     headroom; the service enforces the exact limit and answers 413 itself).
  *  2. `express.raw({ type: 'image/png' })` for thumbnails (600 KB / 512 KB).
+ *  2b. `express.raw()` for the Dodo webhook — its signature covers the exact
+ *     bytes sent, so the body must not be parsed and re-serialised.
  *  3. JSON: 6 MB only for `POST /api/v1/drawings` (may carry `initialDxf`),
  *     1 MB everywhere else so a bulky body cannot tie up the JSON parser.
  *  4. `urlencoded` 100 KB for completeness (nothing uses it).
@@ -34,6 +36,17 @@ export function configureApp(app: NestExpressApplication): NestExpressApplicatio
   // --- body parsers (order matters, see above) -------------------------------
   app.use(`/${API_PREFIX}/drawings/:id/content`, express.text({ type: 'text/plain', limit: '6mb' }));
   app.use(`/${API_PREFIX}/drawings/:id/thumbnail`, express.raw({ type: 'image/png', limit: '600kb' }));
+
+  // Dodo Payments signs the EXACT bytes it sends, so the webhook signature can
+  // only be verified against an unparsed body. This must precede the JSON
+  // parsers below — once `express.json()` has consumed the stream and
+  // re-serialised it, the signature no longer matches and every delivery is
+  // rejected. `type: '*/*'` because the check must not depend on Dodo's
+  // Content-Type; 256 KB is far above any event payload.
+  app.use(
+    `/${API_PREFIX}/billing/webhook`,
+    express.raw({ type: () => true, limit: '256kb' }),
+  );
 
   const largeJson = express.json({ limit: '6mb' });
   const defaultJson = express.json({ limit: '1mb' });

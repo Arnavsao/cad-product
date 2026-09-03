@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
 import { AuthModule } from './auth/auth.module';
+import { BillingModule } from './billing/billing.module';
 import { ApiException } from './common/errors/api-error';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
@@ -44,6 +45,7 @@ function flattenValidationErrors(errors: ValidationError[], parent = ''): { fiel
 
 @Module({
   imports: [
+    BillingModule,
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv, envFilePath: ['.env'] }),
     LoggerModule.forRootAsync({
       inject: [ConfigService],

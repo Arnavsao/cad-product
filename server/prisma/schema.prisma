@@ -88,6 +88,39 @@ enum OrgRole {
   @@map("org_role")
 }
 
+/// Plan a user is entitled to. Mirrors the tiers on the pricing page.
+/// FREE is the implicit default, so an account with no subscription row still
+/// has a plan without any backfill.
+enum BillingPlan {
+  FREE @map("free")
+  PRO  @map("pro")
+  TEAM @map("team")
+
+  @@map("billing_plan")
+}
+
+/// Lifecycle of a Dodo Payments subscription, narrowed to what we act on.
+///
+/// Deliberately NOT a mirror of Dodo's own status vocabulary: their set is
+/// wider and can grow, and an unrecognised value arriving on a webhook must not
+/// break the mapper. `subscriptions.mapStatus` folds anything unknown into
+/// `INCOMPLETE`, which is the safe direction — no access granted.
+enum SubscriptionStatus {
+  /// Paid and current. The only status that grants a paid plan.
+  ACTIVE    @map("active")
+  /// In a trial that has not converted yet. Grants the paid plan.
+  TRIALING  @map("trialing")
+  /// Payment failed and Dodo is retrying (dunning). Access is retained on
+  /// purpose: revoking mid-retry punishes someone whose card merely expired.
+  PAST_DUE  @map("past_due")
+  /// Ended, either by the customer or by exhausted retries. No paid access.
+  CANCELLED @map("cancelled")
+  /// Created but never paid, or an unrecognised upstream status.
+  INCOMPLETE @map("incomplete")
+
+  @@map("subscription_status")
+}
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
@@ -114,6 +147,7 @@ model User {
   memberships   OrgMembership[]
   orgsCreated   Organization[]  @relation("OrgCreator")
   invitesSent   OrgInvite[]     @relation("OrgInviteCreator")
+  subscription  Subscription?
 
   @@index([email])
   @@map("users")
@@ -195,6 +229,11 @@ model UserPreferences {
   user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   units               Units     @default(MM)
   theme               String    @default("dark")
+  // BCP 47 UI language tag, e.g. "en", "pt-BR", "zh-Hans". Free-form String
+  // rather than an enum for the same reason `theme` is: the set of shipped
+  // languages is a frontend concern, and adding one must not need a migration.
+  // Validated against LOCALES on the way in (UpdatePreferencesDto).
+  locale              String    @default("en")
   role                UserRole?
   defaultTemplate     String    @default("blank") @map("default_template")
   autosaveIntervalSec Int       @default(30) @map("autosave_interval_sec")
@@ -423,4 +462,84 @@ model Notification {
 
   @@index([userId, readAt, createdAt])
   @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Billing (Dodo Payments)
+// ---------------------------------------------------------------------------
+
+/// The user's current subscription, as last reported by Dodo Payments.
+///
+/// This table is a **projection of Dodo's state, not the source of truth.**
+/// Every field is written from a webhook or from an explicit reconcile against
+/// their API; nothing here is authoritative on its own. That is why there is no
+/// local "cancel" flag to keep in step — a cancellation is Dodo's event, and we
+/// learn about it the same way we learn about everything else.
+///
+/// One row per user (`userId` is the primary key) because the pricing page sells
+/// one plan at a time. A future add-on or seat model would become its own table
+/// rather than a second row here.
+model Subscription {
+  userId String @id @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Dodo's customer id (`cus_…`). Survives the subscription: it is what the
+  /// customer-portal link and any future purchase is created against, so it is
+  /// kept even after a cancellation.
+  dodoCustomerId String  @map("dodo_customer_id")
+  /// Dodo's subscription id (`sub_…`). Null between signing up for a customer
+  /// record and completing a first checkout.
+  dodoSubscriptionId String? @unique @map("dodo_subscription_id")
+  /// The product id that was bought, so a plan change is traceable to a price.
+  dodoProductId      String? @map("dodo_product_id")
+
+  plan   BillingPlan        @default(FREE)
+  status SubscriptionStatus @default(INCOMPLETE)
+
+  /// End of the paid period. Access to a paid plan is granted while `status`
+  /// allows it; this is what the UI shows as "renews on" / "access until".
+  currentPeriodEnd DateTime? @map("current_period_end")
+  /// Set when the customer has asked to cancel but the period has not lapsed.
+  /// They keep access until `currentPeriodEnd`, which is what they paid for.
+  cancelAtPeriodEnd Boolean @default(false) @map("cancel_at_period_end")
+  /// When a trial ends. Null when the subscription never had one.
+  trialEndsAt DateTime? @map("trial_ends_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([dodoCustomerId])
+  @@map("subscriptions")
+}
+
+/// Every webhook Dodo has delivered, keyed by their event id.
+///
+/// Exists for **idempotency**, which is not optional here: Dodo retries a failed
+/// delivery up to 8 times with backoff, and a retry of an already-applied event
+/// must not be applied twice. The handler inserts the id first and treats a
+/// unique-constraint violation as "already seen, ack and stop".
+///
+/// It doubles as an audit trail. When a customer disputes what their plan was on
+/// a given day, this is the record of what we were told and when.
+model WebhookEvent {
+  /// Dodo's `webhook-id` header. Primary key so the insert IS the dedupe.
+  id String @id
+
+  /// Event name, e.g. `subscription.active`. Not an enum: Dodo documents 47
+  /// types and adds more, and an unknown one must still be recorded.
+  type String
+  /// The verified payload, kept whole for replay and for answering "what did
+  /// they actually send us".
+  payload Json
+  /// Null until handled. A row with a null `processedAt` and a `error` is a
+  /// delivery worth investigating.
+  processedAt DateTime? @map("processed_at")
+  /// Message from the last failed attempt, for triage.
+  error String?
+
+  receivedAt DateTime @default(now()) @map("received_at")
+
+  @@index([type, receivedAt])
+  @@index([processedAt])
+  @@map("webhook_events")
 }

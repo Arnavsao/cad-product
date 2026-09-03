@@ -64,9 +64,29 @@
             <p class="pr__price-note">free forever</p>
           }
 
-          <a uiButton class="pr__tier-cta" [variant]="tier.featured ? 'primary' : 'secondary'" [routerLink]="ctaLink()">
-            {{ ctaFor(tier) }}
-          </a>
+          <!--
+            Free stays a link (there is nothing to buy); the paid tiers become a
+            button that starts a real checkout. Signed-out visitors still get a
+            link to sign-up, because a checkout needs an account to attach the
+            subscription to.
+          -->
+          @if (checkoutFor(tier); as target) {
+            <button
+              type="button"
+              uiButton
+              class="pr__tier-cta"
+              [variant]="tier.featured ? 'primary' : 'secondary'"
+              [loading]="buying() === tier.id"
+              [disabled]="!!buying()"
+              (click)="startCheckout(target)"
+            >
+              {{ ctaFor(tier) }}
+            </button>
+          } @else {
+            <a uiButton class="pr__tier-cta" [variant]="tier.featured ? 'primary' : 'secondary'" [routerLink]="ctaLink()">
+              {{ ctaFor(tier) }}
+            </a>
+          }
 
           <ul class="pr__features">
             @for (feature of tier.highlights; track feature) {
