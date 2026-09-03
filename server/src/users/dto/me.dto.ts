@@ -1,3 +1,4 @@
+import type { BillingStateDto } from '../../billing/dto/billing.dto';
 import type { OrgSummaryDto } from '../../organizations/dto/organization.dto';
 import type { PreferencesDto } from './preferences.dto';
 
@@ -30,4 +31,13 @@ export interface MeDto {
    * request — the shell needs it before it can load any list.
    */
   organizations: OrgSummaryDto[];
+  /**
+   * Current plan and subscription period.
+   *
+   * Included in `/me` rather than left to a second request because the shell
+   * reads it on first paint (plan badge, upgrade prompt), and a separate
+   * round-trip would make those flicker in on every navigation. Always present:
+   * an account that has never bought anything reports the Free state.
+   */
+  billing: BillingStateDto;
 }
