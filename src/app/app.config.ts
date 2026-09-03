@@ -7,6 +7,7 @@ import { GlobalErrorHandler } from './core/errors/global-error.handler';
 import { AUTH_TOKEN_PROVIDER } from './core/config/auth-token.provider';
 import { SupabaseAuthTokenProvider } from './core/auth/supabase-token.provider';
 import { SelectivePreloadStrategy } from './core/routing/selective-preload.strategy';
+import { provideI18n } from './core/i18n/provide-i18n';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -19,6 +20,9 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ scrollPositionRestoration: 'top' }),
     ),
     provideHttpClient(withInterceptors([authInterceptor])),
+    // Transloco + the resolved UI language. Must come after provideHttpClient:
+    // the translation loader is an HttpClient consumer.
+    ...provideI18n(),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     // Bearer tokens come from the Supabase session. Embedding hosts may override this provider.
     { provide: AUTH_TOKEN_PROVIDER, useExisting: SupabaseAuthTokenProvider },

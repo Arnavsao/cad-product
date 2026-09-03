@@ -1,0 +1,32 @@
+{
+  "common.and": "and",
+  "common.email": "Email",
+  "common.or": "or",
+  "common.password": "Password",
+  "common.retry": "Retry",
+
+  "auth.loadFailed.title": "Sign-in could not be loaded",
+
+  "auth.magicSent.title": "Check your email",
+  "auth.magicSent.body": "We sent a sign-in link to <strong>{{email}}</strong>. Open it on this device to continue.",
+  "auth.magicSent.usePassword": "Use a password instead",
+
+  "auth.notConfigured.title": "Authentication is not configured",
+  "auth.notConfigured.body.before": "Set",
+  "auth.notConfigured.body.middle": "in",
+  "auth.notConfigured.body.after": "to enable sign-in. Until then the editor runs without an account.",
+  "auth.notConfigured.openEditor": "Open editor",
+
+  "auth.oauth.continueWith": "Continue with {{provider}}",
+  "auth.oauth.signUpWith": "Sign up with {{provider}}",
+
+  "auth.signIn.title": "Sign in",
+  "auth.signIn.subtitle": "Welcome back. Pick up where you left off.",
+  "auth.signIn.forgot": "Forgot password?",
+  "auth.signIn.submit": "Sign in",
+  "auth.signIn.submitMagic": "Email me a sign-in link",
+  "auth.signIn.usePassword": "Sign in with a password",
+  "auth.signIn.useMagic": "Sign in with an email link instead",
+  "auth.signIn.noAccount": "No account yet?",
+  "auth.signIn.createOne": "Create one"
+}

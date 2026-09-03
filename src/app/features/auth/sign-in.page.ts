@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { AFTER_SIGN_IN_URL, SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiIconComponent } from '../../shared/ui/icon.component';
@@ -32,6 +33,7 @@ import { OAuthButtonsComponent } from './oauth-buttons.component';
     FormsModule,
     OAuthButtonsComponent,
     RouterLink,
+    TranslocoDirective,
     UiButtonDirective,
     UiIconComponent,
     UiInputDirective,
