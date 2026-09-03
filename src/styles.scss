@@ -41,9 +41,9 @@ app-root {
 /* ---------------------------------------------------------------
  * Form control baseline.
  * Scoped to the editor root and to `[uiInput]` on purpose: an unscoped
- * `input, select, textarea` rule leaks into third-party DOM we do not own —
- * Clerk's mounted sign-in / account forms in particular — and breaks their
- * layout. The editor's own styles refine these further.
+ * `input, select, textarea` rule would style any third-party DOM we do not own
+ * and break its layout. Every form of ours opts in with `uiInput`, so the scope
+ * costs nothing. The editor's own styles refine these further.
  * --------------------------------------------------------------- */
 .cad-editor-root :is(input, select, textarea),
 [uiInput] {

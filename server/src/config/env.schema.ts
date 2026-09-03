@@ -9,8 +9,7 @@ import { z } from 'zod';
  * - Empty strings are treated as "unset" so `.env.example` can ship blank
  *   optional keys.
  * - Numerics use `z.coerce.number()` because process.env values are strings.
- * - `CLERK_JWT_KEY` is a PEM with `\n` escaped on one line; we unescape it.
- * - `CORS_ORIGIN` / `CLERK_AUTHORIZED_PARTIES` are comma-separated lists.
+ * - `CORS_ORIGIN` is a comma-separated list.
  */
 
 const LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'] as const;
@@ -51,7 +50,7 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
-  /** Allowed browser origins; also the default set of accepted `azp` claims. */
+  /** Allowed browser origins (CORS only). */
   CORS_ORIGIN: z
     .string()
     .min(1)
@@ -62,15 +61,19 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().min(1).startsWith('postgres', 'DATABASE_URL must be a postgres:// URL'),
   DIRECT_DATABASE_URL: z.string().min(1).startsWith('postgres', 'DIRECT_DATABASE_URL must be a postgres:// URL'),
 
-  // --- Clerk --------------------------------------------------------------
-  /** Optional: without it we cannot call the Clerk Backend API (lazy user data falls back to JWT claims). */
-  CLERK_SECRET_KEY: optionalString,
-  /** Optional: JWKS public key PEM for networkless verification. `\n`-escaped. */
-  CLERK_JWT_KEY: optionalString.transform((pem) => pem?.replace(/\\n/g, '\n')),
-  /** Optional: Svix signing secret. Without it `POST /webhooks/clerk` answers 503. */
-  CLERK_WEBHOOK_SECRET: optionalString,
-  /** Optional: accepted `azp` values; defaults to CORS_ORIGIN at the call site. */
-  CLERK_AUTHORIZED_PARTIES: optionalString.transform((v) => (v ? splitCsv(v) : undefined)),
+  // --- Supabase auth ------------------------------------------------------
+  /**
+   * Project URL (`https://<ref>.supabase.co`). Required to verify tokens: it is
+   * both the expected `iss` (`<url>/auth/v1`) and where the JWKS lives. Optional
+   * only so the API still boots unconfigured — auth then answers 503.
+   */
+  SUPABASE_URL: optionalUrl,
+  /**
+   * Optional: legacy symmetric JWT secret (Settings → API → JWT Secret). When set,
+   * tokens are verified HS256 with it. Leave empty on projects using asymmetric
+   * signing keys, where the JWKS under SUPABASE_URL is used instead.
+   */
+  SUPABASE_JWT_SECRET: optionalString,
 
   // --- Object storage -----------------------------------------------------
   S3_ENDPOINT: z.url(),
@@ -82,7 +85,35 @@ export const envSchema = z.object({
   S3_SECRET_KEY: z.string().min(1),
   S3_FORCE_PATH_STYLE: boolFromString.default(true),
 
+  // --- Transactional email ------------------------------------------------
+  // All optional: the API must still boot with none of them set, which is the
+  // development default. `MailModule` then picks the logging transport.
+  /** Resend API key. Absent → email is logged, never sent (see `MailService`). */
+  RESEND_API_KEY: optionalString,
+  /** Envelope From, e.g. `CADOnline <no-reply@cadonline.app>`. Required to send. */
+  MAIL_FROM: optionalString,
+  /** Optional Reply-To applied to all outbound mail. */
+  MAIL_REPLY_TO: optionalString,
+  /**
+   * Public origin of the web app, used to build links in emails. The API cannot
+   * infer it: requests arrive from the client's own host and `CORS_ORIGIN` may
+   * list several. Defaults to the first CORS origin, which is right in dev.
+   */
+  APP_BASE_URL: optionalUrl,
+
   // --- Limits -------------------------------------------------------------
+  /**
+   * Default per-IP request budget, in requests per `RATE_LIMIT_TTL_MS`.
+   *
+   * Configurable because the e2e suites all run in ONE process, `--runInBand`,
+   * against a single in-memory counter from a single IP: their combined traffic
+   * is a plausible fraction of the production budget, so a slow run used to trip
+   * the limiter and fail unrelated tests. The harness raises this instead of the
+   * production default being weakened to accommodate it.
+   */
+  RATE_LIMIT_LIMIT: positiveInt(300),
+  RATE_LIMIT_TTL_MS: positiveInt(60_000),
+
   MAX_INLINE_CONTENT_BYTES: positiveInt(5 * 1024 * 1024),
   MAX_UPLOAD_BYTES: positiveInt(50 * 1024 * 1024),
   MAX_THUMBNAIL_BYTES: positiveInt(512 * 1024),
@@ -109,12 +140,12 @@ export function validateEnv(config: Record<string, unknown>): Env {
   }
 
   // `@nestjs/config` falls back to raw `process.env` whenever a validated key
-  // is `undefined`, so a blank line in `.env` (`CLERK_AUTHORIZED_PARTIES=`)
-  // reaches `config.get()` as `''` — which is NOT nullish, so `?? fallback`
-  // keeps the empty string. That has bitten twice already: an empty
-  // `S3_PUBLIC_ENDPOINT` made the presigner sign for real AWS instead of MinIO,
-  // and an empty authorized-parties list made `verifyToken` skip the `azp`
-  // check altogether, accepting tokens minted for any other Clerk frontend.
+  // is `undefined`, so a blank line in `.env` (`SUPABASE_JWT_SECRET=`) reaches
+  // `config.get()` as `''` — which is NOT nullish, so `?? fallback` keeps the
+  // empty string. That has bitten twice already: an empty `S3_PUBLIC_ENDPOINT`
+  // made the presigner sign for real AWS instead of MinIO, and an empty
+  // authorized-parties list once made token verification skip its audience
+  // check altogether, accepting tokens minted for any other frontend.
   //
   // Deleting the blank keys here restores `undefined` at the fallback site, so
   // the whole class of bug cannot recur for a future optional key.

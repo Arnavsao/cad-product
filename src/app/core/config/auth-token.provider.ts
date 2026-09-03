@@ -3,7 +3,7 @@ import { InjectionToken } from '@angular/core';
 /**
  * Pluggable source of the bearer token attached to backend API calls.
  *
- * The standalone app provides `ClerkAuthTokenProvider` (see app.config.ts).
+ * The standalone app provides `SupabaseAuthTokenProvider` (see app.config.ts).
  * A host application embedding the editor can override this token to
  * integrate its own session handling:
  *
@@ -12,8 +12,8 @@ import { InjectionToken } from '@angular/core';
 export interface AuthTokenProvider {
   /**
    * Return the current access token, or null when unauthenticated. May be
-   * asynchronous: Clerk (and most modern session libraries) mint short-lived
-   * JWTs on demand, so `authInterceptor` awaits the result before sending.
+   * asynchronous: Supabase (and most modern session libraries) mint short-lived
+   * access tokens on demand, so `authInterceptor` awaits the result before sending.
    */
   getToken(): string | null | Promise<string | null>;
   /** Called when the backend rejects the token (HTTP 401). */

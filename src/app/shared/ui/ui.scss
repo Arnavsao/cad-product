@@ -190,3 +190,32 @@ select[uiInput].ui-input { padding-right: 28px; }
   white-space: nowrap;
   border: 0;
 }
+
+/**
+ * Page container.
+ *
+ * Every dashboard page used to set its own `:host { max-width }` — 720px here,
+ * 860px there — and none of them centred, so on a wide monitor the content hugged
+ * the left edge and left the right half of the viewport empty. This is the one
+ * place that decides page width now.
+ *
+ * `--ui-page-max` is the knob: the shell sets the default, and a page that wants
+ * the full width (the drawings table, which is the point of a file manager)
+ * overrides it with `none`. Content stays centred either way, so nothing is
+ * stranded against one edge.
+ */
+.ui-page {
+  width: 100%;
+  max-width: var(--ui-page-max, 1180px);
+  margin-inline: auto;
+}
+
+/**
+ * Width cap for a *form* rather than a page: long single-column inputs are
+ * unpleasant to scan, but capping the whole page to achieve that is what left
+ * the dead space. Put this on the field grid and let the page stay wide.
+ */
+.ui-form-width {
+  width: 100%;
+  max-width: var(--ui-form-max, 620px);
+}

@@ -20,14 +20,13 @@ function isPublicUrl(url: string): boolean {
 /**
  * Attaches `Authorization: Bearer <token>` to backend requests.
  *
- * The token provider may be asynchronous (Clerk mints short-lived JWTs on
- * demand), so the request is deferred behind `from(Promise.resolve(...))` and
+ * The token provider may be asynchronous (Supabase mints short-lived access tokens), so the request is deferred behind `from(Promise.resolve(...))` and
  * only sent once the token resolves. On 401 the provider is cleared and the
  * user is sent to `/sign-in?redirect_url=<where they were>` unless they are
  * already on a public route. Requests to other hosts (presigned S3 URLs, Ollama)
  * pass through untouched.
  *
- * The redirect is skipped entirely in embedded mode (no publishable key): there
+ * The redirect is skipped entirely in embedded mode (no Supabase config): there
  * is no sign-in flow to send anyone to, and a host application supplying its own
  * token through `AUTH_TOKEN_PROVIDER` must handle its own expiry — bouncing the
  * user into our sign-in page would hijack the host's navigation.
@@ -44,7 +43,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (error.status === 401) {
         tokens.clearToken();
         const current = router.url;
-        if (environment.clerkPublishableKey && !isPublicUrl(current)) {
+        if (environment.supabaseUrl && environment.supabaseAnonKey && !isPublicUrl(current)) {
           void router.navigateByUrl(`/sign-in?redirect_url=${encodeURIComponent(current)}`);
         }
       }

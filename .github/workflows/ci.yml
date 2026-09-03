@@ -25,8 +25,9 @@ jobs:
 
   # The NestJS API in server/. Unit tests mock Prisma and storage; the e2e
   # suite needs real Postgres + MinIO, so the same docker-compose services
-  # developers use locally are started here. Auth in e2e uses RS256 tokens
-  # minted against CLERK_JWT_KEY - no Clerk account is needed in CI.
+  # developers use locally are started here. Auth in e2e uses HS256 tokens
+  # minted against a test SUPABASE_JWT_SECRET the specs set themselves - no
+  # Supabase project is needed in CI.
   api:
     runs-on: ubuntu-latest
     defaults:

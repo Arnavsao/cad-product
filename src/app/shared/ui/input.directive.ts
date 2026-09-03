@@ -3,7 +3,7 @@ import { Directive, booleanAttribute, input } from '@angular/core';
 /**
  * Text-control primitive for `<input>`, `<select>` and `<textarea>`.
  * Opts the element into the app-wide form baseline (see styles.scss, which is
- * scoped to `.cad-editor-root` and `[uiInput]` so it never leaks into Clerk's
+ * scoped to `.cad-editor-root` and `[uiInput]` so it never leaks into third-party
  * mounted forms) and adds focus/invalid styling from `shared/ui/ui.scss`.
  *
  * ```html

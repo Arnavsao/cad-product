@@ -54,13 +54,47 @@ enum SharePermission {
   @@map("share_permission")
 }
 
+enum FeedbackKind {
+  BUG      @map("bug")
+  IDEA     @map("idea")
+  QUESTION @map("question")
+  OTHER    @map("other")
+
+  @@map("feedback_kind")
+}
+
+enum NotificationKind {
+  SYSTEM  @map("system")
+  DRAWING @map("drawing")
+  STORAGE @map("storage")
+  ACCOUNT @map("account")
+
+  @@map("notification_kind")
+}
+
+// Ordered least- to most-privileged; `OrganizationsService.requireMembership`
+// compares by the `RANK` table there, so any new role must be inserted at the
+// right position *and* given a rank.
+//
+// `VIEWER` is the read-only tier: a viewer opens and downloads org drawings but
+// never saves, renames or trashes them. It is first so the Postgres enum sort
+// order still matches privilege (the members list orders by `role desc`).
+enum OrgRole {
+  VIEWER @map("viewer")
+  MEMBER @map("member")
+  ADMIN  @map("admin")
+  OWNER  @map("owner")
+
+  @@map("org_role")
+}
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
 
 model User {
   id          String    @id @default(cuid())
-  clerkId     String    @unique @map("clerk_id")
+  authId      String    @unique @map("auth_id")
   email       String
   firstName   String?   @map("first_name")
   lastName    String?   @map("last_name")
@@ -70,13 +104,90 @@ model User {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  preferences UserPreferences?
-  folders     Folder[]
-  drawings    Drawing[]
-  shareLinks  ShareLink[]
+  preferences   UserPreferences?
+  folders       Folder[]
+  drawings      Drawing[]
+  shareLinks    ShareLink[]
+  sharesCreated Share[]         @relation("ShareCreator")
+  feedback      Feedback[]
+  notifications Notification[]
+  memberships   OrgMembership[]
+  orgsCreated   Organization[]  @relation("OrgCreator")
+  invitesSent   OrgInvite[]     @relation("OrgInviteCreator")
 
   @@index([email])
   @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Organizations — a shared workspace. Drawings and folders carry a nullable
+// `organizationId`: NULL is the owner's personal workspace, set means every
+// member of that org can see and edit the row.
+//
+// `ownerId` on those rows keeps meaning "who created it" and never changes: it
+// still roots the object-storage prefix (`users/{ownerId}/...`, see
+// `src/storage/storage-keys.ts`), so moving a drawing into an org needs no
+// object copying.
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  // URL-safe handle, derived from `name` and deduped on create.
+  slug        String   @unique
+  // Short human-typeable code behind `POST /organizations/join`. Rotatable, so
+  // leaking it is recoverable without disturbing existing members.
+  joinCode    String   @unique @map("join_code")
+  imageUrl    String?  @map("image_url")
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation("OrgCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  memberships OrgMembership[]
+  invites     OrgInvite[]
+  folders     Folder[]
+  drawings    Drawing[]
+  // Shares pointing AT this org: someone else's drawing or folder made visible
+  // to every member of it (see the `Share` model).
+  sharesReceived Share[] @relation("ShareTargetOrg")
+
+  @@map("organizations")
+}
+
+model OrgMembership {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(MEMBER)
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("org_memberships")
+}
+
+// An outstanding invitation. `email` is stored lowercased so the accept path can
+// match it against the caller's token claim exactly.
+model OrgInvite {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrgRole      @default(MEMBER)
+  token          String       @unique
+  expiresAt      DateTime     @map("expires_at")
+  acceptedAt     DateTime?    @map("accepted_at")
+  createdById    String       @map("created_by_id")
+  createdBy      User         @relation("OrgInviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([email])
+  @@map("org_invites")
 }
 
 model UserPreferences {
@@ -88,6 +199,16 @@ model UserPreferences {
   defaultTemplate     String    @default("blank") @map("default_template")
   autosaveIntervalSec Int       @default(30) @map("autosave_interval_sec")
   uiState             Json?     @map("ui_state")
+
+  // Email opt-outs. Two typed booleans rather than one JSON blob: they are read
+  // on the send path (MailService.wants), where a column is both cheaper than
+  // parsing JSON and impossible to typo. Default true — a user who never opened
+  // Settings should still hear that something was shared with them.
+  // Organization INVITATIONS are deliberately not gated by either; see
+  // MailService's JSDoc for why.
+  emailOnShare        Boolean   @default(true) @map("email_on_share")
+  emailOnOrgActivity  Boolean   @default(true) @map("email_on_org_activity")
+
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
@@ -97,23 +218,34 @@ model UserPreferences {
 // ---------------------------------------------------------------------------
 // Folders — adjacency-list tree. Root-level name uniqueness (parentId IS NULL)
 // is enforced in FoldersService because SQL treats NULLs as distinct.
+//
+// `organizationId` NULL = the owner's personal tree; set = the org's shared
+// tree. The two never mix: a personal folder cannot be moved under an org one.
 // ---------------------------------------------------------------------------
 
 model Folder {
-  id        String   @id @default(cuid())
-  ownerId   String   @map("owner_id")
-  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  parentId  String?  @map("parent_id")
-  parent    Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children  Folder[] @relation("FolderTree")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             String        @id @default(cuid())
+  ownerId        String        @map("owner_id")
+  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  organizationId String?       @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parentId       String?       @map("parent_id")
+  parent         Folder?       @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children       Folder[]      @relation("FolderTree")
+  name           String
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   drawings Drawing[]
+  shares   Share[]
 
-  @@unique([ownerId, parentId, name])
+  // Sibling-name uniqueness is two partial expression indexes created by hand in
+  // the `organizations_and_drawing_names` migration, not `@@unique` here: the
+  // key differs per workspace (owner vs organization) and `COALESCE(parent_id,
+  // '')` is needed because SQL treats every NULL parent as distinct. Prisma
+  // cannot express either, so `prisma db pull` will not round-trip them.
   @@index([ownerId, parentId])
+  @@index([organizationId, parentId])
   @@map("folders")
 }
 
@@ -121,12 +253,18 @@ model Folder {
 // Drawings — one row per document; `storageKey` always points at the object
 // for `currentVersion`. Trash = `deletedAt` set; permanent delete removes the
 // row (cascading versions/share links) and the storage prefix.
+//
+// `ownerId` is the creator and roots the storage prefix for every version, even
+// when the drawing lives in an organization; `organizationId` is what decides
+// who may read and write it.
 // ---------------------------------------------------------------------------
 
 model Drawing {
   id             String        @id @default(cuid())
   ownerId        String        @map("owner_id")
   owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  organizationId String?       @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   folderId       String?       @map("folder_id")
   folder         Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
   name           String
@@ -142,11 +280,18 @@ model Drawing {
 
   versions   DrawingVersion[]
   shareLinks ShareLink[]
+  shares     Share[]
 
+  // Name uniqueness per workspace+folder is enforced by two partial expression
+  // indexes in the `organizations_and_drawing_names` migration (see the note on
+  // `Folder`). Trashed rows are excluded, so binning a drawing frees its name.
   @@index([ownerId, updatedAt(sort: Desc)])
   @@index([ownerId, lastOpenedAt(sort: Desc)])
   @@index([ownerId, folderId])
   @@index([ownerId, deletedAt])
+  @@index([organizationId, updatedAt(sort: Desc)])
+  @@index([organizationId, lastOpenedAt(sort: Desc)])
+  @@index([organizationId, deletedAt])
   @@map("drawings")
 }
 
@@ -165,7 +310,61 @@ model DrawingVersion {
   @@map("drawing_versions")
 }
 
-// Schema only in 1.1.0 — endpoints are phase 2.
+// ---------------------------------------------------------------------------
+// Sharing
+// ---------------------------------------------------------------------------
+
+// A durable grant on one drawing OR one folder, to one person (by email) OR to
+// one whole organization.
+//
+// Design decisions:
+//
+// - **The target is an email, not a user id.** A share can be created for
+//   someone who has not signed up yet; access time matches the lowercased
+//   address against `users.email`, so the grant starts working the moment they
+//   sign in. A user-id column would have forced "invite first, share later".
+//
+// - **A folder share covers the whole subtree.** `common/access.ts` walks a
+//   drawing's ancestor folders (depth-bounded) and takes the highest live
+//   share it finds, so sharing a folder shares everything inside it, including
+//   things added afterwards.
+//
+// - **Shares survive a move.** They name the resource, not the workspace: a
+//   drawing moved from personal into an org keeps the people it was shared
+//   with, which is what someone who shared it expects.
+//
+// - **The two "exactly one of" rules are CHECK constraints**, and the four
+//   partial unique indexes are what make `PUT …/shares` an upsert (Prisma
+//   cannot express either — see the migration).
+model Share {
+  id                   String          @id @default(cuid())
+  drawingId            String?         @map("drawing_id")
+  drawing              Drawing?        @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  folderId             String?         @map("folder_id")
+  folder               Folder?         @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  // Exactly one target. Email is lowercased and matched against `users.email`
+  // at access time, so a share can be created for someone who has not signed
+  // up yet.
+  targetEmail          String?         @map("target_email")
+  targetOrganizationId String?         @map("target_organization_id")
+  targetOrganization   Organization?   @relation("ShareTargetOrg", fields: [targetOrganizationId], references: [id], onDelete: Cascade)
+  permission           SharePermission @default(VIEW)
+  createdById          String          @map("created_by_id")
+  createdBy            User            @relation("ShareCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  expiresAt            DateTime?       @map("expires_at")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  @@index([drawingId])
+  @@index([folderId])
+  @@index([targetEmail])
+  @@index([targetOrganizationId])
+  @@map("shares")
+}
+
+// An unauthenticated-recipient link to one drawing. `GET /shared/:token` reads
+// it; accepting one converts it into a durable `Share` for that person, so the
+// drawing then appears under "Shared with me" without the link.
 model ShareLink {
   id          String          @id @default(cuid())
   drawingId   String          @map("drawing_id")
@@ -179,14 +378,49 @@ model ShareLink {
   createdAt   DateTime        @default(now()) @map("created_at")
 
   @@index([drawingId])
+  // The share dialog only ever lists a drawing's *live* links.
+  @@index([drawingId, revokedAt])
   @@map("share_links")
 }
 
-// Idempotency ledger for Clerk webhooks: `id` is the Svix message id.
-model WebhookEvent {
-  id         String   @id
-  type       String
-  receivedAt DateTime @default(now()) @map("received_at")
 
-  @@map("webhook_events")
+// ---------------------------------------------------------------------------
+// Feedback / notifications
+// ---------------------------------------------------------------------------
+
+// `POST /feedback` is public, so `userId` is nullable: a signed-out visitor can
+// still report a bug, and `email` is then the only way to reply. `SetNull` (not
+// `Cascade`) on purpose — deleting an account must stop identifying the feedback
+// it left without destroying the report itself.
+model Feedback {
+  id        String       @id @default(cuid())
+  userId    String?      @map("user_id")
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind      FeedbackKind @default(OTHER)
+  rating    Int?
+  message   String
+  email     String?
+  // { route, appVersion, userAgent } — captured client-side to make a report reproducible.
+  context   Json?
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("feedback")
+}
+
+// In-app inbox. `readAt` is a nullable timestamp rather than a boolean so "when
+// did they see it" survives, and the unread index stays cheap.
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      NotificationKind @default(SYSTEM)
+  title     String
+  body      String?
+  linkUrl   String?          @map("link_url")
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
 }

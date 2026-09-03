@@ -1,49 +1,31 @@
 /**
- * Mint a Clerk-shaped session token for local development WITHOUT a Clerk
- * account.
+ * Mint a Supabase-shaped access token for local development WITHOUT a Supabase
+ * project.
  *
- *   npx tsx scripts/mint-dev-token.ts                 # prints a token for user_dev
- *   npx tsx scripts/mint-dev-token.ts --sub user_ann  # different user
- *   npx tsx scripts/mint-dev-token.ts --write-env     # also sets CLERK_JWT_KEY in .env
+ *   npx tsx scripts/mint-dev-token.ts                          # token for a default user
+ *   npx tsx scripts/mint-dev-token.ts --sub <uuid>             # a specific user id
+ *   npx tsx scripts/mint-dev-token.ts --email ann@example.com
+ *   npx tsx scripts/mint-dev-token.ts --write-env              # also set SUPABASE_* in .env
  *
- * First run generates an RS256 keypair under `.dev-keys/` (gitignored) and
- * prints the `CLERK_JWT_KEY=` line to paste into `.env` (or writes it with
- * `--write-env`). Subsequent runs reuse the keypair, so tokens stay valid
- * against the running API. Then:
+ * The token is signed HS256 with the SAME secret the API verifies against, so
+ * point both at the test values (that is what `--write-env` does) and then:
  *
  *   curl -s localhost:3000/api/v1/me -H "Authorization: Bearer $TOKEN"
+ *
+ * Unlike the old Clerk harness there is no keypair to generate or persist — a
+ * shared secret is all HS256 needs, so `.dev-keys/` is gone.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createDevKeypair, importPrivateKey, mintSessionToken, toEnvPem, type PrivateKey } from '../test/support/jwt';
+import { mintSessionToken, TEST_JWT_SECRET, TEST_SUPABASE_URL, testAuthId } from '../test/support/jwt';
 
-// CommonJS (tsconfig `module: commonjs`, run via `npx tsx`): __dirname is available.
-const serverRoot = resolve(__dirname, '..');
-const keyDir = resolve(serverRoot, '.dev-keys');
-const privatePath = resolve(keyDir, 'private.pem');
-const publicPath = resolve(keyDir, 'public.pem');
-const envPath = resolve(serverRoot, '.env');
+const envPath = resolve(__dirname, '..', '.env');
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 ? (process.argv[i + 1] ?? fallback) : fallback;
 }
 const flag = (name: string): boolean => process.argv.includes(`--${name}`);
-
-async function loadOrCreateKeys(): Promise<{ privateKey: PrivateKey; publicPem: string; created: boolean }> {
-  if (existsSync(privatePath) && existsSync(publicPath)) {
-    return {
-      privateKey: await importPrivateKey(readFileSync(privatePath, 'utf8')),
-      publicPem: readFileSync(publicPath, 'utf8'),
-      created: false,
-    };
-  }
-  const pair = await createDevKeypair();
-  mkdirSync(keyDir, { recursive: true });
-  writeFileSync(privatePath, pair.privatePem, { mode: 0o600 });
-  writeFileSync(publicPath, pair.publicPem);
-  return { privateKey: pair.privateKey, publicPem: pair.publicPem, created: true };
-}
 
 function upsertEnvLine(key: string, value: string): void {
   const current = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
@@ -54,30 +36,26 @@ function upsertEnvLine(key: string, value: string): void {
 }
 
 async function main(): Promise<void> {
-  const sub = arg('sub', 'user_dev')!;
-  const sid = arg('sid', 'sess_dev')!;
-  const azp = arg('azp', 'http://localhost:4200')!;
+  const sub = arg('sub', testAuthId('dev'))!;
+  const email = arg('email', `dev+${sub.slice(-6)}@example.com`)!;
+  const name = arg('name', 'Dev User')!;
   const ttlSec = Number(arg('ttl', '3600'));
-  const email = arg('email', `${sub}@example.com`)!;
-
-  const { privateKey, publicPem, created } = await loadOrCreateKeys();
-  const envPem = toEnvPem(publicPem);
 
   if (flag('write-env')) {
-    upsertEnvLine('CLERK_JWT_KEY', envPem);
-    console.error(`✔ wrote CLERK_JWT_KEY to ${envPath} — restart the API if it is running`);
-  } else if (created) {
-    console.error(`✔ generated ${privatePath}\n  Add this to server/.env (or re-run with --write-env):\n`);
-    console.error(`CLERK_JWT_KEY=${envPem}\n`);
+    upsertEnvLine('SUPABASE_URL', TEST_SUPABASE_URL);
+    upsertEnvLine('SUPABASE_JWT_SECRET', TEST_JWT_SECRET);
+    console.error(`Wrote SUPABASE_URL and SUPABASE_JWT_SECRET (test values) to ${envPath}`);
+    console.error('Restart the API so it picks them up.');
+  } else {
+    console.error(`Verify against: SUPABASE_URL=${TEST_SUPABASE_URL}`);
+    console.error(`               SUPABASE_JWT_SECRET=${TEST_JWT_SECRET}`);
+    console.error('(pass --write-env to put those in .env for you)');
   }
 
-  const token = await mintSessionToken(privateKey, { sub, sid, azp, ttlSec, extra: { email, first_name: 'Dev' } });
-  console.error(`sub=${sub} sid=${sid} azp=${azp} ttl=${ttlSec}s\n`);
-  // Token on stdout only, so `TOKEN=$(npx tsx scripts/mint-dev-token.ts)` works.
+  const token = await mintSessionToken({ sub, email, ttlSec, userMetadata: { full_name: name } });
+  console.error(`\nsub=${sub} email=${email} ttl=${ttlSec}s`);
+  // stdout carries ONLY the token, so `TOKEN=$(npm run --silent mint-token)` works.
   console.log(token);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+void main();

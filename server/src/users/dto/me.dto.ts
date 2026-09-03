@@ -1,9 +1,10 @@
+import type { OrgSummaryDto } from '../../organizations/dto/organization.dto';
 import type { PreferencesDto } from './preferences.dto';
 
 /** `MeDto.user` (plan §1). */
 export interface UserDto {
   id: string;
-  clerkId: string;
+  authId: string;
   email: string;
   firstName: string | null;
   lastName: string | null;
@@ -23,4 +24,10 @@ export interface MeDto {
   preferences: PreferencesDto;
   onboarded: boolean;
   usage: UsageDto;
+  /**
+   * Organizations the user belongs to. Included here so the dashboard's
+   * workspace switcher renders on first paint instead of after a second
+   * request — the shell needs it before it can load any list.
+   */
+  organizations: OrgSummaryDto[];
 }

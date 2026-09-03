@@ -1,78 +1,75 @@
-import { exportPKCS8, exportSPKI, generateKeyPair, importPKCS8, SignJWT } from 'jose';
+import { SignJWT } from 'jose';
 
 /**
- * Self-minted "Clerk-shaped" session tokens for tests and local development.
+ * Self-minted, Supabase-shaped access tokens for tests and local development.
  *
- * `ClerkAuthGuard` verifies tokens with `@clerk/backend`'s `verifyToken`,
- * which — given `CLERK_JWT_KEY` (an RS256 public key PEM) — checks the
- * signature, `exp`/`nbf`/`iat` and the `azp` claim, and never talks to Clerk.
- * So a keypair we generate here, with the public half in `CLERK_JWT_KEY`,
- * exercises the real guard end-to-end without a Clerk account.
+ * `SupabaseAuthGuard` verifies with `jose` against either the project JWKS or
+ * `SUPABASE_JWT_SECRET`, checking the signature, `iss`, `aud` and `exp`/`nbf`/`iat`
+ * — and never calling Supabase. So signing here with the same shared secret that
+ * the API has in `SUPABASE_JWT_SECRET` exercises the real guard end to end,
+ * with no Supabase project and no network.
+ *
+ * HS256 is deliberate for the harness: a symmetric secret needs no keypair, so
+ * there is no `.dev-keys` directory and no PEM plumbing to keep in sync.
  */
 
-/**
- * Private key type as produced by this jose version (jose 5: `KeyLike`;
- * jose 6: `CryptoKey`). Derived so a major upgrade does not break the API.
- * Note: jose 6 is ESM-only and cannot be `require()`d by Jest on Node < 24.9,
- * which is why the package pins jose 5.
- */
-export type PrivateKey = Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
-
-export interface DevKeypair {
-  privateKey: PrivateKey;
-  /** SPKI PEM — what goes into `CLERK_JWT_KEY` (after `toEnvPem`). */
-  publicPem: string;
-  /** PKCS8 PEM — persist to re-use the same key across runs. */
-  privatePem: string;
-}
+/** Project URL the tests pretend to be, and its derived issuer. */
+export const TEST_SUPABASE_URL = 'https://test-project.supabase.co';
+/** Any non-empty string works; both sides just have to agree. */
+export const TEST_JWT_SECRET = 'test-jwt-secret-value-at-least-32-chars-long';
 
 export interface SessionClaims {
-  /** Clerk user id, e.g. `user_dev`. */
+  /** `auth.users.id` — a UUID in real tokens. */
   sub: string;
-  /** Clerk session id, e.g. `sess_dev`. */
-  sid?: string;
-  /** Authorized party — must be in `CLERK_AUTHORIZED_PARTIES`/`CORS_ORIGIN`. */
-  azp?: string;
-  /** Lifetime in seconds (default 3600). Negative to mint an already-expired token. */
+  /** Supabase session id. */
+  sessionId?: string;
+  email?: string;
+  /** Goes under `user_metadata` (`full_name`, `avatar_url`, `first_name`, …). */
+  userMetadata?: Record<string, unknown>;
+  /** Lifetime in seconds (default 3600). Negative mints an already-expired token. */
   ttlSec?: number;
-  /** Extra claims (e.g. `email`, `first_name`) used by the no-secret-key user provisioning. */
+  /** Override the issuer — for asserting that a foreign project is rejected. */
+  issuer?: string;
+  /** Override the audience — for asserting a non-`authenticated` token is rejected. */
+  audience?: string;
+  /** Any further top-level claims. */
   extra?: Record<string, unknown>;
 }
 
-/** Generates a fresh RS256 keypair. */
-export async function createDevKeypair(): Promise<DevKeypair> {
-  const { publicKey, privateKey } = await generateKeyPair('RS256', { modulusLength: 2048, extractable: true });
-  return {
-    privateKey,
-    publicPem: await exportSPKI(publicKey),
-    privatePem: await exportPKCS8(privateKey),
-  };
+/** `https://x.supabase.co` → `https://x.supabase.co/auth/v1`. */
+export function issuerFor(supabaseUrl: string): string {
+  return `${supabaseUrl.replace(/\/+$/, '')}/auth/v1`;
 }
 
-/** Re-imports a PKCS8 private key PEM written by `createDevKeypair`. */
-export async function importPrivateKey(privatePem: string): Promise<PrivateKey> {
-  return importPKCS8(privatePem, 'RS256');
+/** HS256 signing key from a shared secret. */
+export function secretKey(secret: string = TEST_JWT_SECRET): Uint8Array {
+  return new TextEncoder().encode(secret);
 }
 
-/** One-line, `\n`-escaped PEM for `.env` files. */
-export function toEnvPem(pem: string): string {
-  return pem.trim().replace(/\r?\n/g, '\\n');
-}
-
-/** Mints a session JWT with Clerk's standard claim set. */
-export async function mintSessionToken(privateKey: PrivateKey, claims: SessionClaims): Promise<string> {
+/** Mints an access token with Supabase's standard claim set. */
+export async function mintSessionToken(claims: SessionClaims, secret: string = TEST_JWT_SECRET): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const ttl = claims.ttlSec ?? 3600;
+
   return new SignJWT({
-    sid: claims.sid ?? 'sess_dev',
-    azp: claims.azp ?? 'http://localhost:4200',
+    role: 'authenticated',
+    session_id: claims.sessionId ?? '00000000-0000-4000-8000-00000000ffff',
+    ...(claims.email ? { email: claims.email } : {}),
+    ...(claims.userMetadata ? { user_metadata: claims.userMetadata } : {}),
     ...(claims.extra ?? {}),
   })
-    .setProtectedHeader({ alg: 'RS256', typ: 'JWT', kid: 'dev-key' })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(claims.sub)
-    .setIssuer('https://dev.clerk.local')
+    .setIssuer(claims.issuer ?? issuerFor(TEST_SUPABASE_URL))
+    .setAudience(claims.audience ?? 'authenticated')
     .setIssuedAt(now)
     .setNotBefore(now - 5)
     .setExpirationTime(now + ttl)
-    .sign(privateKey);
+    .sign(secretKey(secret));
+}
+
+/** A deterministic UUID-shaped id, so tokens look like the real thing. */
+export function testAuthId(suffix: string): string {
+  const tail = suffix.replace(/[^0-9a-f]/gi, '').padStart(12, '0').slice(-12);
+  return `00000000-0000-4000-8000-${tail}`;
 }

@@ -17,6 +17,17 @@ export type UiIconName =
   | 'more'
   | 'chevron-right'
   | 'chevron-down'
+  | 'chevron-left'
+  | 'chevrons-left'
+  | 'chevrons-right'
+  | 'chevron-up-down'
+  | 'building'
+  | 'users'
+  | 'user-plus'
+  | 'link'
+  | 'share'
+  | 'history'
+  | 'shield'
   | 'cloud'
   | 'user'
   | 'back'
@@ -32,7 +43,14 @@ export type UiIconName =
   | 'alert'
   | 'clock'
   | 'home'
-  | 'refresh';
+  | 'refresh'
+  | 'bell'
+  | 'help'
+  | 'message'
+  | 'mail'
+  | 'tag'
+  | 'star'
+  | 'sparkle';
 
 export const ICON_PATHS: Record<UiIconName, readonly string[]> = {
   folder: ['M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'],
@@ -46,6 +64,44 @@ export const ICON_PATHS: Record<UiIconName, readonly string[]> = {
   more: ['M5 12h.01', 'M12 12h.01', 'M19 12h.01'],
   'chevron-right': ['m9 18 6-6-6-6'],
   'chevron-down': ['m6 9 6 6 6-6'],
+  'chevron-left': ['m15 18-6-6 6-6'],
+  // Paginator "first" / "last": a double chevron against the end stop.
+  'chevrons-left': ['m11 17-5-5 5-5', 'm18 17-5-5 5-5'],
+  'chevrons-right': ['m13 17 5-5-5-5', 'm6 17 5-5-5-5'],
+  // Vertical double chevron — the affordance on a switcher button.
+  'chevron-up-down': ['m7 15 5 5 5-5', 'm7 9 5-5 5 5'],
+  building: [
+    'M3 21h18',
+    'M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16',
+    'M15 21V9h2a2 2 0 0 1 2 2v10',
+    'M9 7h2',
+    'M9 11h2',
+    'M9 15h2',
+  ],
+  users: [
+    'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2',
+    'M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z',
+    'M22 21v-2a4 4 0 0 0-3-3.87',
+    'M16 3.13a4 4 0 0 1 0 7.75',
+  ],
+  'user-plus': [
+    'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+    'M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z',
+    'M19 8v6',
+    'M22 11h-6',
+  ],
+  link: ['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71', 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'],
+  // Three nodes joined by two edges — sharing outward, not a system-share glyph.
+  share: [
+    'M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+    'M6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+    'M18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+    'm8.6 10.5 6.8-3.9',
+    'm15.4 17.4-6.8-3.9',
+  ],
+  // A clock with a counter-clockwise arrow: "previous versions".
+  history: ['M3 12a9 9 0 1 0 3-6.7L3 8', 'M3 3v5h5', 'M12 8v4l3 2'],
+  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'],
   cloud: ['M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z'],
   user: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z'],
   back: ['m12 19-7-7 7-7', 'M19 12H5'],
@@ -65,6 +121,15 @@ export const ICON_PATHS: Record<UiIconName, readonly string[]> = {
   clock: ['M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', 'M12 6v6l4 2'],
   home: ['m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M9 22V12h6v10'],
   refresh: ['M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5', 'M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16', 'M16 16h5v5'],
+  bell: ['M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9', 'M10.3 21a1.94 1.94 0 0 0 3.4 0'],
+  help: ['M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01'],
+  message: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
+  // An envelope: mail sent OUT, as opposed to `message` (a conversation) and
+  // `bell` (the in-app inbox). Used for "Email this link".
+  mail: ['M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'm22 7-10 6L2 7'],
+  tag: ['M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.83 8.82a2 2 0 0 0 2.82 0l7.18-7.18a2 2 0 0 0 0-2.82z', 'M7 7h.01'],
+  star: ['m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z'],
+  sparkle: ['m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z'],
 };
 
 /**

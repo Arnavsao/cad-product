@@ -8,6 +8,7 @@ export { UiInputDirective } from './input.directive';
 export { UiCardComponent, type UiCardPadding } from './card.component';
 export { UiEmptyStateComponent } from './empty-state.component';
 export { UiSkeletonComponent } from './skeleton.component';
+export { PAGE_SIZES, UiPaginatorComponent } from './paginator.component';
 export { ICON_PATHS, UiIconComponent, type UiIconName } from './icon.component';
 export { AccountButtonComponent } from './account-button.component';
 export { UI_DIALOG_DATA, UiDialogRef, type UiDialogAction, type UiDialogData } from './dialog/ui-dialog-ref';

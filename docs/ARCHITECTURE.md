@@ -13,7 +13,7 @@
 ├──────────────────────────────────────────────────────────────┤
 │ app/shared/ui    Design-system primitives (button, dialog …)  │
 ├──────────────────────────────────────────────────────────────┤
-│ app/core         HTTP, API clients, Clerk auth, notifications │
+│ app/core         HTTP, API clients, Supabase auth, notifs    │
 ├──────────────────────────────────────────────────────────────┤
 │ cad-core         Pure TypeScript geometry & drafting model    │
 └──────────────────────────────────────────────────────────────┘
@@ -71,17 +71,18 @@ Every interactive tool (`tools/draw`, `tools/modify`, `tools/select`, `tools/blo
 
 ## Auth
 
-Authentication is [Clerk](https://clerk.com). `ClerkService` (`app/core/auth/`) loads `@clerk/clerk-js` from a lazy
-chunk plus the `@clerk/ui` bundle from Clerk's CDN (Core 3 split the prebuilt UI out of the SDK), and exposes
-`isLoaded` / `isSignedIn` / `user` as signals. Clerk's listener fires outside Angular, so the service only ever
+Authentication is [Supabase Auth](https://supabase.com/auth). `SupabaseAuthService` (`app/core/auth/`) loads
+`@supabase/supabase-js` from a lazy chunk and exposes `isLoaded` / `isSignedIn` / `user` as signals. There is no
+hosted widget — the sign-in, sign-up, reset-password and account forms are ours (`app/features/auth/`). Supabase's
+`onAuthStateChange` listener fires outside Angular, so the service only ever
 *writes signals* — the one mechanism that schedules a render in a zoneless app.
 
-Clerk session JWTs live ~60 seconds and `session.getToken()` refreshes them transparently, so nothing is cached
+Supabase access tokens are short-lived and `getSession()` refreshes them transparently, so nothing is cached
 locally: `AuthTokenProvider.getToken()` may return a promise and `authInterceptor` awaits it per request. A 401
 means the session is genuinely gone, so the interceptor redirects to `/sign-in?redirect_url=…` (skipped on public
 routes to avoid a loop).
 
-Setting `clerkPublishableKey: ''` disables auth entirely and the guards pass through — this is **embedded mode**,
+Leaving `supabaseUrl`/`supabaseAnonKey` empty disables auth entirely and the guards pass through — **embedded mode**,
 where a host application owns identity and mounts the editor directly.
 
 ## Backend (`server/`)
@@ -92,7 +93,7 @@ A NestJS API — its own npm package in this repository, deployed as its own con
 | --- | --- |
 | Data | Prisma 7 + Postgres. `User`, `UserPreferences`, `Folder`, `Drawing`, `DrawingVersion`, `ShareLink`, `WebhookEvent` |
 | Files | Drawing payloads (DXF text) and thumbnails live in S3-compatible storage — MinIO in dev, R2/S3 in prod. Postgres holds metadata only |
-| Auth | `ClerkAuthGuard` verifies the session JWT (networkless when `CLERK_JWT_KEY` is set) and lazily creates the local user, so the API works before the `user.created` webhook arrives — or without webhooks at all in development |
+| Auth | `SupabaseAuthGuard` verifies the access token with `jose` — asserting signature, `iss` and `aud` — and lazily creates (and refreshes) the local user from the token claims. There is no webhook: the token is the only profile source |
 | Contract | Every response is `{ success, data }` / `{ success, message, code }`, which is what `HttpManagerService` unwraps |
 
 **Saving is concurrency-safe by construction.** A save reserves the next version number with a conditional

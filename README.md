@@ -5,10 +5,10 @@ accounts, cloud drawing storage and a file dashboard behind it.
 
 The editor provides DXF import/export, paper-space layouts and viewports, blocks with attributes, dimensions and
 dimension styles, hatches, tables, text/MText editing, an object library, PDF/SVG plotting and an AI drafting
-assistant. Around it sit Clerk authentication, onboarding, a drawings dashboard, and a NestJS API backed by Postgres
+assistant. Around it sit Supabase authentication, onboarding, a drawings dashboard, and a NestJS API backed by Postgres
 and S3-compatible object storage.
 
-The editor can still be embedded in a host application that owns identity — leave `clerkPublishableKey` empty and it
+The editor can still be embedded in a host application that owns identity — leave the Supabase keys empty and it
 runs standalone (see [docs/INTEGRATION.md](docs/INTEGRATION.md)).
 
 ---
@@ -23,16 +23,18 @@ npm run setup      # installs both packages, starts Postgres + MinIO, runs migra
 npm run dev        # API on :3000, web on http://localhost:4200
 ```
 
-Editor only, no backend — leave `clerkPublishableKey` empty in `src/environments/environment.ts`:
+Editor only, no backend — leave `supabaseUrl`/`supabaseAnonKey` empty in `src/environments/environment.ts`:
 
 ```bash
 npm ci
 npm start          # http://localhost:4200  (dev server, hot reload)
 ```
 
-You need a [Clerk](https://clerk.com) application for the signed-in flow. Copy `server/.env.example` to `server/.env`
-and fill in `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` and `CLERK_WEBHOOK_SECRET`; put the publishable key in
-`src/environments/environment.ts`. For local API work without Clerk at all, `npm --prefix server run mint-token`
+You need a [Supabase](https://supabase.com) project for the signed-in flow. Copy `server/.env.example` to
+`server/.env` and fill in `SUPABASE_URL` (plus `SUPABASE_JWT_SECRET` on projects still using the legacy symmetric
+secret); put the project URL and anon key in `src/environments/environment.ts`. Add
+`http://localhost:4200/auth/callback` to the project's redirect allow-list, and enable whichever OAuth providers you
+want. For local API work without a Supabase project at all, `npm --prefix server run mint-token`
 issues a token the guard accepts.
 
 | Script                 | What it does                                                          |
@@ -59,17 +61,18 @@ Runtime configuration lives in `src/environments/`:
 | Key                     | Purpose                                                                                |
 | ----------------------- | -------------------------------------------------------------------------------------- |
 | `apiUrl`                | Base URL of the CADOnline API (drawings, folders, profile). Relative `/api/v1` in both dev (proxied by `ng serve`) and prod (proxied by nginx). |
-| `clerkPublishableKey`   | Clerk publishable key — public, safe to commit. **Empty disables auth**: the dashboard is unreachable and the editor runs standalone (embedded mode). |
+| `supabaseUrl`           | Supabase project URL — public, safe to commit. |
+| `supabaseAnonKey`       | Supabase anon key — public, safe to commit. **Either empty disables auth**: the dashboard is unreachable and the editor runs standalone (embedded mode). |
 | `defaultOllamaUrl`      | Default Ollama endpoint pre-filled in the AI panel settings (users can override it in the UI). |
 | `appName`               | Product name.                                                                          |
 
 `environment.prod.ts` is swapped in by `ng build` (`fileReplacements`) — template the publishable key in your release
 pipeline. Bearer tokens come from the pluggable `AUTH_TOKEN_PROVIDER`
-(`src/app/core/config/auth-token.provider.ts`), which resolves to Clerk's short-lived session JWT; a host application
+(`src/app/core/config/auth-token.provider.ts`), which resolves to Supabase's short-lived access token; a host application
 can override it to supply its own.
 
 The API reads `server/.env` (see `server/.env.example`): `DATABASE_URL` + `DIRECT_DATABASE_URL` (pooled and direct —
-Neon needs both), the Clerk keys, and the `S3_*` block pointing at MinIO locally or R2/S3 in production.
+Neon needs both), the `SUPABASE_*` keys, and the `S3_*` block pointing at MinIO locally or R2/S3 in production.
 
 ## Deployment
 
@@ -90,9 +93,9 @@ It serves plain HTTP on :80 by default, which is correct when TLS is terminated 
 reverse proxy). If this container is the public edge instead, see [DEPLOYMENT_TLS.md](DEPLOYMENT_TLS.md) to switch to
 `nginx.ssl.conf` with a Let's Encrypt certificate.
 
-> **If your production Clerk instance uses a custom domain** (a CNAME like `accounts.yourapp.com`, not the default
-> `*.clerk.accounts.dev`), add that host to the `script-src` and `frame-src` directives in `nginx.common.conf`'s CSP
-> header before going live — otherwise the browser silently blocks Clerk's UI script and sign-in never loads.
+> **CSP note.** The auth UI is now first-party Angular, so no third-party script host has to be allow-listed for
+> sign-in. The browser does call your Supabase project directly, so `connect-src` in `nginx.common.conf`'s CSP header
+> must permit `https://<your-ref>.supabase.co` before going live — otherwise sign-in requests are blocked silently.
 
 Postgres and object storage are external in production (Neon, Cloudflare R2 / S3), configured through `server/.env`.
 The API runs `prisma migrate deploy` on boot. See [docs/BACKUPS.md](docs/BACKUPS.md) for the backup/restore story on
@@ -114,12 +117,12 @@ src/
 │   ├── renderers/dxf/        DXF writer
 │   └── spatial/ validation/  Spatial index, validators, telemetry hooks
 ├── app/
-│   ├── core/                 HTTP wrapper, typed API clients, Clerk auth + guards, notifications,
+│   ├── core/                 HTTP wrapper, typed API clients, Supabase auth + guards, notifications,
 │   │                         global error handler, auth-token provider, preload strategy
 │   ├── shared/ui/            Design-system primitives: button, input, card, dialog, menu,
 │   │                         empty state, skeleton, icon, account button, pipes
 │   └── features/
-│       ├── landing/ auth/    Marketing page, Clerk-hosted sign-in / sign-up
+│       ├── landing/ auth/    Marketing page, sign-in / sign-up / reset / OAuth callback
 │       ├── onboarding/       First-run: role, units, theme
 │       ├── dashboard/        Recent, My Drawings, folders, Trash, Settings, upload
 │       └── cad-editor/       The editor
@@ -134,10 +137,10 @@ src/
 server/                       NestJS API (own package)
 ├── prisma/schema.prisma      User, Folder, Drawing, DrawingVersion, ShareLink, WebhookEvent
 └── src/
-    ├── auth/                 ClerkAuthGuard, lazy local-user creation
+    ├── auth/                 SupabaseAuthGuard, jose verifier, lazy local-user creation
     ├── drawings/ folders/    CRUD, versioned saves, uploads/import, thumbnails
     ├── storage/              S3-compatible object store (MinIO / R2 / S3)
-    ├── users/ webhooks/      /me + onboarding, Svix-verified Clerk webhooks
+    ├── users/                /me + onboarding, profile mirrored from token claims
     └── common/ config/       Response envelope, exception filter, Zod-validated env
 ```
 

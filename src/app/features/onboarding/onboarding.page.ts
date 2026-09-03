@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { MeService } from '../../core/api/me.service';
-import { ClerkService } from '../../core/auth/clerk.service';
+import { SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { ThemeService } from '../cad-editor/core/services/theme.service';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiIconComponent } from '../../shared/ui/icon.component';
@@ -127,9 +127,19 @@ const LAST_STEP = STEP_TITLES.length;
         display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-4);
         padding: 20px clamp(20px, 5vw, 48px);
       }
-      .ob__main { flex: 1; display: flex; justify-content: center; padding: 0 20px clamp(32px, 8vh, 72px); }
+      /*
+       * align-items: center is what stops the card being stranded at the top of
+       * a tall viewport: the wrapper is min-height: 100vh, so without it the
+       * card sat under the header and left the whole lower half empty. The old
+       * margin-top on the card is gone for the same reason — it was pushing
+       * against a box that is now centred.
+       */
+      .ob__main {
+        flex: 1; display: flex; align-items: center; justify-content: center;
+        padding: clamp(16px, 4vh, 40px) 20px clamp(32px, 6vh, 56px);
+      }
       .ob__card {
-        width: 100%; max-width: 560px; margin-top: clamp(16px, 6vh, 56px);
+        width: 100%; max-width: 560px;
         padding: clamp(24px, 4vw, 36px);
         background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-xl);
         box-shadow: var(--ui-shadow-panel);
@@ -187,7 +197,7 @@ const LAST_STEP = STEP_TITLES.length;
 })
 export class OnboardingPage {
   private readonly me = inject(MeService);
-  private readonly clerk = inject(ClerkService);
+  private readonly auth = inject(SupabaseAuthService);
   private readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
 
@@ -207,19 +217,18 @@ export class OnboardingPage {
     themeId: this.theme.themeId(),
   });
 
-  /** Set once the user edits a name field, so the Clerk prefill stops overwriting it. */
+  /** Set once the user edits a name field, so the prefill stops overwriting it. */
   private namesTouched = false;
 
   constructor() {
     void this.me.load().catch(() => undefined);
 
-    // Clerk resolves after the first paint; prefill the name fields when it does,
+    // The session resolves after the first paint; prefill the name fields then,
     // unless the user has already typed something.
     effect(() => {
-      const user = this.clerk.user();
       const profile = this.me.me()?.user ?? null;
-      const first = user?.firstName ?? profile?.firstName ?? '';
-      const last = user?.lastName ?? profile?.lastName ?? '';
+      const first = this.auth.userFirstName() || (profile?.firstName ?? '');
+      const last = this.auth.userLastName() || (profile?.lastName ?? '');
       untracked(() => {
         if (this.namesTouched || (!first && !last)) return;
         this.draft.update((d) => ({ ...d, firstName: d.firstName || first, lastName: d.lastName || last }));
@@ -288,18 +297,18 @@ export class OnboardingPage {
     }
   }
 
-  /** Push an edited name back to Clerk. Never fatal — the profile page can fix it later. */
+  /** Push an edited name back to Supabase. Never fatal — the profile page can fix it later. */
   private async syncName(draft: OnboardingDraft): Promise<void> {
-    if (!this.clerk.enabled()) return;
-    const user = this.clerk.user();
-    if (!user) return;
+    if (!this.auth.enabled()) return;
+    if (!this.auth.user()) return;
     const first = draft.firstName.trim();
     const last = draft.lastName.trim();
-    if (first === (user.firstName ?? '') && last === (user.lastName ?? '')) return;
+    // Skip the round trip (and the session refresh it forces) when nothing changed.
+    if (first === this.auth.userFirstName() && last === this.auth.userLastName()) return;
     try {
-      await this.clerk.updateName(first, last);
+      await this.auth.updateName(first, last);
     } catch (e) {
-      console.warn('[CAD] could not update the Clerk profile name', e);
+      console.warn('[CAD] could not update the profile name', e);
     }
   }
 }

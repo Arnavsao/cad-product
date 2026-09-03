@@ -5,11 +5,11 @@
       <span class="brand__name">{{ appName }}</span>
     </a>
     <nav class="landing__nav-actions" aria-label="Account">
-      @if (!clerk.enabled()) {
+      @if (!auth.enabled()) {
         <a uiButton size="sm" variant="ghost" routerLink="/editor">Open editor</a>
-      } @else if (!clerk.isLoaded()) {
+      } @else if (!auth.isLoaded()) {
         <ui-skeleton width="72px" height="28px" radius="var(--ui-radius-md)" />
-      } @else if (clerk.isSignedIn()) {
+      } @else if (auth.isSignedIn()) {
         <a uiButton size="sm" variant="ghost" routerLink="/dashboard">Dashboard</a>
       } @else {
         <a uiButton size="sm" variant="ghost" routerLink="/sign-in">Sign in</a>
@@ -27,12 +27,12 @@
         autosave and cloud files.
       </p>
       <div class="hero__cta">
-        @if (!clerk.enabled()) {
+        @if (!auth.enabled()) {
           <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
-        } @else if (!clerk.isLoaded()) {
+        } @else if (!auth.isLoaded()) {
           <ui-skeleton width="120px" height="42px" radius="var(--ui-radius-lg)" />
           <ui-skeleton width="160px" height="42px" radius="var(--ui-radius-lg)" />
-        } @else if (clerk.isSignedIn()) {
+        } @else if (auth.isSignedIn()) {
           <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
           <a uiButton size="lg" routerLink="/editor">Open editor</a>
         } @else {
@@ -65,6 +65,10 @@
     <span>&copy; {{ year }} {{ appName }}</span>
     <span class="landing__footer-sep" aria-hidden="true">·</span>
     <span>2D CAD in the browser</span>
+    <span class="landing__footer-sep" aria-hidden="true">·</span>
+    <a routerLink="/pricing">Pricing</a>
+    <span class="landing__footer-sep" aria-hidden="true">·</span>
+    <a routerLink="/whats-new">What's New</a>
     <span class="landing__footer-sep" aria-hidden="true">·</span>
     <a routerLink="/terms">Terms</a>
     <span class="landing__footer-sep" aria-hidden="true">·</span>

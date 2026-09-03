@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsObject, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 
 /** Wire values for `Units` (plan §1). Prisma enum is upper-case; mapped in `users.mapper.ts`. */
 export const UNITS = ['mm', 'cm', 'm', 'in', 'ft'] as const;
@@ -24,6 +24,10 @@ export interface PreferencesDto {
   defaultTemplate: string;
   autosaveIntervalSec: number;
   uiState: Record<string, unknown> | null;
+  /** Email me when a drawing or folder is shared with me. */
+  emailOnShare: boolean;
+  /** Email me when my role or access in an organization changes. */
+  emailOnOrgActivity: boolean;
 }
 
 /** Body of `PATCH /me/preferences` — every field optional; `role`/`uiState` accept `null` to clear. */
@@ -55,4 +59,21 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsObject()
   uiState?: Record<string, unknown> | null;
+
+  /**
+   * Email opt-outs. Organization *invitations* are not covered by either and
+   * are always delivered — see `MailService` for why.
+   *
+   * Note that `@IsBoolean` does not actually reject a non-boolean here: the
+   * app-wide pipe runs with `enableImplicitConversion`, and class-transformer
+   * converts by JS truthiness, so the string `'false'` arrives as `true`.
+   * Clients must send a real boolean (the settings page sends `input.checked`).
+   */
+  @IsOptional()
+  @IsBoolean()
+  emailOnShare?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  emailOnOrgActivity?: boolean;
 }

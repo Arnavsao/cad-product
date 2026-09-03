@@ -5,7 +5,7 @@ import { routes } from './app.routes';
 import { authInterceptor } from './core/http/auth.interceptor';
 import { GlobalErrorHandler } from './core/errors/global-error.handler';
 import { AUTH_TOKEN_PROVIDER } from './core/config/auth-token.provider';
-import { ClerkAuthTokenProvider } from './core/auth/clerk-token.provider';
+import { SupabaseAuthTokenProvider } from './core/auth/supabase-token.provider';
 import { SelectivePreloadStrategy } from './core/routing/selective-preload.strategy';
 
 export const appConfig: ApplicationConfig = {
@@ -20,7 +20,7 @@ export const appConfig: ApplicationConfig = {
     ),
     provideHttpClient(withInterceptors([authInterceptor])),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
-    // Bearer tokens come from the Clerk session. Embedding hosts may override this provider.
-    { provide: AUTH_TOKEN_PROVIDER, useExisting: ClerkAuthTokenProvider },
+    // Bearer tokens come from the Supabase session. Embedding hosts may override this provider.
+    { provide: AUTH_TOKEN_PROVIDER, useExisting: SupabaseAuthTokenProvider },
   ],
 };

@@ -21,7 +21,7 @@ readonly close      = output<void>();           // emitted when the user presses
 <app-cad-editor [initialDxf]="dxf" [exitUrl]="null" (save)="onSave($event)" (close)="onClose()"></app-cad-editor>
 ```
 
-**Embedded mode.** Leave `clerkPublishableKey` empty in `src/environments/environment.ts`. The route guards then pass
+**Embedded mode.** Leave `supabaseUrl`/`supabaseAnonKey` empty in `src/environments/environment.ts`. The route guards then pass
 through, the account menu renders nothing, and a 401 from the API no longer redirects to our sign-in page — your
 application owns identity. The dashboard is not meant to be used in this mode; link users straight at `/editor`.
 

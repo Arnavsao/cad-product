@@ -8,8 +8,8 @@ import { API_PREFIX, configureApp } from './app.setup';
 import type { Env } from './config/env.schema';
 
 async function bootstrap(): Promise<void> {
-  // bodyParser:false — parsers are mounted per route in configureApp() so the
-  // Svix webhook sees raw bytes and DXF saves get their own text limit.
+  // bodyParser:false — parsers are mounted per route in configureApp() so DXF
+  // saves and PNG thumbnails get their own limits instead of one global JSON cap.
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false, bufferLogs: true });
   configureApp(app);
   app.enableShutdownHooks();

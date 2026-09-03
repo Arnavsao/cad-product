@@ -59,3 +59,46 @@ CADOnline becomes a product rather than a standalone editor: accounts, cloud dra
 
 ### Known issues
 The 19 pre-existing unit-spec failures from 1.0.0 are unchanged (107 pass / 19 fail).
+
+## 1.3.0 — 2026-09-02
+
+Authentication moves from Clerk to Supabase. Auth only — Postgres, Prisma and the S3/MinIO storage layer are
+untouched, so drawings, folders, feedback and notifications are unaffected.
+
+### Added
+* **Supabase Auth.** `SupabaseAuthService` wraps `@supabase/supabase-js` (lazy chunk) and exposes
+  `enabled` / `isLoaded` / `isSignedIn` / `user` as signals, bridged from `onAuthStateChange`.
+* **First-party auth UI**, since Supabase ships no drop-in widget: sign-in (email + password, magic link,
+  Google / GitHub / Apple), sign-up with a "confirm your email" state, `/reset-password` (both halves of the
+  recovery flow on one route), and `/auth/callback` — the single redirect target every Supabase flow returns to,
+  and the one URL that must be allow-listed in the project.
+* **Our own account menu** (avatar → Personal info / Account settings / Sign out) replacing Clerk's `<UserButton>`,
+  and an Account pane in Settings with change-password plus read-only connected providers.
+* `SUPABASE_URL` and `SUPABASE_JWT_SECRET` on the server; `supabaseUrl` and `supabaseAnonKey` on the client.
+
+### Changed
+* **Token verification** is now `jose` in `SupabaseAuthGuard`, asserting the signature plus **`iss` and `aud`**.
+  Supabase has no `azp` claim, so those two are what stop a validly-signed token from another Supabase project
+  being replayed against this API. JWKS (asymmetric) is preferred and cached; HS256 via `SUPABASE_JWT_SECRET` is
+  the fallback for projects still on the legacy shared secret.
+* **`ensureLocalUser` now refreshes the mirrored profile** when the token's claims differ from the stored row,
+  writing only changed fields. With no user webhook, the access token is the only thing that carries a renamed
+  profile into this database.
+* `users.clerk_id` → `users.auth_id`; `AuthUser.clerkId` → `authId`; `MeDto.user.clerkId` → `authId`
+  (a wire change). Supabase issues UUIDs, so the migration **truncates `users`** — no pre-existing row could
+  match a Supabase sign-in again. `feedback` rows survive with a null user.
+* `updateName` refreshes the session after writing `user_metadata`, so the new name reaches the access token
+  before `/me` is re-read — otherwise the server re-derives the old name and the change appears to revert.
+* Embedded mode now needs **both** client values empty; a half-configured app warns instead of silently
+  behaving as though auth were switched off.
+* The e2e harness mints HS256 tokens against a test secret it sets itself — no keypair, so `.dev-keys/` is gone.
+  `npm run mint-token` works the same way.
+
+### Removed
+* `@clerk/clerk-js`, `@clerk/backend`, and with it `standardwebhooks`. `jose` moved to runtime dependencies.
+* The `@clerk/ui` CDN loader (`clerk-ui-loader.ts`) — no third-party script is loaded for auth any more, so no
+  `script-src` host has to be allow-listed. `connect-src` must now permit your Supabase project.
+* `src/webhooks/` and the `webhook_events` table. **Known gap:** Supabase has no outbound "user deleted" webhook,
+  so `deletedAt` is no longer set automatically when an account is deleted upstream. Nothing breaks — the token
+  stops verifying — but the local row stays live. A Supabase Database Webhook on `auth.users` DELETE would
+  restore it.

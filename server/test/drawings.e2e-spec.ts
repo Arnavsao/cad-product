@@ -9,13 +9,13 @@ import { blankDxf, insunitsForUnit } from '../src/drawings/templates/blank-dxf';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { userPrefix } from '../src/storage/storage-keys';
 import { StorageService } from '../src/storage/storage.service';
-import { createDevKeypair, mintSessionToken, toEnvPem, type DevKeypair } from './support/jwt';
+import { mintSessionToken, TEST_JWT_SECRET, TEST_SUPABASE_URL, testAuthId } from './support/jwt';
 
 /**
  * Full drawings + folders happy path against REAL Postgres and MinIO.
  *
- * The harness mints its own RS256 tokens against `CLERK_JWT_KEY` (see
- * `support/jwt.ts`) so the real `ClerkAuthGuard` runs — no Clerk account and no
+ * The harness mints its own HS256 tokens against `SUPABASE_JWT_SECRET` (see
+ * `support/jwt.ts`) so the real `SupabaseAuthGuard` runs — no Supabase project and no
  * guard stubbing. Skipped (not failed) when either backing service is
  * unreachable, so `npm run test:e2e` stays green on a laptop without Docker.
  */
@@ -51,23 +51,20 @@ describeIfServices('Drawings & folders (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let storage: StorageService;
-  let keys: DevKeypair;
   let token: string;
   let otherToken: string;
   let localUserId: string;
   let otherUserId: string;
 
-  const clerkId = `user_e2e_draw_${Date.now()}`;
-  const otherClerkId = `user_e2e_other_${Date.now()}`;
+  const authId = testAuthId(`a${Date.now().toString(16)}`);
+  const otherAuthId = testAuthId(`b${Date.now().toString(16)}`);
 
   const http = () => request(app.getHttpServer());
   const auth = (req: request.Test, bearer = token) => req.set('Authorization', `Bearer ${bearer}`);
 
   beforeAll(async () => {
-    keys = await createDevKeypair();
-    process.env.CLERK_JWT_KEY = toEnvPem(keys.publicPem);
-    process.env.CLERK_SECRET_KEY = '';
-    process.env.CLERK_WEBHOOK_SECRET = '';
+    process.env.SUPABASE_URL = TEST_SUPABASE_URL;
+    process.env.SUPABASE_JWT_SECRET = TEST_JWT_SECRET;
     process.env.NODE_ENV = 'test';
     process.env.LOG_LEVEL = 'silent';
 
@@ -83,14 +80,14 @@ describeIfServices('Drawings & folders (e2e)', () => {
     prisma = app.get(PrismaService);
     storage = app.get(StorageService);
 
-    token = await mintSessionToken(keys.privateKey, { sub: clerkId, extra: { email: 'draw@example.com' } });
-    otherToken = await mintSessionToken(keys.privateKey, { sub: otherClerkId, extra: { email: 'other@example.com' } });
+    token = await mintSessionToken({ sub: authId, email: 'draw@example.com' });
+    otherToken = await mintSessionToken({ sub: otherAuthId, email: 'other@example.com' });
 
     // First authenticated call lazily provisions each local user.
     await auth(http().get('/api/v1/me')).expect(200);
     await auth(http().get('/api/v1/me'), otherToken).expect(200);
-    localUserId = (await prisma.user.findUniqueOrThrow({ where: { clerkId } })).id;
-    otherUserId = (await prisma.user.findUniqueOrThrow({ where: { clerkId: otherClerkId } })).id;
+    localUserId = (await prisma.user.findUniqueOrThrow({ where: { authId } })).id;
+    otherUserId = (await prisma.user.findUniqueOrThrow({ where: { authId: otherAuthId } })).id;
   });
 
   afterAll(async () => {
@@ -99,7 +96,7 @@ describeIfServices('Drawings & folders (e2e)', () => {
         await storage.deletePrefix(userPrefix(id)).catch(() => undefined);
       }
     }
-    await prisma.user.deleteMany({ where: { clerkId: { in: [clerkId, otherClerkId] } } });
+    await prisma.user.deleteMany({ where: { authId: { in: [authId, otherAuthId] } } });
     await app.close();
   });
 

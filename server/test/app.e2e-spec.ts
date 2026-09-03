@@ -6,12 +6,12 @@ import { spawnSync } from 'node:child_process';
 import request from 'supertest';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createDevKeypair, mintSessionToken, toEnvPem, type DevKeypair } from './support/jwt';
+import { mintSessionToken, TEST_JWT_SECRET, TEST_SUPABASE_URL, testAuthId } from './support/jwt';
 
 /**
  * Boots the real application (real guard, real Postgres from `.env`) and
  * exercises the foundation: /healthz, the 401 envelope, and the lazy-create
- * `/me` flow with a self-minted RS256 token verified against CLERK_JWT_KEY.
+ * `/me` flow with a self-minted HS256 token verified against SUPABASE_JWT_SECRET.
  *
  * Requires Postgres reachable at DATABASE_URL; skipped otherwise.
  */
@@ -37,22 +37,20 @@ const describeIfDb = postgresReachable() ? describe : describe.skip;
 describeIfDb('API foundation (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  let keys: DevKeypair;
-  const clerkId = `user_e2e_${Date.now()}`;
+  const authId = testAuthId(Date.now().toString(16));
 
   beforeAll(async () => {
-    keys = await createDevKeypair();
-    // Configure the guard for networkless verification with our test key.
-    process.env.CLERK_JWT_KEY = toEnvPem(keys.publicPem);
-    process.env.CLERK_SECRET_KEY = '';
-    process.env.CLERK_WEBHOOK_SECRET = '';
+    // Configure the guard for HS256 verification against our test secret, so the
+    // real guard runs with no Supabase project and no network.
+    process.env.SUPABASE_URL = TEST_SUPABASE_URL;
+    process.env.SUPABASE_JWT_SECRET = TEST_JWT_SECRET;
     process.env.NODE_ENV = 'test';
     process.env.LOG_LEVEL = 'silent';
 
     // `AppModule` is imported LAZILY: `ConfigModule.forRoot()` runs while the
     // module file is being evaluated, so a top-level import would snapshot the
-    // real `.env` (including its production-shaped CLERK_JWT_KEY) before the
-    // overrides above could take effect, and every token below would 401.
+    // real `.env` (including its real SUPABASE_* values) before the overrides
+    // above could take effect, and every token below would 401.
     const { AppModule } = await import('../src/app.module');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
@@ -62,7 +60,7 @@ describeIfDb('API foundation (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { clerkId } });
+    await prisma.user.deleteMany({ where: { authId } });
     await app.close();
   });
 
@@ -84,30 +82,44 @@ describeIfDb('API foundation (e2e)', () => {
     expect(res.body.code).toBe('INVALID_TOKEN');
   });
 
-  it('rejects a token for another authorized party', async () => {
-    const token = await mintSessionToken(keys.privateKey, { sub: clerkId, azp: 'https://evil.example.com' });
+  it('rejects a validly-signed token from a DIFFERENT Supabase project (wrong iss)', async () => {
+    const token = await mintSessionToken({ sub: authId, issuer: 'https://someone-else.supabase.co/auth/v1' });
+    const res = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('INVALID_TOKEN');
+  });
+
+  it('rejects a token whose audience is not `authenticated`', async () => {
+    const token = await mintSessionToken({ sub: authId, audience: 'anon' });
+    const res = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('INVALID_TOKEN');
+  });
+
+  it('rejects a token signed with the wrong secret', async () => {
+    const token = await mintSessionToken({ sub: authId }, 'not-the-configured-secret-value-32chars');
     const res = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('INVALID_TOKEN');
   });
 
   it('rejects an expired token', async () => {
-    const token = await mintSessionToken(keys.privateKey, { sub: clerkId, ttlSec: -120 });
+    const token = await mintSessionToken({ sub: authId, ttlSec: -120 });
     const res = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(401);
   });
 
   it('valid token → lazily creates the user and returns MeDto with default preferences', async () => {
-    const token = await mintSessionToken(keys.privateKey, {
-      sub: clerkId,
-      sid: 'sess_e2e',
-      extra: { email: 'e2e@example.com', first_name: 'E2E' },
+    const token = await mintSessionToken({
+      sub: authId,
+      email: 'e2e@example.com',
+      userMetadata: { first_name: 'E2E' },
     });
     const res = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     const me = res.body.data;
-    expect(me.user).toMatchObject({ clerkId, email: 'e2e@example.com', firstName: 'E2E', lastName: null, imageUrl: null });
+    expect(me.user).toMatchObject({ authId, email: 'e2e@example.com', firstName: 'E2E', lastName: null, imageUrl: null });
     expect(typeof me.user.id).toBe('string');
     expect(me.onboarded).toBe(false);
     expect(me.preferences).toEqual({
@@ -117,6 +129,10 @@ describeIfDb('API foundation (e2e)', () => {
       defaultTemplate: 'blank',
       autosaveIntervalSec: 30,
       uiState: null,
+      // Email is opt-OUT: a brand-new account is subscribed to both, so the
+      // first share it receives actually reaches the person.
+      emailOnShare: true,
+      emailOnOrgActivity: true,
     });
     expect(me.usage).toEqual({ bytesUsed: 0, drawingCount: 0 });
 
@@ -125,8 +141,65 @@ describeIfDb('API foundation (e2e)', () => {
     expect(again.body.data.user.id).toBe(me.user.id);
   });
 
+  // This is what replaces the old Clerk webhook: with no `user.updated` event to
+  // listen for, a newer access token is the ONLY way a renamed profile reaches
+  // this database. If `ensureLocalUser` stopped diffing, this would silently keep
+  // returning the stale name.
+  it('refreshes the mirrored profile when a newer token carries new metadata', async () => {
+    const first = await mintSessionToken({
+      sub: authId,
+      email: 'e2e@example.com',
+      userMetadata: { first_name: 'E2E' },
+    });
+    const before = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${first}`);
+    expect(before.status).toBe(200);
+
+    const renamed = await mintSessionToken({
+      sub: authId,
+      email: 'e2e@example.com',
+      userMetadata: { first_name: 'Renamed', last_name: 'Person', avatar_url: 'https://example.com/a.png' },
+    });
+    const after = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${renamed}`);
+
+    expect(after.status).toBe(200);
+    expect(after.body.data.user).toMatchObject({
+      id: before.body.data.user.id, // same row, updated in place
+      firstName: 'Renamed',
+      lastName: 'Person',
+      imageUrl: 'https://example.com/a.png',
+    });
+  });
+
+  // A token with no email must not overwrite a known address with the synthetic
+  // `<uuid>@local.invalid` placeholder.
+  it('does not clobber a known email when a token omits the claim', async () => {
+    const withEmail = await mintSessionToken({ sub: authId, email: 'e2e@example.com' });
+    await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${withEmail}`);
+
+    const withoutEmail = await mintSessionToken({ sub: authId });
+    const res = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${withoutEmail}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.user.email).toBe('e2e@example.com');
+  });
+
+  // Derives first/last from an OAuth-style display name (no first/last fields).
+  it('splits a full_name from an OAuth provider into first and last name', async () => {
+    const oauthId = testAuthId('0a11ce');
+    const token = await mintSessionToken({
+      sub: oauthId,
+      email: 'ada@example.com',
+      userMetadata: { full_name: 'Ada Lovelace King' },
+    });
+    const res = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.user).toMatchObject({ firstName: 'Ada', lastName: 'Lovelace King' });
+    await prisma.user.deleteMany({ where: { authId: oauthId } });
+  });
+
   it('PATCH /me/preferences validates and persists; unknown keys are rejected', async () => {
-    const token = await mintSessionToken(keys.privateKey, { sub: clerkId });
+    const token = await mintSessionToken({ sub: authId });
     const bad = await request(app.getHttpServer())
       .patch('/api/v1/me/preferences')
       .set('Authorization', `Bearer ${token}`)
@@ -150,7 +223,7 @@ describeIfDb('API foundation (e2e)', () => {
   });
 
   it('POST /me/onboarding sets onboardedAt once', async () => {
-    const token = await mintSessionToken(keys.privateKey, { sub: clerkId });
+    const token = await mintSessionToken({ sub: authId });
     const first = await request(app.getHttpServer())
       .post('/api/v1/me/onboarding')
       .set('Authorization', `Bearer ${token}`)
@@ -159,20 +232,20 @@ describeIfDb('API foundation (e2e)', () => {
     expect(first.body.data.onboarded).toBe(true);
     expect(first.body.data.preferences).toMatchObject({ role: 'engineer', units: 'mm' });
 
-    const row1 = await prisma.user.findUniqueOrThrow({ where: { clerkId } });
+    const row1 = await prisma.user.findUniqueOrThrow({ where: { authId } });
     await new Promise((r) => setTimeout(r, 20));
     const second = await request(app.getHttpServer())
       .post('/api/v1/me/onboarding')
       .set('Authorization', `Bearer ${token}`)
       .send({ role: 'student', units: 'ft' });
     expect(second.status).toBe(200);
-    const row2 = await prisma.user.findUniqueOrThrow({ where: { clerkId } });
+    const row2 = await prisma.user.findUniqueOrThrow({ where: { authId } });
     expect(row2.onboardedAt?.getTime()).toBe(row1.onboardedAt?.getTime());
     expect(second.body.data.preferences.role).toBe('student');
   });
 
   it('malformed JSON → 400 MALFORMED_JSON', async () => {
-    const token = await mintSessionToken(keys.privateKey, { sub: clerkId });
+    const token = await mintSessionToken({ sub: authId });
     const res = await request(app.getHttpServer())
       .patch('/api/v1/me/preferences')
       .set('Authorization', `Bearer ${token}`)
@@ -180,15 +253,6 @@ describeIfDb('API foundation (e2e)', () => {
       .send('{"units": ');
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('MALFORMED_JSON');
-  });
-
-  it('POST /webhooks/clerk without a signing secret → 503 WEBHOOKS_DISABLED', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/api/v1/webhooks/clerk')
-      .set('Content-Type', 'application/json')
-      .send('{"type":"user.created"}');
-    expect(res.status).toBe(503);
-    expect(res.body.code).toBe('WEBHOOKS_DISABLED');
   });
 
   it('unknown route → 404 envelope', async () => {

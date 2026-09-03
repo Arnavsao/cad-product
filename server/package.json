@@ -1,7 +1,7 @@
 {
   "name": "cadonline-api",
   "version": "1.1.0",
-  "description": "CADOnline API — NestJS 11 + Prisma 7 + Postgres + S3-compatible storage. Clerk-authenticated drawings/folders backend for the Angular editor.",
+  "description": "CADOnline API — NestJS 11 + Prisma 7 + Postgres + S3-compatible storage. Supabase-authenticated drawings/folders backend for the Angular editor.",
   "private": true,
   "license": "UNLICENSED",
   "engines": {
@@ -22,7 +22,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "mint-token": "tsx scripts/mint-dev-token.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "prettier": {
     "singleQuote": true,
@@ -32,7 +33,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",
     "@aws-sdk/s3-request-presigner": "^3.1121.0",
-    "@clerk/backend": "^3.16.13",
     "@nestjs/common": "^11.2.3",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.2.3",
@@ -44,6 +44,7 @@
     "class-validator": "^0.15.1",
     "express": "^5.1.0",
     "helmet": "^8.3.0",
+    "jose": "^5.10.0",
     "nestjs-pino": "^4.6.1",
     "pg": "^8.23.0",
     "pino": "^9.9.0",
@@ -64,7 +65,6 @@
     "dotenv": "^17.2.1",
     "jest": "^30.5.0",
     "jest-mock-extended": "^4.0.1",
-    "jose": "^5.10.0",
     "prisma": "7.10.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.12",
@@ -79,6 +79,9 @@
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
+    "setupFiles": [
+      "reflect-metadata"
+    ],
     "transform": {
       "^.+\\.(t|j)s$": [
         "ts-jest",

@@ -12,6 +12,10 @@ export const DEFAULT_PREFERENCES: PreferencesDto = {
   defaultTemplate: 'blank',
   autosaveIntervalSec: 30,
   uiState: null,
+  // Assume opted in, matching the server's column default: the toggles must not
+  // flash "off" while `/me` is in flight and then flip on when it answers.
+  emailOnShare: true,
+  emailOnOrgActivity: true,
 };
 
 /**
