@@ -1,9 +1,18 @@
 import type { SupabaseSessionClaims } from '../auth/auth.types';
 import type { User, UserPreferences } from '../generated/prisma/client';
 import { Units, UserRole } from '../generated/prisma/client';
+import type { BillingStateDto } from '../billing/dto/billing.dto';
 import type { OrgSummaryDto } from '../organizations/dto/organization.dto';
 import type { MeDto, UsageDto, UserDto } from './dto/me.dto';
-import { UNITS, USER_ROLES, type PreferencesDto, type UnitsWire, type UserRoleWire } from './dto/preferences.dto';
+import {
+  LOCALES,
+  UNITS,
+  USER_ROLES,
+  type LocaleWire,
+  type PreferencesDto,
+  type UnitsWire,
+  type UserRoleWire,
+} from './dto/preferences.dto';
 
 // -----------------------------------------------------------------------------
 // Enum <-> wire. Prisma enum members are upper-case (`Units.MM`), the API
@@ -20,6 +29,16 @@ export function unitsFromWire(units: UnitsWire): Units {
     throw new RangeError(`Unknown units '${units}'`);
   }
   return units.toUpperCase() as Units;
+}
+
+/**
+ * Narrow a stored locale to a shipped one. Unlike units and role this cannot
+ * throw: the column is free-form `String`, so a row written by an older build
+ * (or by a language since dropped) must still be readable. An unrecognised
+ * value degrades to English rather than making `/me` fail for that account.
+ */
+export function localeToWire(locale: string | null | undefined): LocaleWire {
+  return LOCALES.includes(locale as LocaleWire) ? (locale as LocaleWire) : 'en';
 }
 
 export function roleToWire(role: UserRole | null | undefined): UserRoleWire | null {
@@ -57,6 +76,7 @@ export function toPreferencesDto(prefs: UserPreferences): PreferencesDto {
   return {
     units: unitsToWire(prefs.units),
     theme: prefs.theme,
+    locale: localeToWire(prefs.locale),
     role: roleToWire(prefs.role),
     defaultTemplate: prefs.defaultTemplate,
     autosaveIntervalSec: prefs.autosaveIntervalSec,
@@ -71,6 +91,7 @@ export function toMeDto(
   prefs: UserPreferences,
   usage: UsageDto,
   organizations: OrgSummaryDto[] = [],
+  billing: BillingStateDto = FREE_BILLING,
 ): MeDto {
   return {
     user: toUserDto(user),
@@ -78,8 +99,25 @@ export function toMeDto(
     onboarded: user.onboardedAt !== null,
     usage,
     organizations,
+    billing,
   };
 }
+
+/**
+ * Free-plan billing state, used when a caller has nothing better.
+ *
+ * Defaulted rather than required so the existing `toMeDto` call sites and specs
+ * keep compiling: an account with no subscription row IS on Free, so the
+ * default is the truth for them rather than a placeholder.
+ */
+export const FREE_BILLING: BillingStateDto = {
+  plan: 'free',
+  status: null,
+  currentPeriodEnd: null,
+  cancelAtPeriodEnd: false,
+  trialEndsAt: null,
+  manageable: false,
+};
 
 // -----------------------------------------------------------------------------
 // Access-token claims -> local profile. One shape: there is no provider SDK and
