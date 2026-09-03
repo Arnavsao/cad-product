@@ -65,7 +65,15 @@
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-rows: var(--cad-header-h) auto var(--cad-doc-tabs-h) 1fr;
+  /* `minmax(0, …)` not `1fr`: a bare `1fr` track has an `auto` MINIMUM, so the
+     workspace row grew to its content's min-content height and pushed the bottom
+     bars past the fixed viewport instead of the canvas giving up space. */
+  grid-template-rows: var(--cad-header-h) auto var(--cad-doc-tabs-h) minmax(0, 1fr);
+  /* The single implicit COLUMN needs the same treatment. Left as `auto` it sizes to
+     the widest row's min-content — the tool ribbon — so one un-shrinkable row made
+     every other row (canvas, command line, status bar) wider than the viewport and
+     pushed their right-hand ends off screen. */
+  grid-template-columns: minmax(0, 1fr);
   background: var(--cad-bg-base);
   color: var(--cad-text-primary);
   font-size: 13px;
@@ -128,17 +136,47 @@
     .hdr-logo {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       color: var(--cad-accent);
       font-weight: 700;
       font-size: 14px;
       letter-spacing: -0.5px;
       flex-shrink: 0;
 
+      /* It is a <button> (it leaves the editor, via the unsaved-changes guard),
+         so strip the UA chrome and keep the wordmark's original look. */
+      background: none;
+      border: 0;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: var(--cad-radius-sm);
+
+      &:hover .hdr-logo-name { text-decoration: underline; }
+      &:hover .hdr-logo-mark { filter: brightness(1.1); }
+      &:focus-visible { outline: 2px solid var(--cad-accent); outline-offset: 3px; }
+
       .hdr-logo-img {
         width: 16px;
         height: 16px;
         object-fit: contain;
+      }
+
+      /* Mirrors the dashboard shell's `.brand__mark`, scaled from 28px to 22px so
+         it clears the 36px editor header. Uses the editor's own accent tokens so
+         it follows the CAD light/dark themes rather than the dashboard palette. */
+      .hdr-logo-mark {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: var(--cad-radius-md);
+        background: var(--cad-accent);
+        color: var(--cad-text-on-accent);
+        flex-shrink: 0;
+      }
+
+      .hdr-logo-name {
+        white-space: nowrap;
       }
     }
 
@@ -182,6 +220,7 @@
       &[data-state='saved'] { color: var(--cad-green, #4caf82); }
       &[data-state='offline'],
       &[data-state='conflict'] { color: var(--cad-orange, #e0a458); }
+      &[data-state='readonly'] { color: var(--cad-accent, #4f8ef7); }
     }
 
     .hdr-account {
@@ -443,7 +482,10 @@
   ============================================================ */
   .cad-workspace {
     display: grid;
-    grid-template-columns: var(--cad-sidebar-w) 1fr;
+    /* See the root grid: `1fr` would take its min-content width from the command
+       line + status badges, overflowing the viewport to the right. */
+    grid-template-columns: var(--cad-sidebar-w) minmax(0, 1fr);
+    min-width: 0;
     min-height: 0;
     overflow: hidden;
     position: relative;
@@ -654,6 +696,7 @@
 
     .command-line {
       flex: 1;
+      min-width: 0;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -678,6 +721,9 @@
 
       .cmd-input {
         flex: 1;
+        /* An <input> carries an intrinsic default width; without this it refuses
+           to shrink and widens the whole bottom bar. */
+        min-width: 0;
         background: transparent;
         border: none;
         outline: none;
@@ -722,6 +768,7 @@
     padding: 0 8px;
     z-index: 100;
     padding-top: 4px;
+    min-width: 0;
 
     .status-left {
       display: flex;
@@ -733,6 +780,10 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      min-width: 0;
+      /* The toggles are the point of this bar, so they never shrink; the
+         coordinate readout absorbs the squeeze (see `.status-coords`). */
+      > * { flex-shrink: 0; }
     }
 
     .layout-tab {
@@ -767,7 +818,12 @@
       font-size: 11px;
       color: var(--cad-text-secondary);
       margin-left: 8px;
-      white-space: nowrap
+      white-space: nowrap;
+      /* The one shrinkable item in `.status-right`. */
+      flex-shrink: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .status-badge {
@@ -1003,6 +1059,10 @@
 /* ==================== DRAG & DROP OVERLAY ==================== */
 .cad-canvas-container {
   flex: 1;
+  /* Let the canvas shrink below its content's intrinsic size instead of
+     stretching the workspace column. */
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   position: relative;
   transition: box-shadow 0.2s ease;
@@ -1159,48 +1219,53 @@
     justify-content: center;
     flex-wrap: wrap;
   }
+}
 
-  /* Full Page Loader Overlay */
-  .cad-full-page-loader {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: var(--cad-bg-canvas);
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: var(--cad-text-primary);
-  }
+/* Full Page Loader Overlay.
+   Previously these three rules (and the `spin` keyframes) sat inside an unclosed
+   `.cad-revert-modal` block, so they compiled to `.cad-revert-modal .cad-...` and
+   matched nothing. The loader therefore rendered completely unstyled: no overlay,
+   no centring, and — with no `position: absolute` — as a real grid item, which
+   shifted every row of `.cad-editor-root` down one (header into the toolbar row,
+   toolbar into the doc-tabs row) for as long as a drawing was loading. */
+.cad-full-page-loader {
+  /* `fixed`, not `absolute`: either takes it out of the grid flow, but fixed also
+     makes it independent of `.cad-editor-root`'s own positioning, so the overlay
+     cannot be reintroduced as a grid item by a later refactor. */
+  position: fixed;
+  inset: 0;
+  background-color: var(--cad-bg-canvas);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--cad-text-primary);
+}
 
-  .cad-spinner {
-    width: 50px;
-    height: 50px;
-    border: 4px solid var(--cad-border);
-    border-top: 4px solid var(--cad-accent);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 20px;
-  }
+.cad-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid var(--cad-border);
+  border-top: 4px solid var(--cad-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
 
-  .cad-loading-text {
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--cad-text-secondary);
-  }
+.cad-loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--cad-text-secondary);
+}
 
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
+@media (prefers-reduced-motion: reduce) {
+  .cad-spinner { animation: none; }
+}
 
-    100% {
-      transform: rotate(360deg);
-    }
-  }
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Custom Tooltip Styling */

@@ -54,7 +54,11 @@ import { ViewportConfigType } from '../../core/models/viewport-config.model';
         <app-dynamic-input-overlay #dynOverlay></app-dynamic-input-overlay>
 
         <!-- Model Space Tiled Viewport Interactive HTML Overlays (Positioned at Bottom-Left Corner of Each Tile) -->
-        @if (layoutMgr.isModelSpace() && modelVps.tiles.length > 0) {
+        <!-- Temporarily hidden — flip showTileHeaderOverlay (see the class) to
+             re-enable the [+] / [Top] / [2D Wireframe] controls. The markup is gated
+             rather than commented out because it contains its own HTML comments,
+             which cannot nest inside another one. -->
+        @if (showTileHeaderOverlay && layoutMgr.isModelSpace() && modelVps.tiles.length > 0) {
           @for (t of modelVps.tiles; track t.id) {
             <div class="tile-header-overlay"
                  [style.left.px]="t.rect.x * (wrapRef.nativeElement?.clientWidth || 0) + 6"
@@ -250,6 +254,13 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
   protected modelVps = inject(ModelViewportService);
   protected vportsDialogSvc = inject(VportsDialogService);
   protected layoutMgr = inject(LayoutManagerService);
+
+  /**
+   * Shows the per-tile `[+] [Top] [2D Wireframe]` overlay in the bottom-left of each
+   * model-space viewport. Disabled for now at the user's request; the viewport layout
+   * and visual style are both still reachable from the floating canvas toolbar.
+   */
+  readonly showTileHeaderOverlay: boolean = false;
 
   readonly activeVpMenuId = signal<string | null>(null);
   readonly activeViewMenuId = signal<string | null>(null);

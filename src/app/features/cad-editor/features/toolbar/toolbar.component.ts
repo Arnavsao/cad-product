@@ -114,10 +114,17 @@ import { ViewModelService } from '../../core/services/view-model.service';
 
     .cad-toolbar-wrap {
       padding: 0 6px;
-      height: var(--cad-toolbar-h, 68px);
+      /* min-height, not height: with flex-wrap nowrap this ribbon's min-content
+         width is wider than a 1600px viewport, and because it sits in the root
+         grid's auto-sized column that width was imposed on the whole editor.
+         Wrapping to a second row keeps every tool reachable and lets the page
+         fit; overflow stays visible so sub-tool flyouts are not clipped. */
+      min-height: var(--cad-toolbar-h, 68px);
       box-sizing: border-box;
       display: flex;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      min-width: 0;
       overflow: visible;
       background: var(--cad-bg-panel);
       border-bottom: 1px solid var(--cad-border);

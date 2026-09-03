@@ -107,13 +107,29 @@ export class ViewModelService {
     this.viewEpoch.update((v) => v + 1);
   }
 
-  reset(): void {
+  /**
+   * The default view: world origin at the centre of the active viewport, at a
+   * default zoom. `animate` is off by default because the first paint calls this
+   * before anything is on screen — there is nothing to animate away from.
+   *
+   * Note `panX`/`panY` are ZERO here, not `w / 2`. `w2s()` already offsets every
+   * point by `vpCenter`, which `ModelViewportService.updateVmCenter()` sets to the
+   * canvas centre even when the canvas is not split. Adding half the canvas again
+   * put the origin at (w, h) — the bottom-right corner — which is why focusing an
+   * empty drawing appeared to do nothing.
+   */
+  reset(animate = false): void {
     const w = this.canvasWidth;
     const h = this.canvasHeight;
     if (!w || !h) return;
-    this.scale = Math.min(w, h) / 200;
-    this.panX = w / 2;
-    this.panY = h / 2;
+    const targetScale = Math.min(w, h) / 200;
+    if (animate && this.scale > 0) {
+      this.animateTo(targetScale, 0, 0, 250);
+      return;
+    }
+    this.scale = targetScale;
+    this.panX = 0;
+    this.panY = 0;
     this.dirty = true;
     this.gridDirty = true;
     this.viewEpoch.update((v) => v + 1);
@@ -169,7 +185,9 @@ export class ViewModelService {
   zoomExtents(doc: DocumentService, padRatio = 0.05, animate = true): void {
     const bounds = doc.getValidDrawingBounds(false, false);
     if (!bounds) {
-      this.reset();
+      // Nothing drawn yet — focus the origin rather than leaving the view wherever
+      // the user last panned it.
+      this.reset(animate);
       return;
     }
 
@@ -193,8 +211,10 @@ export class ViewModelService {
 
     const midX = (minX + maxX) / 2;
     const midY = (minY + maxY) / 2;
-    const targetPanX = w / 2 - midX * targetScale;
-    const targetPanY = h / 2 + midY * targetScale;
+    // Centre the drawing on the active viewport. `w2s()` adds `vpCenter`, so the
+    // pan is the offset of the drawing's midpoint alone — see `reset()`.
+    const targetPanX = -midX * targetScale;
+    const targetPanY = midY * targetScale;
 
     if (animate && w && h && this.scale > 0) {
       this.animateTo(targetScale, targetPanX, targetPanY, 250);

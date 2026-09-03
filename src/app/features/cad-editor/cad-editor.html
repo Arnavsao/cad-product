@@ -10,13 +10,17 @@
   <!-- ==================== HEADER ==================== -->
   <header class="cad-header">
     <div class="hdr-left">
-      <span class="hdr-logo">CADOnline</span>
+      <button type="button" class="hdr-logo" (click)="goBack()"
+              [title]="exitLabel()" [attr.aria-label]="exitLabel()">
+        <span class="hdr-logo-mark" aria-hidden="true"><ui-icon name="grid" [size]="13" /></span>
+        <span class="hdr-logo-name">{{ appName }}</span>
+      </button>
       <span class="hdr-file">
         {{ doc.activeFile.name }}@if (docManager.activeDocument?.isDirty) {<span class="hdr-dirty" title="Unsaved changes">•</span>}
       </span>
       @if (cloudLabel(); as cloud) {
         <span class="hdr-cloudstate" [attr.data-state]="persist.cloudState()"
-          title="Drawings are saved to your account with Ctrl+S">{{ cloud }}</span>
+          [title]="cloudHint()">{{ cloud }}</span>
       }
       @if (autosave.status() === 'saving') {
         <span class="hdr-savestate" title="Autosaving…">Saving…</span>
@@ -47,7 +51,9 @@
 
       <button type="button" class="hdr-btn icon-btn tooltip-trigger" (click)="saveDrawing()"
         [disabled]="persist.busy()"
-        data-tooltip="Save drawing (Ctrl+S)">
+        [attr.data-tooltip]="persist.activeIsReadOnly()
+          ? 'View only — save a copy to My Drawings (Ctrl+S)'
+          : 'Save drawing (Ctrl+S)'">
         <div class="icon-wrap">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"
             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">

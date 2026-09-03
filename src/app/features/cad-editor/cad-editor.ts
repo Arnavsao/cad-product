@@ -6,6 +6,7 @@ import {
   OnDestroy,
   ViewChild,
   ViewEncapsulation,
+  computed,
   effect,
   inject,
   signal,
@@ -135,12 +136,15 @@ import { AiToolRegistryService } from './features/ai-agent/services/ai-tool-regi
 import { CursorSizeTool } from './tools/options/cursor-size-tool';
 import { PickboxTool } from './tools/options/pickbox-tool';
 import { VportsDialogComponent } from './features/vports-dialog/vports-dialog.component';
+import { UiIconComponent } from '../../shared/ui/icon.component';
+import { environment } from '../../../environments/environment';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-cad-editor',
   standalone: true,
   imports: [
+    UiIconComponent,
     CanvasComponent,
     ToolbarComponent,
     SidebarComponent,
@@ -197,6 +201,18 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   readonly exitUrl = input<string | null>('/dashboard');
 
+  /** Brand name in the header — same source as the dashboard shell. */
+  protected readonly appName = environment.appName;
+
+  /**
+   * Tooltip for the header logo. Embedded hosts pass `[exitUrl]="null"`, where
+   * leaving means browser-history back rather than our dashboard, so the label
+   * must not promise a destination this build does not own.
+   */
+  protected readonly exitLabel = computed(() =>
+    this.exitUrl() ? 'Back to My Drawings' : 'Close the editor',
+  );
+
   readonly save = output<string>();
   readonly close = output<void>();
 
@@ -209,15 +225,29 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private title = inject(Title);
 
   /**
-   * Leave the editor. `close` was declared but never emitted, so embedding
-   * hosts had no way to react; it now fires before the navigation so a host
-   * can tear its wrapper down either way.
+   * Leave the editor — the header logo and the Back button both come through
+   * here, so both get the same unsaved-work prompt from `unsavedChangesGuard`
+   * on the route's `canDeactivate`.
+   *
+   * `close` fires only once the editor is actually being left. The guard can
+   * abort the navigation (the user picks "Stay here", or a save fails), and
+   * INTEGRATION.md documents this output as "emitted when the user presses
+   * Back" — announcing a close that did not happen would have embedding hosts
+   * tear down their wrapper around a still-mounted editor.
+   *
+   * `location.back()` (embedded mode) cannot report whether it was blocked, so
+   * there the emit stays optimistic.
    */
-  goBack(): void {
-    this.close.emit();
+  async goBack(): Promise<void> {
     const url = this.exitUrl();
-    if (url) void this.router.navigateByUrl(url);
-    else this.location.back();
+    if (!url) {
+      this.close.emit();
+      this.location.back();
+      return;
+    }
+    if (await this.router.navigateByUrl(url)) {
+      this.close.emit();
+    }
   }
 
   rotateDocument() {
@@ -1061,9 +1091,21 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         return 'Saved locally — offline';
       case 'conflict':
         return 'Version conflict';
+      case 'readonly':
+        return 'View only';
       default:
         return '';
     }
+  }
+
+  /**
+   * Tooltip for the cloud indicator. On a view-only drawing the default hint
+   * ("saved with Ctrl+S") is a lie, so it says what Ctrl+S will actually do.
+   */
+  protected cloudHint(): string {
+    return this.persist.cloudState() === 'readonly'
+      ? 'You have view-only access — Ctrl+S offers to save a copy to My Drawings'
+      : 'Drawings are saved to your account with Ctrl+S';
   }
 
   /**

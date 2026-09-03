@@ -94,6 +94,9 @@ import { SafeHtmlPipe } from '../../shared/components/safe-html.pipe';
     .cmd-input-wrap {
       position: relative;
       flex: 1;
+      /* Without this the bare <input> keeps its intrinsic width and pushes the
+         Esc / Enter buttons off the right edge of the viewport. */
+      min-width: 0;
       display: flex;
       align-items: center;
       min-height: 100%;

@@ -146,6 +146,22 @@ const ANNOTATE: ToolMeta[] = [
       { id: 'dimjogged', title: 'Jogged', group: 'Annotate', aliases: ['jog', 'dimjog', 'dimjogged'], svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 8 L11 8 L12 6 L13 10 L14 8 L15 8"/><circle cx="5" cy="8" r="3" stroke-dasharray="2 2"/></svg>` },
     ]
   },
+  // Lives in Annotate, not a Measure section of its own: on its own it was the
+  // only tool in that section, and the ribbon's 2-row grid gave it a whole extra
+  // row for one button. Placed straight after `dimlinear` it packs into Linear's
+  // column instead, so the ribbon stays one row tall.
+
+  {
+    id: 'dist', title: 'Distance (DI)', group: 'Measure', aliases: ['di', 'dist', 'distance'],
+    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="2.5" y1="12" x2="13.5" y2="4"/><circle cx="2.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="13.5" cy="4" r="1.6" fill="currentColor" stroke="none"/></svg>`,
+    subTools: [
+      { id: 'dist', title: 'Distance (DI)', group: 'Measure', aliases: [], svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="2.5" y1="12" x2="13.5" y2="4"/><circle cx="2.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="13.5" cy="4" r="1.6" fill="currentColor" stroke="none"/></svg>` },
+      { id: 'area', title: 'Area (AA)', group: 'Measure', aliases: ['aa', 'area', 'measuregeom'], svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><polygon points="2,12 5,3 13,5 11,13" fill="currentColor" fill-opacity="0.18"/></svg>` },
+      { id: 'id', title: 'ID Point (ID)', group: 'Measure', aliases: ['id', 'idpoint'], svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="8" y1="1.5" x2="8" y2="14.5"/><line x1="1.5" y1="8" x2="14.5" y2="8"/><circle cx="8" cy="8" r="2.6"/></svg>` },
+      { id: 'list', title: 'List (LI)', group: 'Measure', aliases: ['li', 'list', 'ls'], svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="5.5" y1="4" x2="14" y2="4"/><line x1="5.5" y1="8" x2="14" y2="8"/><line x1="5.5" y1="12" x2="14" y2="12"/><circle cx="2.5" cy="4" r="1.1" fill="currentColor" stroke="none"/><circle cx="2.5" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="2.5" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>` },
+    ],
+  },
+
   {
     id: 'mleader', title: 'MLD (MLEADER)', group: 'Annotate', aliases: ['mld', 'mleader'],
     svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,13 8,5 13,5"/><polygon points="3,13 5,10.5 5.5,13.5" fill="currentColor" stroke="none"/></svg>`,
@@ -419,34 +435,12 @@ const SYSTEM: ToolMeta[] = [
 ];
 
 
-/**
- * Inquiry / measurement commands - AutoCAD's Home > Utilities panel.
- * These are read-only: they never mutate entities or touch the undo stack.
- */
-const MEASURE: ToolMeta[] = [
-  {
-    id: 'dist', title: 'Distance (DI)', group: 'Measure', aliases: ['di', 'dist', 'distance'],
-    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="2.5" y1="12" x2="13.5" y2="4"/><circle cx="2.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="13.5" cy="4" r="1.6" fill="currentColor" stroke="none"/></svg>`
-  },
-  {
-    id: 'area', title: 'Area (AA)', group: 'Measure', aliases: ['aa', 'area', 'measuregeom'],
-    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><polygon points="2,12 5,3 13,5 11,13" fill="currentColor" fill-opacity="0.18"/></svg>`
-  },
-  {
-    id: 'id', title: 'ID Point (ID)', group: 'Measure', aliases: ['id', 'idpoint'],
-    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="8" y1="1.5" x2="8" y2="14.5"/><line x1="1.5" y1="8" x2="14.5" y2="8"/><circle cx="8" cy="8" r="2.6"/></svg>`
-  },
-  {
-    id: 'list', title: 'List (LI)', group: 'Measure', aliases: ['li', 'list', 'ls'],
-    svg: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="5.5" y1="4" x2="14" y2="4"/><line x1="5.5" y1="8" x2="14" y2="8"/><line x1="5.5" y1="12" x2="14" y2="12"/><circle cx="2.5" cy="4" r="1.1" fill="currentColor" stroke="none"/><circle cx="2.5" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="2.5" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>`
-  },
-];
+
 
 const SECTIONS: ToolSection[] = [
   { label: 'Draw', tools: DRAW },
   { label: 'Modify', tools: MODIFY },
   { label: 'Annotate', tools: ANNOTATE },
-  { label: 'Measure', tools: MEASURE },
 ];
 
 const ALL: ToolMeta[] = [];
