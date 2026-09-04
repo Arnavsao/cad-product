@@ -212,4 +212,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layering rules and the 
 * [docs/INTEGRATION.md](docs/INTEGRATION.md) — embedding the editor and handing drawings to it from a host app.
 * [docs/MIGRATION.md](docs/MIGRATION.md) — what was moved from the bridge repository, what stayed, and how the bridge
   app should consume this package going forward.
+* [docs/3D-MODELING-PLAN.md](docs/3D-MODELING-PLAN.md) — the phased plan for parametric 3D modeling (kernel choice,
+  architecture, data model, backend changes, effort). Roadmap for after the 2D launch; nothing from it is implemented yet.
 * [CHANGELOG.md](CHANGELOG.md)
