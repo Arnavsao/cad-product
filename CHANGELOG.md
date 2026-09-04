@@ -1,5 +1,87 @@
 # Changelog
 
+## Unreleased
+
+DXF import fidelity. An imported drawing now renders as AutoCAD renders it: correct dimension
+values, decoded text, per-style fonts and real lineweights.
+
+### Fixed
+* **Dimension values were wrong by the drawing's plot scale.** Every DIMENSION in a scaled
+  drawing carries a `DIMLFAC` override in XDATA (`1001 ACAD` / `1000 DSTYLE` / `1070 144`),
+  and `dxf-parser` collapses XDATA to `{applicationName, customStrings}` — dropping the values.
+  A span drawn 68.5333 units long was labelled `68.5333` where AutoCAD reads `10280`.
+  `scanDimStyleOverrides` recovers them; `DimensionEntity.linearFactor` applies them.
+  A single drawing routinely mixes factors, so this is per entity, not per style.
+* **Dimensions showed four decimals.** `dxf-parser`'s DIMENSION handler has no `case 3`, so the
+  style name never arrived and every dimension resolved to `Standard`. `DIMDEC` was not read
+  either. Both fixed; `DEFAULT_DIM_STYLE` and the `Standard` map entry no longer disagree.
+* **Rotated dimensions measured the diagonal** instead of the projection onto their axis
+  (group 50 was never transferred to `DimensionEntity.rotation`).
+* **Dimension text was re-placed rather than read.** AutoCAD stores the text midpoint in
+  group 11 and flags it authoritative; recomputing it collapsed dense drawings into
+  overlapping labels. Now honoured on import, on export, in hit-testing and in the inline editor.
+* **`\X` in dimension text rendered literally.** It stacks the text: `<>\X(BERM)` is `3000`
+  above the dimension line and `(BERM)` below.
+* **Text control codes rendered literally** — `%%UHALF ELEVATION` instead of an underlined
+  heading, `\pxqr;TO DAHODE JN.` instead of a label. New `text-control-codes.ts` decodes both
+  the `%%` escapes and the MTEXT backslash language, flattening to the uniform style a
+  `TextEntity` can represent while keeping the source string for round-trip.
+* **All text rendered in one typeface.** `dxf-parser` exposes no STYLE table and no group 7, so
+  no font was ever resolved. Worse, a resolved TrueType *file name* (`times.ttf`) was passed
+  straight to `ctx.font`, which the canvas rejects outright — leaving text in whatever font was
+  set last and caching those metrics. `FontResolverService` now maps file names to families.
+* **Layer lineweight and linetype were dropped**, flattening every line to one thickness.
+* **Entity types silently discarded**: `ACAD_TABLE` (rendered via its `*T` block, which is how
+  the signature block reappears), `VIEWPORT`, and `ATTRIB` — whose `case` fell through into the
+  VIEWPORT branch and so could never build anything.
+* **DXF export discarded the above**, which matters because drawings persist as DXF: no STYLE or
+  DIMSTYLE table was written, group 11 was the bare midpoint of the measured points, and text
+  carried no style name. Round-trip is now lossless.
+* Copy/paste dropped dimension styles — `collectDimStyles` read `dimStyleName`, a field that
+  never existed.
+* **Centred and right-justified MTEXT sat half a box-width too far right.** The entity position
+  is the *attachment point* — the middle of the reference box for a centred justify — but the
+  wrapped-text path in `TextLayoutEngine` treated it as the box's left edge. Every title-block
+  cell overlapped its neighbour and the signature-table caption hung off the table's right edge.
+* **Justified TEXT was anchored at group 10.** For centred/right/middle text the anchor is
+  group 11; group 10 is merely where the first character lands. Aligned (3) and Fit (5) text now
+  anchors at the midpoint of the two points and takes its rotation from them.
+* **Top-level ATTDEFs were dropped.** Outside a block AutoCAD draws an ATTDEF as its *tag* —
+  the "A1"/"A2" section markers were exactly this.
+* **BYBLOCK geometry inside an insert rendered white.** `InsertEntity` passed `this.color`
+  (only set for true-colour inserts) as the BYBLOCK colour; it now passes the resolved colour,
+  so a green table is green.
+* **Clockwise hatch edges filled the wrong side.** AutoCAD stores a clockwise edge's angles
+  mirrored; taken at face value a 63° sliver on the north-arrow swept the other 297° and drew the
+  whole symbol as a solid blob. Ellipse edges also store *true* angles, not the parametric ones
+  the ellipse equation needs — both are now converted in `dxfEdgeLoopToFrozen`.
+* **Polyline widths and bulges were discarded.** A tapered 0 → w → 0 pair of segments is how
+  AutoCAD draws a filled arrowhead, and group 42 is what makes a polyline curve; neither made it
+  through import. `PolylineEntity` now carries `widths` and renders them as filled bands, and the
+  exporter writes 40/41/42 back out.
+* **Pre-R2007 DXF was read as UTF-8**, turning every `°` and `±` into U+FFFD. `decodeDxfBytes`
+  tries strict UTF-8 first and falls back to the `$DWGCODEPAGE` code page. `\U+XXXX` escapes and
+  `^I` caret-tabs in MTEXT are decoded too.
+* Font map: `romans.shx` (Roman *Simplex*) is a stroke sans, not a serif; AutoCAD's `romantic.ttf`
+  is a roman serif, not a script face.
+
+### Notes on design
+* **Group codes are context-sensitive; read them per entity type.** Group 41 is a width factor
+  on TEXT but the reference-rectangle *width* on MTEXT — reading it blindly stretched a column
+  of notes to 166× its size. Likewise group 70 on a DIMSTYLE table entry is the entry's flags,
+  not `DIMTOL`.
+* **Flattened, not run-styled.** `TextLayoutEngine` measures one font and one height per entity,
+  so MTEXT decodes to plain text plus a single style. A `\H` or `\f` code is honoured only when
+  it opens the string; mid-string it scopes to a run this cannot express, so it is dropped
+  rather than applied to text it never covered.
+* **`DIMLFAC` scales the measurement, `DIMSCALE` only the visuals**, and both need a per-entity
+  override: a style may set `DIMSCALE 150` while every entity referencing it overrides to 1.
+* **Unknown escapes stay literal.** Dropping every `\<letter>` would quietly eat the `D` from
+  `C:\Drawings`, so only AutoCAD's actual code letters are consumed.
+* Verified against the file itself: AutoCAD bakes each dimension's rendered geometry and final
+  text into an anonymous `*D<n>` block, so parity is checkable rather than eyeballed —
+  **384/384 dimensions now match**, and still match after an export/re-import cycle.
+
 ## 1.5.0 — 2026-09-03
 
 Paid plans. Pro and Team are sold as subscriptions through Dodo Payments; checkout and the

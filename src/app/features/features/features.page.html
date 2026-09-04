@@ -1,0 +1,227 @@
+<div class="fx">
+  <ui-grid-backdrop />
+
+  <header class="fx__nav">
+    <a class="brand" routerLink="/" aria-label="{{ appName }} home">
+      <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
+      <span class="brand__name">{{ appName }}</span>
+    </a>
+    <nav class="fx__nav-actions" aria-label="Account">
+      <a class="fx__nav-link" routerLink="/pricing">Pricing</a>
+      @if (!auth.enabled()) {
+      <a uiButton size="sm" variant="ghost" routerLink="/editor">Open editor</a>
+      } @else if (!auth.isLoaded()) {
+      <ui-skeleton width="72px" height="28px" radius="var(--ui-radius-md)" />
+      } @else if (auth.isSignedIn()) {
+      <a uiButton size="sm" variant="ghost" routerLink="/dashboard">Dashboard</a>
+      } @else {
+      <a uiButton size="sm" variant="ghost" routerLink="/sign-in">Sign in</a>
+      <a uiButton size="sm" variant="primary" routerLink="/sign-up">Create account</a>
+      }
+    </nav>
+  </header>
+
+  <main class="fx__main">
+    <section class="intro">
+      <p class="intro__eyebrow">Capabilities</p>
+      <h1 class="intro__title">Four things a drafting tool has to get right.</h1>
+      <p class="intro__sub">
+        Scroll and each one draws itself, in the order you would draft it.
+      </p>
+    </section>
+
+    <!-- 1 ─ DXF round-trip ─────────────────────────────────────── -->
+    <article class="cap" uiReveal>
+      <div class="cap__copy">
+        <p class="cap__index">01</p>
+        <h2 class="cap__title">DXF round-trip</h2>
+        <p class="cap__body">
+          Open a file from your desk, edit it, write it back out. Layers, blocks, dimension styles and text all
+          survive the trip, so {{ appName }} slots into a toolchain that already runs on DXF instead of asking
+          everyone to move.
+        </p>
+      </div>
+
+      <figure class="cap__figure fig ui-sheet">
+        <svg class="fig__svg" viewBox="0 0 480 320" preserveAspectRatio="none" role="img"
+             aria-label="A DXF file opening in the editor and exporting back out to DXF" focusable="false">
+          <!-- Source and result documents, with a page fold. -->
+          <path class="ui-ink ui-ink--walls fig__solid" pathLength="1"
+                d="M30 80H105L130 105V250H30Z M105 80V105H130" />
+          <path class="ui-ink ui-ink--walls fig__solid" pathLength="1"
+                d="M350 80H425L450 105V250H350Z M425 80V105H450" />
+
+          <!-- Geometry inside each document. -->
+          <path class="ui-ink ui-ink--doors fig__thin" pathLength="1"
+                d="M48 130H112 M48 150H100 M48 170H112 M48 200H90V230H48Z" />
+          <path class="ui-ink ui-ink--doors fig__thin" pathLength="1"
+                d="M368 130H432 M368 150H420 M368 170H432 M368 200H410V230H368Z" />
+
+          <!-- The editor between them. -->
+          <path class="ui-ink ui-ink--doors fig__solid" pathLength="1"
+                d="M195 120H285V215H195Z M240 120V170 M195 170H285" />
+
+          <!-- Import, then export. -->
+          <path class="ui-ink ui-ink--dims fig__dim" pathLength="1" d="M140 168H186 M294 168H340" />
+          <path class="ui-fade ui-ink--dims fig__arrow"
+                d="M188 168L176 163V173Z M342 168L330 163V173Z" />
+
+          <text class="ui-fade ui-ink--detail fig__label" x="80" y="275" text-anchor="middle">site.dxf</text>
+          <text class="ui-fade ui-ink--detail fig__label" x="400" y="275" text-anchor="middle">site.dxf</text>
+          <text class="ui-fade ui-ink--detail fig__label fig__label--accent" x="240" y="102"
+                text-anchor="middle">EDIT</text>
+        </svg>
+      </figure>
+    </article>
+
+    <!-- 2 ─ Layouts and viewports ──────────────────────────────── -->
+    <article class="cap cap--flip" uiReveal>
+      <div class="cap__copy">
+        <p class="cap__index">02</p>
+        <h2 class="cap__title">Layouts and viewports</h2>
+        <p class="cap__body">
+          Model space is where you draw; paper space is where you decide what gets printed. Place viewports at a
+          real scale, fill in the titleblock, and plot the sheet to PDF or SVG — the same drawing can carry a
+          detail sheet and a general arrangement without duplicating any geometry.
+        </p>
+      </div>
+
+      <figure class="cap__figure fig ui-sheet">
+        <svg class="fig__svg" viewBox="0 0 480 320" preserveAspectRatio="none" role="img"
+             aria-label="A paper-space sheet with two viewports and a titleblock" focusable="false">
+          <!-- Sheet edge and drawing margin. -->
+          <path class="ui-ink ui-ink--walls fig__solid" pathLength="1" d="M30 30H450V290H30Z" />
+          <path class="ui-ink ui-ink--doors fig__thin" pathLength="1" d="M46 46H434V274H46Z" />
+
+          <!-- Two viewports. -->
+          <path class="ui-ink ui-ink--doors fig__solid" pathLength="1" d="M64 64H232V196H64Z" />
+          <path class="ui-ink ui-ink--doors fig__solid" pathLength="1" d="M250 64H416V196H250Z" />
+
+          <!-- What is framed in them: a plan, and an elevation. -->
+          <path class="ui-ink ui-ink--dims fig__thin" pathLength="1"
+                d="M86 92H210V176H86Z M148 92V140 M86 140H148" />
+          <path class="ui-ink ui-ink--dims fig__thin" pathLength="1"
+                d="M270 176H396 M282 176V120H384V176 M282 120L333 92L384 120" />
+
+          <!-- Titleblock. -->
+          <path class="ui-ink ui-ink--detail fig__thin" pathLength="1"
+                d="M300 214H434V274H300Z M300 238H434 M300 256H434" />
+          <text class="ui-fade ui-ink--detail fig__label" x="64" y="232">SCALE 1:50</text>
+          <text class="ui-fade ui-ink--detail fig__label fig__label--accent" x="310" y="231">A3 — SHEET 1</text>
+        </svg>
+      </figure>
+    </article>
+
+    <!-- 3 ─ Associative dimensions ─────────────────────────────── -->
+    <article class="cap" uiReveal>
+      <div class="cap__copy">
+        <p class="cap__index">03</p>
+        <h2 class="cap__title">Associative dimensions</h2>
+        <p class="cap__body">
+          A dimension is attached to the geometry, not typed next to it. Stretch the wall and the measurement
+          updates itself — which is the difference between a drawing you can trust and a drawing you have to
+          re-check. Twelve object snaps, dimension styles, hatch and tables come with it.
+        </p>
+      </div>
+
+      <figure class="cap__figure fig ui-sheet">
+        <svg class="fig__svg" viewBox="0 0 480 320" preserveAspectRatio="none" role="img"
+             aria-label="A rectangle being stretched, with its dimension updating from 2200 millimetres"
+             focusable="false">
+          <!-- The geometry. -->
+          <path class="ui-ink ui-ink--walls fig__solid" pathLength="1" d="M60 90H280V210H60Z" />
+
+          <!-- Where the right edge is being dragged to. -->
+          <path class="ui-ink ui-ink--detail fig__ghost" pathLength="1" d="M280 90H400V210H280" />
+          <path class="ui-ink ui-ink--detail fig__dim" pathLength="1" d="M300 150H376" />
+          <path class="ui-fade ui-ink--detail fig__arrow" d="M378 150L366 145V155Z" />
+
+          <!-- The dimension, which follows it. -->
+          <path class="ui-ink ui-ink--dims fig__dim" pathLength="1"
+                d="M60 222V266 M280 222V266 M60 250H280" />
+          <path class="ui-fade ui-ink--dims fig__arrow"
+                d="M60 250L74 245V255Z M280 250L266 245V255Z" />
+
+          <!-- The grip the drag starts from. -->
+          <rect class="ui-fade ui-snap fig__snap" x="274" y="144" width="12" height="12" />
+        </svg>
+
+        <span class="fig__dim-val ui-fade ui-ink--dims" aria-label="2200 millimetres">
+          <span class="ui-dim-val ui-ink--dims" style="--ui-dim-to: 2200" aria-hidden="true"></span>
+          <span aria-hidden="true">mm</span>
+        </span>
+      </figure>
+    </article>
+
+    <!-- 4 ─ Blocks ─────────────────────────────────────────────── -->
+    <article class="cap cap--flip" uiReveal>
+      <div class="cap__copy">
+        <p class="cap__index">04</p>
+        <h2 class="cap__title">Blocks and attributes</h2>
+        <p class="cap__body">
+          Draw a door once, then place it forty times. Every instance points back at one definition, so correcting
+          the original corrects the drawing — and attributes let each instance carry its own tag, which is what
+          turns a plan into a schedule.
+        </p>
+      </div>
+
+      <figure class="cap__figure fig ui-sheet">
+        <svg class="fig__svg" viewBox="0 0 480 320" preserveAspectRatio="none" role="img"
+             aria-label="One door block definition placed three times along a wall" focusable="false">
+          <!-- The definition, inside its block boundary. -->
+          <path class="ui-ink ui-ink--doors fig__ghost" pathLength="1" d="M40 90H150V230H40Z" />
+          <path class="ui-ink ui-ink--walls fig__solid" pathLength="1"
+                d="M70 200H130 M130 200A60 60 0 0 0 70 140" />
+
+          <!-- Placed along a wall. -->
+          <path class="ui-ink ui-ink--dims fig__dim" pathLength="1" d="M180 160H236" />
+          <path class="ui-fade ui-ink--dims fig__arrow" d="M238 160L226 155V165Z" />
+
+          <path class="ui-ink ui-ink--detail fig__solid" pathLength="1"
+                d="M250 210H262 M296 210H322 M356 210H382 M416 210H460" />
+          <path class="ui-ink ui-ink--detail fig__thin" pathLength="1"
+                d="M262 210H296 M296 210A34 34 0 0 0 262 176" />
+          <path class="ui-ink ui-ink--detail fig__thin" pathLength="1"
+                d="M322 210H356 M356 210A34 34 0 0 0 322 176" />
+          <path class="ui-ink ui-ink--detail fig__thin" pathLength="1"
+                d="M382 210H416 M416 210A34 34 0 0 0 382 176" />
+
+          <text class="ui-fade ui-ink--detail fig__label fig__label--accent" x="100" y="262"
+                text-anchor="middle">DOOR-900</text>
+          <text class="ui-fade ui-ink--detail fig__label" x="355" y="262" text-anchor="middle">3 instances</text>
+        </svg>
+      </figure>
+    </article>
+
+    <section class="close" uiReveal aria-labelledby="close-title">
+      <h2 class="close__title" id="close-title">Open a drawing and try it.</h2>
+      <p class="close__sub">The editor is free to use, and DXF export is not behind a paywall.</p>
+      <div class="close__cta">
+        @if (!auth.enabled()) {
+        <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
+        } @else if (!auth.isLoaded()) {
+        <ui-skeleton width="150px" height="42px" radius="var(--ui-radius-lg)" />
+        } @else if (auth.isSignedIn()) {
+        <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
+        } @else {
+        <a uiButton variant="primary" size="lg" routerLink="/sign-up">Create a free account</a>
+        <a uiButton size="lg" variant="ghost" routerLink="/pricing">See pricing</a>
+        }
+      </div>
+    </section>
+  </main>
+
+  <footer class="fx__footer">
+    <span>&copy; {{ year }} {{ appName }}</span>
+    <span class="fx__footer-sep" aria-hidden="true">·</span>
+    <a routerLink="/">Home</a>
+    <span class="fx__footer-sep" aria-hidden="true">·</span>
+    <a routerLink="/pricing">Pricing</a>
+    <span class="fx__footer-sep" aria-hidden="true">·</span>
+    <a routerLink="/whats-new">What's New</a>
+    <span class="fx__footer-sep" aria-hidden="true">·</span>
+    <a routerLink="/terms">Terms</a>
+    <span class="fx__footer-sep" aria-hidden="true">·</span>
+    <a routerLink="/privacy">Privacy</a>
+  </footer>
+</div>

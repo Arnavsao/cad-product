@@ -129,7 +129,12 @@ export const routes: Routes = [
     data: { preload: true },
     loadComponent: () => import('./features/cad-editor/cad-editor').then((m) => m.CadEditorComponent),
   },
-  // Public on purpose: both are read while deciding whether to sign up.
+  // Public on purpose: all of these are read while deciding whether to sign up.
+  {
+    path: 'features',
+    title: 'Features · CADO',
+    loadComponent: () => import('./features/features/features.page').then((m) => m.FeaturesPage),
+  },
   {
     path: 'pricing',
     title: 'Plans & pricing · CADO',

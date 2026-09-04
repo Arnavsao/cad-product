@@ -2,6 +2,7 @@
 @use './theme';
 @use './app/shared/ui/tokens';
 @use './app/shared/ui/ui';
+@use './app/shared/ui/blueprint';
 
 /* CDK overlay container/backdrop structure (dialogs, menus). */
 @include cdk.overlay();
@@ -47,7 +48,7 @@ app-root {
  * --------------------------------------------------------------- */
 .cad-editor-root :is(input, select, textarea),
 [uiInput] {
-  font-size: 13px;
+  font-size: var(--ui-text-md, 14px);
   color: var(--color-input-text);
   background: var(--color-input-bg);
   border: 1px solid var(--color-input-border);
