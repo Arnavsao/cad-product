@@ -1,6 +1,6 @@
 # Billing (Dodo Payments)
 
-CADOnline sells the Pro and Team tiers as subscriptions through
+CADO sells the Pro and Team tiers as subscriptions through
 [Dodo Payments](https://dodopayments.com). This document is what you need to go
 from the code as shipped to a working checkout.
 

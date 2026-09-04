@@ -182,7 +182,7 @@ export class UsersService {
     if (onboarded.count > 0) {
       await this.notifications.publish(userId, {
         kind: 'account',
-        title: 'Welcome to CADOnline',
+        title: 'Welcome to CADO',
         body: 'Your workspace is ready. Create a drawing, or upload an existing DXF to get started.',
         linkUrl: '/dashboard',
       });

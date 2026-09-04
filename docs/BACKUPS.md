@@ -1,6 +1,6 @@
 # Backups & Restore
 
-CADOnline's durable state lives in two places: **Postgres** (drawing metadata,
+CADO's durable state lives in two places: **Postgres** (drawing metadata,
 versions, folders, users) and **object storage** (the actual drawing content —
 DXF/JSON blobs above the inline-content threshold, thumbnails, uploads). Both
 need a backup story; losing either loses user work.

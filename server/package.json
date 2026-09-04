@@ -1,7 +1,7 @@
 {
   "name": "cadonline-api",
   "version": "1.1.0",
-  "description": "CADOnline API — NestJS 11 + Prisma 7 + Postgres + S3-compatible storage. Supabase-authenticated drawings/folders backend for the Angular editor.",
+  "description": "CADO API — NestJS 11 + Prisma 7 + Postgres + S3-compatible storage. Supabase-authenticated drawings/folders backend for the Angular editor.",
   "private": true,
   "license": "UNLICENSED",
   "engines": {

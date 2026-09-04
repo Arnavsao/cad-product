@@ -24,7 +24,7 @@ exist before the first build.
 1. `cad-editor.ts/.html` — removed the bridge app's `<app-profile-dropdown>` (account menu) from the header;
    `GadTransferService` → `DrawingTransferService`.
 2. `features/l-section/l-section-panel.component.ts` — `FeedbackService` → `FileUploadService` (same method names).
-   **Removed in 1.1.0** along with `FileUploadService`: L-section generation is bridge-specific and CADOnline is a
+   **Removed in 1.1.0** along with `FileUploadService`: L-section generation is bridge-specific and CADO is a
    general-purpose CAD product. The bridge repo keeps its own copy.
 3. `features/ai-agent/services/ai-audit.service.ts` — `environment.nodeApiUrl` → `environment.apiUrl`; skips the POST when
    no backend is configured. **Changed in 1.1.0:** the POST was removed entirely; the audit log is local-only

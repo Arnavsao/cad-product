@@ -562,7 +562,7 @@ async function main(): Promise<void> {
   const TITLES: Record<NotificationKind, string[]> = {
     [NotificationKind.SYSTEM]: [
       'Scheduled maintenance on Sunday',
-      'New in CADOnline: layout tabs',
+      'New in CADO: layout tabs',
       'Improved DXF import',
     ],
     [NotificationKind.DRAWING]: [
@@ -571,7 +571,7 @@ async function main(): Promise<void> {
       'Your export finished',
     ],
     [NotificationKind.STORAGE]: ['You have used 68% of your storage', 'Large upload completed'],
-    [NotificationKind.ACCOUNT]: ['Welcome to CADOnline', 'Your profile was updated', 'New sign-in from Chrome'],
+    [NotificationKind.ACCOUNT]: ['Welcome to CADO', 'Your profile was updated', 'New sign-in from Chrome'],
   };
   for (let i = 0; i < NOTIFICATIONS; i++) {
     const kind = pick(KINDS);

@@ -45,7 +45,7 @@ const LAST_STEP = STEP_TITLES.length;
   template: `
     <div class="ob">
       <header class="ob__top">
-        <a class="brand" routerLink="/" aria-label="CADOnline home">
+        <a class="brand" routerLink="/" aria-label="CADO home">
           <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
           <span class="brand__name">{{ appName }}</span>
         </a>

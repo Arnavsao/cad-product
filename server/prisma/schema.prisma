@@ -1,4 +1,4 @@
-// CADOnline data model — Postgres holds metadata only; DXF payloads and
+// CADO data model — Postgres holds metadata only; DXF payloads and
 // thumbnails live in S3-compatible object storage under the keys in
 // `src/storage/storage-keys.ts`.
 //

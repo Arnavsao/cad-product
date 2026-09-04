@@ -53,7 +53,7 @@ export const RELEASE_NOTES: readonly Release[] = [
       {
         kind: 'added',
         title: 'Plans & pricing',
-        detail: 'A straight answer to what CADOnline costs, and what each tier includes.',
+        detail: 'A straight answer to what CADO costs, and what each tier includes.',
       },
       {
         kind: 'improved',
@@ -83,7 +83,7 @@ export const RELEASE_NOTES: readonly Release[] = [
   {
     version: '1.1.0',
     date: '2026-08-29',
-    summary: 'CADOnline becomes a product rather than a standalone editor: accounts, cloud storage and a dashboard.',
+    summary: 'CADO becomes a product rather than a standalone editor: accounts, cloud storage and a dashboard.',
     changes: [
       {
         kind: 'added',

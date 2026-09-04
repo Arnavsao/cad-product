@@ -7,7 +7,7 @@ import { AppEnvironment } from './environment.model';
  */
 export const environment: AppEnvironment = {
   production: true,
-  appName: 'CADOnline',
+  appName: 'CADO',
   // Relative: nginx proxies `/api/` to the API container (see nginx.conf).
   apiUrl: '/api/v1',
   defaultOllamaUrl: 'http://localhost:11434',

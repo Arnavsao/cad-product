@@ -44,7 +44,7 @@ export class ApiError extends Error {
 }
 
 /**
- * Thin typed wrapper around HttpClient for the CADOnline API.
+ * Thin typed wrapper around HttpClient for the CADO API.
  *
  * Resolves relative paths against `environment.apiUrl`, unwraps the
  * `ApiResponse` envelope and normalises failures into `ApiError` (status +

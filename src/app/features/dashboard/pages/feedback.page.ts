@@ -113,7 +113,7 @@ const KINDS: readonly KindOption[] = [
       </section>
 
       <section class="fb__section">
-        <span class="fb__label" id="fb-rating">How is CADOnline working out so far? <em>(optional)</em></span>
+        <span class="fb__label" id="fb-rating">How is CADO working out so far? <em>(optional)</em></span>
         <div class="fb__rating" role="radiogroup" aria-labelledby="fb-rating">
           @for (value of stars; track value) {
             <button

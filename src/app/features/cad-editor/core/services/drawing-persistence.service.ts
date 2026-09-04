@@ -54,7 +54,7 @@ export interface RemoteBinding {
 
 /**
  * Cloud-first persistence for the editor: SAVE / SAVE AS / OPEN against the
- * CADOnline API, with IndexedDB demoted to an offline cache.
+ * CADO API, with IndexedDB demoted to an offline cache.
  *
  * Design decisions:
  *

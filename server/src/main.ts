@@ -18,7 +18,7 @@ async function bootstrap(): Promise<void> {
   const port = config.get('PORT', { infer: true });
   await app.listen(port);
 
-  app.get(Logger).log(`CADOnline API listening on http://localhost:${port}/${API_PREFIX} (health: /healthz)`, 'Bootstrap');
+  app.get(Logger).log(`CADO API listening on http://localhost:${port}/${API_PREFIX} (health: /healthz)`, 'Bootstrap');
 }
 
 bootstrap().catch((error: unknown) => {

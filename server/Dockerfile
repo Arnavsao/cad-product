@@ -1,4 +1,4 @@
-# CADOnline API (NestJS + Prisma). Two stages: build with dev deps, run with
+# CADO API (NestJS + Prisma). Two stages: build with dev deps, run with
 # production deps only. `prisma` stays in the runtime image because
 # `start:prod` runs `prisma migrate deploy` before booting - migrations ship
 # with the app rather than being a separate release step.

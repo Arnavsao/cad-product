@@ -40,7 +40,7 @@ describe('MailService', () => {
   const build = (env: Partial<Env> = {}): MailService => {
     const config = configOf({
       CORS_ORIGIN: ['http://localhost:4200'],
-      MAIL_FROM: 'CADOnline <no-reply@cadonline.app>',
+      MAIL_FROM: 'CADO <no-reply@cadonline.app>',
       ...env,
     });
     return new MailService(prisma, config, transport as unknown as MailTransport);

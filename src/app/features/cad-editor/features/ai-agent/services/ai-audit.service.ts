@@ -15,7 +15,7 @@ const MAX_LOCAL_RECORDS = 500;   // cap to avoid localStorage bloat
  *   1. Primary  — IndexedDB `cad_ai_audit_v1` (survives page reloads).
  *   2. Fallback — if IDB is unavailable, a capped queue in localStorage.
  *
- * The log deliberately never leaves the browser: CADOnline is a general-purpose
+ * The log deliberately never leaves the browser: CADO is a general-purpose
  * CAD product and the assistant's actions are the user's own drafting history,
  * not telemetry. (An earlier bridge-specific build mirrored records to a
  * backend endpoint; that was removed in 1.1.0.)

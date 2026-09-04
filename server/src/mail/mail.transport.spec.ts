@@ -11,7 +11,7 @@ import type { OutboundEmail } from './mail.types';
  * needs a real connection.
  */
 
-const FROM = 'CADOnline <no-reply@cadonline.app>';
+const FROM = 'CADO <no-reply@cadonline.app>';
 
 function email(overrides: Partial<OutboundEmail> = {}): OutboundEmail {
   return {

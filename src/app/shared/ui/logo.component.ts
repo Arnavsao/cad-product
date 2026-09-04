@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, numberAttribute } from '@angular/core';
 
 /**
- * The CADOnline mark: four rounded tiles in a 2×2 grid, each with a square
+ * The CADO mark: four rounded tiles in a 2×2 grid, each with a square
  * cut-out. The geometry is the brand SVG (`public/cad-logo-svg.svg`) normalised
  * to a 100-unit box, so the same four paths serve the 13px editor header, the
  * 28px brand chips, the favicon and the loading animation — which needs each

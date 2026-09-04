@@ -17,7 +17,7 @@ import { UiLogoComponent } from '../../shared/ui/logo.component';
   template: `
     <div class="auth">
       <aside class="auth__rail">
-        <a class="brand" routerLink="/" aria-label="CADOnline home">
+        <a class="brand" routerLink="/" aria-label="CADO home">
           <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
           <span class="brand__name">{{ appName }}</span>
         </a>
@@ -38,7 +38,7 @@ import { UiLogoComponent } from '../../shared/ui/logo.component';
 
       <main class="auth__main">
         <div class="auth__topbar">
-          <a class="brand brand--compact" routerLink="/" aria-label="CADOnline home">
+          <a class="brand brand--compact" routerLink="/" aria-label="CADO home">
             <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
             <span class="brand__name">{{ appName }}</span>
           </a>

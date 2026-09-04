@@ -151,7 +151,8 @@
       cursor: pointer;
       border-radius: var(--cad-radius-sm);
 
-      &:hover .hdr-logo-name { text-decoration: underline; }
+      /* The mark brightening is the whole hover affordance — an underline on the
+         wordmark read as a text link, which this is not. */
       &:hover .hdr-logo-mark { filter: brightness(1.1); }
       &:focus-visible { outline: 2px solid var(--cad-accent); outline-offset: 3px; }
 

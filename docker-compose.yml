@@ -1,4 +1,4 @@
-# CADOnline local infrastructure — Postgres 16 + MinIO (S3-compatible).
+# CADO local infrastructure — Postgres 16 + MinIO (S3-compatible).
 #
 #   npm run db:up      -> docker compose up -d --wait postgres minio && docker compose run --rm minio-init
 #   npm run db:down    -> docker compose down

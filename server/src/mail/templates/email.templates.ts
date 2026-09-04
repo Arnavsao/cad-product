@@ -89,7 +89,7 @@ function layout(parts: LayoutParts): string {
   return `<div style="margin:0;padding:24px 12px;background:#f6f6f7">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(parts.preheader)}</div>
   <div style="max-width:560px;margin:0 auto;padding:32px;background:#ffffff;border:1px solid ${RULE};border-radius:12px">
-    <p style="margin:0 0 24px;font:700 15px/1 ${FONT};color:${INK};letter-spacing:-.01em">CADOnline</p>
+    <p style="margin:0 0 24px;font:700 15px/1 ${FONT};color:${INK};letter-spacing:-.01em">CADO</p>
     <h1 style="margin:0 0 16px;font:600 21px/1.3 ${FONT};color:${INK};letter-spacing:-.01em">${esc(parts.heading)}</h1>
     ${parts.body.map((p) => `<p style="margin:0 0 14px;font:400 15px/1.6 ${FONT};color:${INK_DIM}">${p}</p>`).join('\n    ')}
     ${cta}
@@ -275,12 +275,12 @@ export interface OrgInviteInput {
 export function orgInvite(input: OrgInviteInput): RenderedEmail {
   const heading = `${input.actorName} invited you to ${input.orgName}`;
   const lines = [
-    `${input.actorName} invited you to join ${input.orgName} on CADOnline as ${withArticle(input.role)}.`,
+    `${input.actorName} invited you to join ${input.orgName} on CADO as ${withArticle(input.role)}.`,
     `Members of an organization share its drawings and folders.`,
     `This invitation was sent to ${input.recipientEmail} and expires in ${input.expiresInDays} days. Accept it with that address — it will not work with another one.`,
   ];
   const htmlLines = [
-    `${strong(input.actorName)} invited you to join ${strong(input.orgName)} on CADOnline as ${plain(withArticle(input.role))}.`,
+    `${strong(input.actorName)} invited you to join ${strong(input.orgName)} on CADO as ${plain(withArticle(input.role))}.`,
     plain('Members of an organization share its drawings and folders.'),
     plain(
       `This invitation was sent to ${input.recipientEmail} and expires in ${input.expiresInDays} days. Accept it with that address — it will not work with another one.`,

@@ -135,7 +135,7 @@ export interface Faq {
 export const FAQS: readonly Faq[] = [
   {
     q: 'Do I need to install anything?',
-    a: 'No. CADOnline runs entirely in a modern browser — there is nothing to download, and it works the same on Windows, macOS and Linux.',
+    a: 'No. CADO runs entirely in a modern browser — there is nothing to download, and it works the same on Windows, macOS and Linux.',
   },
   {
     q: 'What happens to my drawings if I stop paying?',

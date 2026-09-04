@@ -1,5 +1,5 @@
 /**
- * The languages CADOnline ships in.
+ * The languages CADO ships in.
  *
  * This is deliberately AutoCAD's language set, so a drafter arriving from
  * AutoCAD finds their own language here. Codes are BCP 47 and double as both

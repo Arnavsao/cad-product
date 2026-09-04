@@ -1,5 +1,5 @@
 /**
- * DTOs of the CADOnline API (`/api/v1`). These mirror the server's contract
+ * DTOs of the CADO API (`/api/v1`). These mirror the server's contract
  * name-for-name — see the "API contract" section of the project plan. Times
  * are ISO-8601 strings; ids are cuids.
  */

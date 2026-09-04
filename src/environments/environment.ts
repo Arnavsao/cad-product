@@ -3,7 +3,7 @@ import { AppEnvironment } from './environment.model';
 /** Development configuration (used by `ng serve` and development builds). */
 export const environment: AppEnvironment = {
   production: false,
-  appName: 'CADOnline',
+  appName: 'CADO',
   // Relative on purpose: `ng serve` forwards `/api` to http://localhost:3000 via proxy.conf.json.
   apiUrl: '/api/v1',
   defaultOllamaUrl: 'http://localhost:11434',

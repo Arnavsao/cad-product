@@ -90,7 +90,7 @@ export const envSchema = z.object({
   // development default. `MailModule` then picks the logging transport.
   /** Resend API key. Absent → email is logged, never sent (see `MailService`). */
   RESEND_API_KEY: optionalString,
-  /** Envelope From, e.g. `CADOnline <no-reply@cadonline.app>`. Required to send. */
+  /** Envelope From, e.g. `CADO <no-reply@cadonline.app>`. Required to send. */
   MAIL_FROM: optionalString,
   /** Optional Reply-To applied to all outbound mail. */
   MAIL_REPLY_TO: optionalString,

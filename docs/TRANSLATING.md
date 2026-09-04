@@ -1,6 +1,6 @@
-# Translating CADOnline
+# Translating CADO
 
-CADOnline ships in the same fourteen languages AutoCAD does, so a drafter
+CADO ships in the same fourteen languages AutoCAD does, so a drafter
 arriving from AutoCAD finds their own language and, more importantly, their own
 *terminology*. Everything below exists to protect that second part.
 

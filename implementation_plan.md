@@ -1,8 +1,8 @@
-# CADOnline — Production Deployment Readiness Audit
+# CADO — Production Deployment Readiness Audit
 
 ## Executive Summary
 
-CADOnline is a **substantial, well-architected browser-based 2D CAD product** with an Angular 20 frontend (zoneless, signals, standalone components), NestJS 11 backend, Postgres + S3 storage, and Clerk auth. The core CAD editor is feature-rich with 39+ draw tools, 20+ modify tools, DXF import/export, layouts, blocks, dimensions, hatches, AI assistant, and PDF/SVG plotting.
+CADO is a **substantial, well-architected browser-based 2D CAD product** with an Angular 20 frontend (zoneless, signals, standalone components), NestJS 11 backend, Postgres + S3 storage, and Clerk auth. The core CAD editor is feature-rich with 39+ draw tools, 20+ modify tools, DXF import/export, layouts, blocks, dimensions, hatches, AI assistant, and PDF/SVG plotting.
 
 **Build & typecheck pass cleanly. The app runs.** But there are **critical gaps** that would block or embarrass a production deployment.
 

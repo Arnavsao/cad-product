@@ -3,7 +3,7 @@ export interface AppEnvironment {
   /** Product name shown in the shell and document titles. */
   appName: string;
   /**
-   * Base URL of the CADOnline API. Relative `/api/v1` in both dev (proxied by
+   * Base URL of the CADO API. Relative `/api/v1` in both dev (proxied by
    * `ng serve` via proxy.conf.json) and prod (nginx `location /api/`), so the
    * browser never makes a cross-origin request and CORS stays out of the picture.
    */

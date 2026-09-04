@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- The CADOnline mark on a rounded chip in the app's theme colour (#181c22),
+  <!-- The CADO mark on a rounded chip in the app's theme colour (#181c22),
        so the white tiles read on light and dark browser chrome alike. Tile
        geometry matches src/app/shared/ui/logo.component.ts. -->
   <rect width="100" height="100" rx="22" fill="#181c22"/>

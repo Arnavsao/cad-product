@@ -354,7 +354,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       const activeId = this.docManager.activeTabId;
       const doc = docs.find((d) => d.tabId === activeId);
       const name = doc?.file.name?.trim() || 'Drawing';
-      this.title.setTitle(`${name}${doc?.isDirty ? ' •' : ''} — CADOnline`);
+      this.title.setTitle(`${name}${doc?.isDirty ? ' •' : ''} — ${this.appName}`);
     });
 
     // Later `/editor/:id` changes (Save As rewrites the URL, the dashboard

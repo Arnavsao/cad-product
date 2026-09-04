@@ -86,7 +86,7 @@ export class MailService {
   async send(email: OutboundEmail): Promise<boolean> {
     // `LogMailTransport` needs a From to print; a real one would be rejected
     // without it, and MailModule only picks Resend when MAIL_FROM is present.
-    const from = this.from ?? 'CADOnline <no-reply@localhost>';
+    const from = this.from ?? 'CADO <no-reply@localhost>';
     try {
       await this.transport.send({ ...email, replyTo: email.replyTo ?? this.replyTo }, from);
       return true;

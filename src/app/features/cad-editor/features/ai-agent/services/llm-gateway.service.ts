@@ -686,7 +686,7 @@ export class LlmGatewayService {
       authHeader = {
         Authorization: `Bearer ${apiKey}`,
         'HTTP-Referer': 'https://cadonline.app',
-        'X-Title': 'CADOnline Assistant',
+        'X-Title': 'CADO Assistant',
       };
     }
 

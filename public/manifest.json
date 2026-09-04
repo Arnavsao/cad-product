@@ -1,12 +1,17 @@
 {
-  "name": "CADOnline",
-  "short_name": "CADOnline",
+  "name": "CADO",
+  "short_name": "CADO",
   "description": "Browser-based 2D CAD editor with DXF import/export, layouts, blocks, dimensions and an AI drafting assistant.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#181c22",
   "theme_color": "#181c22",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }

@@ -140,7 +140,7 @@ Run `npm run test:ci` for the current list.
 
 ## 1.1.0 — 2026-08-29
 
-CADOnline becomes a product rather than a standalone editor: accounts, cloud drawing storage and a file dashboard.
+CADO becomes a product rather than a standalone editor: accounts, cloud drawing storage and a file dashboard.
 
 ### Added
 * **Backend** (`server/`) — NestJS 11 + Prisma 7 + Postgres, S3-compatible object storage (MinIO in dev, R2/S3 in
