@@ -115,7 +115,7 @@ const PERSONAL = 'personal';
       .ws__chev { flex: 0 0 auto; color: var(--ui-text-dim); }
 
       /* Collapsed rail: the label and chevron go, the mark stays as the target. */
-      @media (max-width: 860px) {
+      @media (max-width: 600px) {
         .ws { justify-content: center; padding: 8px; }
         .ws__text, .ws__chev { display: none; }
       }

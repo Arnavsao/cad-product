@@ -368,10 +368,10 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
         display: inline-flex; align-items: center;
         padding: 2px 10px; border-radius: 999px;
         border: 1px solid var(--ui-border); background: var(--ui-surface-2);
-        font-size: 12px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
+        font-size: var(--ui-text-xs); font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
       }
       .st__plan-badge--paid { border-color: var(--ui-accent); color: var(--ui-accent); }
-      .st__plan-warn { font-size: 12px; color: var(--ui-warning, var(--ui-text-muted)); }
+      .st__plan-warn { font-size: var(--ui-text-sm); color: var(--ui-warning, var(--ui-text-muted)); }
       .st__actions { display: flex; gap: var(--ui-space-2); flex-wrap: wrap; }
       .st__section {
         padding: var(--ui-space-5) var(--ui-space-6);

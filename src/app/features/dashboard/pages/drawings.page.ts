@@ -181,7 +181,7 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
 
       @if (store.folders().length) {
         <h2 class="pg__subtitle">Folders</h2>
-        <div class="dw__folders" [class.dw__folders--list]="store.view() === 'list'">
+        <div class="dw__folders">
           @for (folder of store.folders(); track folder.id) {
             <app-folder-tile
               [folder]="folder"
@@ -294,7 +294,6 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
       @media (max-width: 560px) { .dw__table { --dw-cols: 36px 78px minmax(0, 1fr) 44px; } }
 
       .dw__folders { display: grid; gap: var(--ui-space-3); grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-      .dw__folders--list { grid-template-columns: 1fr; gap: 2px; }
 
       .dw__pager { margin-top: var(--ui-space-5); }
     `,

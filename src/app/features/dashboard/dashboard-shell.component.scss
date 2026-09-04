@@ -6,7 +6,11 @@
 .dash {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
-  grid-template-rows: 56px minmax(0, 1fr);
+  /* 48px, shared with the editor's `--cad-header-h` so the two shells read as
+     one product when you move between them. The row height IS the vertical
+     padding here -- the brand and top bars centre their contents in it and set
+     no y-padding of their own. */
+  grid-template-rows: 48px minmax(0, 1fr);
   height: 100vh;
   background: var(--ui-bg);
   color: var(--ui-text);

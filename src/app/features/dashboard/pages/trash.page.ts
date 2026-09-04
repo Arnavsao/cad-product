@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { WorkspaceService } from '../../../core/api/workspace.service';
@@ -60,7 +60,11 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
   ],
   template: `
     <header class="pg__head">
-      <h1 class="pg__title">Trash</h1>
+      @if (query()) {
+        <h1 class="pg__title">Results for "{{ query() }}" in Trash</h1>
+      } @else {
+        <h1 class="pg__title">Trash</h1>
+      }
       <div class="tr__head-end">
         @if (items().length) {
           <p class="tr__note">Deleted drawings stay here until you remove them permanently.</p>
@@ -85,6 +89,9 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
       </div>
     } @else if (!items().length) {
       <ui-empty-state icon="trash" heading="The trash is empty" description="Drawings you delete show up here first." />
+    } @else if (!filteredItems().length) {
+      <ui-empty-state icon="search" heading="No drawings match your search"
+        [description]="'Nothing in Trash matches &quot;' + query() + '&quot;.'" />
     } @else {
       @if (selection.any()) {
         <app-bulk-bar
@@ -109,7 +116,7 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
       </div>
 
       <ul class="tr__list">
-        @for (drawing of items(); track drawing.id) {
+        @for (drawing of filteredItems(); track drawing.id) {
           <li class="tr__row" [class.tr__row--selected]="selection.has(drawing.id)">
             <input
               type="checkbox"
@@ -196,6 +203,9 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
   ],
 })
 export class TrashPage {
+  /** From `?q=` — bound by `withComponentInputBinding()`. */
+  readonly q = input<string | undefined>('');
+
   private readonly api = inject(DrawingsApiService);
   private readonly workspace = inject(WorkspaceService);
   private readonly dialog = inject(UiDialogService);
@@ -216,6 +226,19 @@ export class TrashPage {
   protected readonly bulkActions = [...BULK_ACTIONS];
   protected readonly allSelected = computed(() => this.selection.allOf(this.items()));
 
+  /** Normalised query string from `?q=`. */
+  protected readonly query = computed(() => (this.q() ?? '').trim());
+
+  /**
+   * Client-side filter applied on top of the current page's items.
+   * Will be replaced by a server-side `q` param once the backend supports it.
+   */
+  protected readonly filteredItems = computed(() => {
+    const q = this.query().toLowerCase();
+    if (!q) return this.items();
+    return this.items().filter((d) => d.name.toLowerCase().includes(q));
+  });
+
   private generation = 0;
   /** Revision this page produced itself; reloading for it would only flash the list. */
   private ownRevision = -1;
@@ -223,8 +246,11 @@ export class TrashPage {
   constructor() {
     effect(() => {
       const revision = this.events.revision();
+      // Also re-run when the search query changes.
+      this.q();
       untracked(() => {
         if (revision === this.ownRevision) return;
+        this.page.set(1);
         void this.reload();
       });
     });
