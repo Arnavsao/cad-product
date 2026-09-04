@@ -1,0 +1,210 @@
+/* ---------------------------------------------------------------
+ * Blueprint — the CAD drafting motion primitives the public pages draw with.
+ *
+ * Global rather than per-component because the landing and features pages
+ * share every rule here, and because `@keyframes` and `@property` are
+ * document-scoped anyway: Angular's emulated encapsulation rewrites selectors,
+ * not at-rule names, so declaring these in two components would define the
+ * same global names twice.
+ *
+ * The whole file is progressive enhancement over a FINISHED drawing. Read the
+ * `.ui-ink` comment before changing any default: the failure mode of getting it
+ * backwards is a blank page, not a missing animation.
+ * --------------------------------------------------------------- */
+
+/* ── Scroll-drawn geometry ─────────────────────────────────────── */
+
+/*
+ * A stroke that draws itself as its sheet scrolls into view.
+ *
+ * The DEFAULT state is fully drawn. `stroke-dashoffset` at full length paints
+ * nothing at all, so a browser without scroll-driven animation (Firefox, at the
+ * time of writing) must not be given the hidden state -- it would blank the
+ * artwork rather than degrade it. The dash properties therefore live only
+ * inside the `@supports` block below.
+ *
+ * Every drawable path carries `pathLength="1"`, which normalises dash units
+ * against the path's own length. That is what lets one rule draw a 40px door
+ * arc and a 700px wall run at the same visual rate, with no per-path lengths
+ * in CSS and no JS measuring pass.
+ */
+/*
+ * The sheet: any block that frames drawn geometry. It publishes the named view
+ * timeline that every `.ui-ink` inside animates against, which is why the
+ * strokes themselves never declare `view()` — see the note in `.ui-ink`.
+ * Declaring it outside `@supports` is harmless: an unsupported property is
+ * simply dropped.
+ */
+.ui-sheet {
+  view-timeline-name: --ui-sheet;
+  view-timeline-axis: block;
+}
+
+.ui-ink {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Fades in with the sheet rather than drawing: hatch fills, snap markers. */
+.ui-fade { opacity: 1; }
+
+@supports (animation-timeline: view()) {
+  .ui-ink {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    /* `linear`, not --ui-ease-out: on a progress timeline the easing maps
+     * scroll position to completion, and anything but linear makes the ink lag
+     * the scrollbar. Easing belongs on time-based motion. */
+    animation: ui-draw linear both;
+    /*
+     * The timeline is declared on the HTML wrapper (`.ui-sheet`), never here.
+     * `view()` resolves against the element's own principal box, and SVG shapes
+     * do not reliably generate one -- so the paths borrow the wrapper's named
+     * view timeline, which is a plain block box that certainly does.
+     */
+    animation-timeline: --ui-sheet;
+    /*
+     * The drafting sequence (walls -> doors -> dimensions -> hatch) is staggered
+     * with animation-range, NOT animation-delay: `animation-delay` is a time
+     * offset and has no effect on a progress-based timeline. Each tier below
+     * simply claims a different slice of the scroll.
+     */
+    animation-range: var(--ui-ink-from, entry 12%) var(--ui-ink-to, cover 40%);
+  }
+
+  .ui-fade {
+    opacity: 0;
+    animation: ui-ink-in linear both;
+    animation-timeline: --ui-sheet;
+    animation-range: var(--ui-ink-from, cover 50%) var(--ui-ink-to, cover 68%);
+  }
+}
+
+/* The drafting sequence. Ranges overlap slightly so the drawing never stalls. */
+.ui-ink--walls  { --ui-ink-from: entry 14%;  --ui-ink-to: cover 34%; }
+.ui-ink--doors  { --ui-ink-from: cover 28%;  --ui-ink-to: cover 48%; }
+.ui-ink--dims   { --ui-ink-from: cover 44%;  --ui-ink-to: cover 64%; }
+.ui-ink--detail { --ui-ink-from: cover 58%;  --ui-ink-to: cover 78%; }
+
+@keyframes ui-draw   { to { stroke-dashoffset: 0; } }
+@keyframes ui-ink-in { to { opacity: 1; } }
+
+/* ── Snap markers ──────────────────────────────────────────────── */
+
+/*
+ * The editor's object snaps as ornament: square endpoint, triangle midpoint,
+ * circle centre. The pulse animates ONLY transform, so it can run alongside the
+ * scroll-driven opacity fade above without the two fighting over one property
+ * (the later animation would otherwise win and the marker would never fade in).
+ */
+.ui-snap {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ui-snap-pulse 2.6s var(--ui-ease-out) infinite;
+}
+
+@keyframes ui-snap-pulse {
+  0%, 100% { transform: scale(.82); }
+  50%      { transform: scale(1.08); }
+}
+
+/* ── Dimension values that count up as they draw ───────────────── */
+
+/*
+ * CSS cannot animate text, so the number is a counter fed by a registered
+ * custom property: `--ui-dim-n` animates as a real integer and `counter()`
+ * prints it. `--ui-dim-to` (set per dimension) is both the animation target and
+ * the static fallback, so a browser without scroll-driven animation shows the
+ * finished measurement instead of a zero.
+ */
+/*
+ * `inherits: true` is load-bearing, not a default left in place. The counter is
+ * printed by `::after`, which inherits its computed values from the element the
+ * animation runs on -- with `inherits: false` the pseudo-element falls back to
+ * `initial-value` and every measurement renders a flat 0.
+ */
+@property --ui-dim-n {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: true;
+}
+
+.ui-dim-val {
+  --ui-dim-n: var(--ui-dim-to, 0);
+
+  &::after {
+    counter-reset: ui-dim var(--ui-dim-n);
+    content: counter(ui-dim);
+  }
+}
+
+@supports (animation-timeline: view()) {
+  .ui-dim-val {
+    animation: ui-dim-count linear both;
+    animation-timeline: --ui-sheet;
+    animation-range: var(--ui-ink-from, cover 44%) var(--ui-ink-to, cover 64%);
+  }
+}
+
+@keyframes ui-dim-count {
+  from { --ui-dim-n: 0; }
+  to   { --ui-dim-n: var(--ui-dim-to, 0); }
+}
+
+/* ── Reveal on scroll ──────────────────────────────────────────── */
+
+/*
+ * Paired with `UiRevealDirective`, which adds `.is-in` once and never removes
+ * it -- content that has been read must not animate away again on scroll up.
+ */
+.ui-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity var(--ui-dur-slow) var(--ui-ease-out),
+    transform var(--ui-dur-slow) var(--ui-ease-out);
+  transition-delay: var(--ui-reveal-delay, 0ms);
+}
+
+.ui-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Reduced motion ────────────────────────────────────────────── */
+
+/*
+ * Every rule here lands on the FINISHED state, never a hidden one: the whole
+ * drawing, every measurement, every revealed block stays on the page, and only
+ * the movement goes. Matches the loader, route progress and skeletons.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ui-ink {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+
+  .ui-fade,
+  .ui-snap,
+  .ui-dim-val {
+    opacity: 1;
+    animation: none;
+  }
+
+  .ui-snap { transform: none; }
+
+  .ui-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  /* Router view transitions are the browser's own animation; opting out of
+   * motion has to opt out of those too. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

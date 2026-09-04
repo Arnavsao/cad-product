@@ -32,7 +32,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--ui-space-2);
-  height: 34px;
+  height: 36px;
   padding: 0 14px;
   border: 1px solid var(--_bd);
   border-radius: var(--ui-radius-md);
@@ -77,12 +77,12 @@
     &:hover:not(:disabled) { --_bd: var(--ui-danger); }
   }
 
-  &--sm { height: 28px; padding: 0 10px; font-size: var(--ui-text-sm); gap: 6px; }
-  &--lg { height: 42px; padding: 0 20px; font-size: var(--ui-text-base); border-radius: var(--ui-radius-lg); }
+  &--sm { height: 30px; padding: 0 10px; font-size: var(--ui-text-sm); gap: 6px; }
+  &--lg { height: 44px; padding: 0 20px; font-size: var(--ui-text-base); border-radius: var(--ui-radius-lg); }
 
-  &--icon { width: 34px; padding: 0; }
-  &--icon.ui-btn--sm { width: 28px; }
-  &--icon.ui-btn--lg { width: 42px; }
+  &--icon { width: 36px; padding: 0; }
+  &--icon.ui-btn--sm { width: 30px; }
+  &--icon.ui-btn--lg { width: 44px; }
 
   &--loading {
     pointer-events: none;
@@ -106,7 +106,7 @@
 /* styles.scss already gives `[uiInput]` the app-wide form baseline; these
  * refinements use a compound selector so they win regardless of file order. */
 [uiInput].ui-input {
-  height: 34px;
+  height: 36px;
   padding: 0 12px;
   border-radius: var(--ui-radius-md);
   font: 400 var(--ui-text-md) / 1.2 var(--ui-font);
