@@ -7,17 +7,6 @@
   </div>
 
   <header class="dash__top">
-    <div class="dash__search">
-      <ui-icon class="dash__search-icon" name="search" [size]="15" />
-      <input uiInput type="search" class="dash__search-input" placeholder="Search drawings" aria-label="Search drawings"
-        [value]="search()" (input)="onSearchInput($event)" (keydown.enter)="onSearchEnter()" />
-      @if (search()) {
-      <button type="button" uiButton variant="ghost" size="sm" iconOnly class="dash__search-clear"
-        aria-label="Clear search" (click)="clearSearch()">
-        <ui-icon name="close" [size]="14" />
-      </button>
-      }
-    </div>
     <div class="dash__actions">
       <a uiButton variant="ghost" size="sm" iconOnly class="dash__action" routerLink="/dashboard/settings"
         title="Settings" aria-label="Settings" [attr.aria-current]="section() === 'settings' ? 'page' : null">
@@ -48,14 +37,39 @@
     </div>
 
     <div class="dash__create">
-      <app-new-drawing-menu [folderId]="folderId()" (created)="onDrawingCreated()" />
-      <button type="button" uiButton class="dash__wide" (click)="pickFiles()">
-        <ui-icon name="upload" [size]="15" />
-        Upload…
-      </button>
-      <button type="button" uiButton class="dash__wide" [disabled]="creatingFolder()" (click)="newFolder()">
-        <ui-icon name="folder" [size]="15" />
-        New folder
+      <app-new-drawing-menu [folderId]="folderId()" mode="autocad" (created)="onDrawingCreated()" />
+
+      <div class="dash__split-btn">
+        <button
+          type="button"
+          class="dash__split-main"
+          (click)="pickFiles()"
+          title="Upload CAD drawings (.dxf, .dwg)"
+        >
+          <span class="dash__btn-mobile-icon"><ui-icon name="upload" [size]="16" /></span>
+          <span class="dash__btn-label">Upload…</span>
+        </button>
+        <button
+          type="button"
+          class="dash__split-caret"
+          aria-label="Upload options"
+          [uiMenuTrigger]="uploadMenu"
+          menuAlign="end"
+          (uiMenuSelect)="onUploadSelect($event.id)"
+        >
+          <ui-icon name="chevron-down" [size]="14" />
+        </button>
+      </div>
+
+      <button
+        type="button"
+        class="dash__action-btn"
+        [disabled]="creatingFolder()"
+        (click)="newFolder()"
+        title="New Folder"
+      >
+        <span class="dash__btn-mobile-icon"><ui-icon name="folder" [size]="16" /></span>
+        <span class="dash__btn-label">New Folder</span>
       </button>
     </div>
 
@@ -128,7 +142,22 @@
       the page: `--ui-page-max` has to be set on the same element that reads it,
       and custom properties do not inherit upwards from the routed component.
     -->
-    <div class="ui-page dash__page" [class.dash__page--wide]="wideSection()">
+    <div class="ui-page dash__page">
+      @if (searchSection()) {
+      <div class="dash__search">
+        <ui-icon class="dash__search-icon" name="search" [size]="15" />
+        <input uiInput type="search" class="dash__search-input"
+          [placeholder]="searchPlaceholder()"
+          [attr.aria-label]="searchPlaceholder()"
+          [value]="search()" (input)="onSearchInput($event)" (keydown.enter)="onSearchEnter()" />
+        @if (search()) {
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly class="dash__search-clear"
+          aria-label="Clear search" (click)="clearSearch()">
+          <ui-icon name="close" [size]="14" />
+        </button>
+        }
+      </div>
+      }
       <app-invitations-banner />
       <router-outlet />
     </div>
@@ -185,4 +214,6 @@
 
   <input #fileInput type="file" class="ui-visually-hidden" multiple tabindex="-1" aria-hidden="true"
     [accept]="uploadAccept" (change)="onFileInput($event)" />
+  <input #folderInput type="file" class="ui-visually-hidden" webkitdirectory tabindex="-1" aria-hidden="true"
+    (change)="onFileInput($event)" />
 </div>

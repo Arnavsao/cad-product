@@ -5,7 +5,7 @@
 
 .dash {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 290px minmax(0, 1fr);
   grid-template-rows: 56px minmax(0, 1fr);
   height: 100vh;
   background: var(--ui-bg);
@@ -97,22 +97,26 @@
     grid-column: 2;
     grid-row: 2;
     overflow-y: auto;
-    padding: var(--ui-space-6) clamp(16px, 3vw, 32px) var(--ui-space-12);
+    padding: var(--ui-space-6) clamp(16px, 3vw, 32px) var(--ui-space-8);
 
     &--over { outline: 2px dashed var(--ui-accent); outline-offset: -8px; }
   }
 
   /*
-   * The centred column every page renders into (see `.ui-page`). Forms get a
-   * readable measure; tables and tile grids take the full width — which is what
-   * removes the dead space on the right of a wide monitor without squeezing the
-   * file table into a narrow strip.
+   * The column every page renders into (see `.ui-page`).
+   *
+   * No max-width: every page fills the content area, so the padding on
+   * `&__content` is the only thing setting the side gutters and all pages line
+   * up with each other. The previous per-section caps (1080px, and 860px for
+   * the form pages) centred those pages inside the column instead, which left
+   * wide empty gutters on Settings and Personal info while Recent and My
+   * Drawings ran edge to edge — the same padding, but visibly different pages.
+   *
+   * Readable measure is a per-control concern, not a per-page one: a form that
+   * should not stretch puts `.ui-form-width` on its own field grid.
    */
   &__page {
-    --ui-page-max: 1080px;
-    min-height: 100%;
-
-    &--wide { --ui-page-max: none; }
+    --ui-page-max: none;
   }
 
   /* A flex child of `&__nav`, which already pads itself — no padding here. */
@@ -121,11 +125,11 @@
   }
 }
 
-/* ── top bar ─────────────────────────────────────────────────────── */
+/* ── in-content search bar ───────────────────────────────────────── */
 .dash__search {
   position: relative;
-  flex: 1;
-  max-width: 460px;
+  width: 100%;
+  margin-bottom: var(--ui-space-5);
 
   &-icon {
     position: absolute;
@@ -136,8 +140,9 @@
     pointer-events: none;
   }
   &-input {
-    padding-left: 32px !important;
-    padding-right: 34px !important;
+    width: 100%;
+    padding-left: 36px !important;
+    padding-right: 38px !important;
   }
   &-input::-webkit-search-cancel-button { display: none; }
   &-clear {
@@ -148,10 +153,126 @@
   }
 }
 
-/* ── left nav ────────────────────────────────────────────────────── */
+/* ── left nav (AutoCAD-style action buttons) ─────────────────────── */
 .dash__create {
   display: grid;
   gap: var(--ui-space-2);
+}
+
+.dash__split-btn {
+  display: flex;
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-raised);
+  transition: background var(--ui-dur-fast), border-color var(--ui-dur-fast);
+
+  &:hover {
+    background: var(--ui-hover);
+    border-color: var(--ui-border-strong);
+  }
+}
+
+.dash__split-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  color: var(--ui-text-strong);
+  font-family: var(--ui-font);
+  font-size: var(--ui-text-md);
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: pointer;
+  border-top-left-radius: calc(var(--ui-radius-sm) - 1px);
+  border-bottom-left-radius: calc(var(--ui-radius-sm) - 1px);
+  transition: background var(--ui-dur-fast);
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ui-accent);
+    outline-offset: -1px;
+  }
+  &:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+}
+
+.dash__split-caret {
+  width: 36px;
+  height: 100%;
+  padding: 0;
+  flex: 0 0 auto;
+  border: none;
+  border-left: 1px solid var(--ui-border);
+  background: transparent;
+  color: var(--ui-text-dim);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border-top-right-radius: calc(var(--ui-radius-sm) - 1px);
+  border-bottom-right-radius: calc(var(--ui-radius-sm) - 1px);
+  transition: color var(--ui-dur-fast), background var(--ui-dur-fast);
+
+  &:hover:not(:disabled) {
+    color: var(--ui-text-strong);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ui-accent);
+    outline-offset: -1px;
+  }
+  &:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+}
+
+.dash__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-raised);
+  color: var(--ui-text-strong);
+  font-family: var(--ui-font);
+  font-size: var(--ui-text-md);
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ui-dur-fast), border-color var(--ui-dur-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--ui-hover);
+    border-color: var(--ui-border-strong);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ui-accent);
+    outline-offset: -1px;
+  }
+  &:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+}
+
+.dash__btn-mobile-icon {
+  display: none;
 }
 
 .dash__wide {
@@ -319,8 +440,8 @@
   }
 }
 
-@media (max-width: 860px) {
-  .dash { grid-template-columns: 196px minmax(0, 1fr); }
+@media (max-width: 900px) {
+  .dash { grid-template-columns: 224px minmax(0, 1fr); }
   .dash__content { padding: var(--ui-space-4) var(--ui-space-4) var(--ui-space-10); }
   .dash__uploads { right: 12px; bottom: 12px; width: min(320px, calc(100vw - 24px)); }
 }
@@ -334,6 +455,11 @@
   /* Collapse the labelled buttons and links to their leading icon. */
   .dash__link,
   .dash__wide { justify-content: center; padding-left: 0; padding-right: 0; font-size: 0; gap: 0; }
+  .dash__btn-label,
+  .dash__split-caret { display: none; }
+  .dash__btn-mobile-icon { display: inline-flex; }
+  .dash__split-main,
+  .dash__action-btn { justify-content: center; padding: 0; border-radius: var(--ui-radius-sm); }
   /* The header actions are already icon-only; just tighten them. */
   .dash__top { gap: var(--ui-space-2); padding: 0 var(--ui-space-3); }
   .dash__actions { gap: 2px; }

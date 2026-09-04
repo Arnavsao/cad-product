@@ -14,8 +14,6 @@ import { UiInputDirective } from '../../shared/ui/input.directive';
 import { UiLogoComponent } from '../../shared/ui/logo.component';
 import type { UiMenuItem } from '../../shared/ui/menu/ui-menu.component';
 import { UiMenuTriggerDirective } from '../../shared/ui/menu/ui-menu-trigger.directive';
-import { FileSizePipe } from '../../shared/ui/pipes/file-size.pipe';
-import { UiSkeletonComponent } from '../../shared/ui/skeleton.component';
 import { InvitationsBannerComponent } from './components/invitations-banner.component';
 import { NewDrawingMenuComponent } from './components/new-drawing-menu.component';
 import { NewFolderDialogComponent, NewFolderDialogData } from './components/new-folder-dialog.component';
@@ -40,8 +38,8 @@ type DashboardSection =
 
 const SEARCH_DEBOUNCE_MS = 250;
 
-/** Sections that fill the content column rather than sitting at a form measure. */
-const WIDE_SECTIONS: ReadonlySet<DashboardSection> = new Set<DashboardSection>(['recent', 'drawings', 'shared', 'trash']);
+/** Sections that show the in-content search bar. */
+const SEARCH_SECTIONS: ReadonlySet<DashboardSection> = new Set<DashboardSection>(['recent', 'drawings', 'shared', 'trash']);
 
 /** Anything above this shows as "9+" so the badge cannot stretch the button. */
 const BADGE_CAP = 9;
@@ -92,8 +90,6 @@ const HELP_MENU: UiMenuItem[] = [
     UiInputDirective,
     UiLogoComponent,
     UiMenuTriggerDirective,
-    UiSkeletonComponent,
-    FileSizePipe,
     InvitationsBannerComponent,
     NewDrawingMenuComponent,
     UploadDropzoneDirective,
@@ -118,6 +114,12 @@ export class DashboardShellComponent {
   protected readonly uploadAccept = UPLOAD_ACCEPT;
 
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
+  private readonly folderInput = viewChild<ElementRef<HTMLInputElement>>('folderInput');
+
+  protected readonly uploadMenu: UiMenuItem[] = [
+    { id: 'files', label: 'Upload files…', icon: 'file' },
+    { id: 'folder', label: 'Upload folder…', icon: 'folder' },
+  ];
 
   /** Current URL, refreshed on every completed navigation. */
   private readonly url = toSignal(
@@ -150,11 +152,17 @@ export class DashboardShellComponent {
     return 'recent';
   });
 
-  /**
-   * Sections whose content is a table or tile grid, and should use the whole
-   * content width; the rest are forms and read better at a capped measure.
-   */
-  protected readonly wideSection = computed(() => WIDE_SECTIONS.has(this.section()));
+  /** Sections that show the in-content search bar above their content. */
+  protected readonly searchSection = computed(() => SEARCH_SECTIONS.has(this.section()));
+
+  /** Context-aware placeholder text for the search input. */
+  protected readonly searchPlaceholder = computed(() => {
+    switch (this.section()) {
+      case 'trash': return 'Search trash';
+      case 'shared': return 'Search shared drawings';
+      default: return 'Search drawings';
+    }
+  });
 
   protected readonly helpMenu = HELP_MENU;
 
@@ -230,10 +238,15 @@ export class DashboardShellComponent {
   private commitSearch(value: string): void {
     const q = value.trim() || null;
     this.pushedQuery = q ?? '';
-    const onBrowser = this.section() === 'drawings';
-    if (onBrowser) {
+    const section = this.section();
+    if (section === 'drawings' || section === 'shared') {
+      // Stay on the current page and filter in place.
       void this.router.navigate([], { queryParams: { q }, queryParamsHandling: 'merge' });
+    } else if (section === 'trash') {
+      // Keep the user in Trash — search only within trashed drawings.
+      void this.router.navigate(['/dashboard/trash'], { queryParams: { q } });
     } else if (q) {
+      // Recent, and any other section: go to My Drawings.
       void this.router.navigate(['/dashboard/drawings'], { queryParams: { q } });
     }
   }
@@ -275,6 +288,18 @@ export class DashboardShellComponent {
 
   protected pickFiles(): void {
     this.fileInput()?.nativeElement.click();
+  }
+
+  protected pickFolder(): void {
+    this.folderInput()?.nativeElement.click();
+  }
+
+  protected onUploadSelect(id: string): void {
+    if (id === 'folder') {
+      this.pickFolder();
+    } else {
+      this.pickFiles();
+    }
   }
 
   protected onFileInput(event: Event): void {
