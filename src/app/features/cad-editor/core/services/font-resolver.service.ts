@@ -23,16 +23,17 @@ export class FontResolverService {
    */
   private static readonly SHX_MAP: Record<string, string> = {
     // ── Simplex (mono-stroke, sans-serif feel) ──────────────────
-    'simplex':      'Arial',
-    'simplex.shx':  'Arial',
+    'simplex':      'Arial, Helvetica, sans-serif',
+    'simplex.shx':  'Arial, Helvetica, sans-serif',
     'txt':          'Consolas, "Courier New", monospace',
     'txt.shx':      'Consolas, "Courier New", monospace',
     'monotxt':      'Consolas, "Courier New", monospace',
     'monotxt.shx':  'Consolas, "Courier New", monospace',
 
-    // ── Roman (proportional serif feel) ─────────────────────────
-    'romans':       '"Times New Roman", Georgia, serif',
-    'romans.shx':   '"Times New Roman", Georgia, serif',
+    // ── Roman. romans (Roman Simplex) is a single-stroke sans face;
+    // romanc/romand/romant (complex/duplex/triplex) carry serifs. ────
+    'romans':       'Arial, Helvetica, sans-serif',
+    'romans.shx':   'Arial, Helvetica, sans-serif',
     'romanc':       '"Times New Roman", Georgia, serif',
     'romanc.shx':   '"Times New Roman", Georgia, serif',
     'romand':       '"Times New Roman", Georgia, serif',
@@ -41,12 +42,12 @@ export class FontResolverService {
     'romant.shx':   '"Times New Roman", Georgia, serif',
 
     // ── Gothic (sans-serif, heavier weight) ─────────────────────
-    'gothice':      'Arial',
-    'gothice.shx':  'Arial',
-    'gothicg':      'Arial',
-    'gothicg.shx':  'Arial',
-    'gothici':      'Arial',
-    'gothici.shx':  'Arial',
+    'gothice':      'Arial, Helvetica, sans-serif',
+    'gothice.shx':  'Arial, Helvetica, sans-serif',
+    'gothicg':      'Arial, Helvetica, sans-serif',
+    'gothicg.shx':  'Arial, Helvetica, sans-serif',
+    'gothici':      'Arial, Helvetica, sans-serif',
+    'gothici.shx':  'Arial, Helvetica, sans-serif',
 
     // ── Script / cursive ────────────────────────────────────────
     'scripts':      '"Segoe Script", "Comic Sans MS", cursive',
@@ -55,70 +56,158 @@ export class FontResolverService {
     'scriptc.shx':  '"Segoe Script", "Comic Sans MS", cursive',
 
     // ── Complex (detailed engineering) ──────────────────────────
-    'complex':      'Arial',
-    'complex.shx':  'Arial',
+    'complex':      'Arial, Helvetica, sans-serif',
+    'complex.shx':  'Arial, Helvetica, sans-serif',
 
     // ── Italic variants ─────────────────────────────────────────
-    'italict':      'Arial',
-    'italict.shx':  'Arial',
-    'italicc':      'Arial',
-    'italicc.shx':  'Arial',
+    'italict':      'Arial, Helvetica, sans-serif',
+    'italict.shx':  'Arial, Helvetica, sans-serif',
+    'italicc':      'Arial, Helvetica, sans-serif',
+    'italicc.shx':  'Arial, Helvetica, sans-serif',
 
     // ── ISO standard ────────────────────────────────────────────
-    'isocp':        'Arial',
-    'isocp.shx':    'Arial',
-    'isocp2':       'Arial',
-    'isocp2.shx':   'Arial',
-    'isocp3':       'Arial',
-    'isocp3.shx':   'Arial',
-    'isocpeur':     'Arial',
-    'isocpeur.shx': 'Arial',
-    'isoct':        'Arial',
-    'isoct.shx':    'Arial',
-    'isoct2':       'Arial',
-    'isoct2.shx':   'Arial',
-    'isoct3':       'Arial',
-    'isoct3.shx':   'Arial',
-    'isocteur':     'Arial',
-    'isocteur.shx': 'Arial',
+    'isocp':        'Arial, Helvetica, sans-serif',
+    'isocp.shx':    'Arial, Helvetica, sans-serif',
+    'isocp2':       'Arial, Helvetica, sans-serif',
+    'isocp2.shx':   'Arial, Helvetica, sans-serif',
+    'isocp3':       'Arial, Helvetica, sans-serif',
+    'isocp3.shx':   'Arial, Helvetica, sans-serif',
+    'isocpeur':     'Arial, Helvetica, sans-serif',
+    'isocpeur.shx': 'Arial, Helvetica, sans-serif',
+    'isoct':        'Arial, Helvetica, sans-serif',
+    'isoct.shx':    'Arial, Helvetica, sans-serif',
+    'isoct2':       'Arial, Helvetica, sans-serif',
+    'isoct2.shx':   'Arial, Helvetica, sans-serif',
+    'isoct3':       'Arial, Helvetica, sans-serif',
+    'isoct3.shx':   'Arial, Helvetica, sans-serif',
+    'isocteur':     'Arial, Helvetica, sans-serif',
+    'isocteur.shx': 'Arial, Helvetica, sans-serif',
 
     // ── CJK / special ──────────────────────────────────────────
-    'gbcbig':       '"Microsoft YaHei", "SimHei", sans-serif',
-    'gbcbig.shx':   '"Microsoft YaHei", "SimHei", sans-serif',
-    'bigfont':      '"Microsoft YaHei", "SimHei", sans-serif',
-    'bigfont.shx':  '"Microsoft YaHei", "SimHei", sans-serif',
+    'gbcbig':       '"Microsoft YaHei", "PingFang SC", SimHei, sans-serif',
+    'gbcbig.shx':   '"Microsoft YaHei", "PingFang SC", SimHei, sans-serif',
+    'bigfont':      '"Microsoft YaHei", "PingFang SC", SimHei, sans-serif',
+    'bigfont.shx':  '"Microsoft YaHei", "PingFang SC", SimHei, sans-serif',
   };
 
-  /** Default fallback when no SHX mapping exists. */
-  private static readonly FALLBACK = 'Arial';
+  /**
+   * TrueType **file name** → CSS family stack.
+   *
+   * The STYLE table stores a filename (group 3), not a family: `times.ttf`, not
+   * `Times New Roman`. Passing the filename through produces
+   * `ctx.font = '12px times.ttf'`, which is an unparseable shorthand — the
+   * canvas ignores the whole assignment and silently keeps whatever font was
+   * set last, so text renders in an arbitrary face at an arbitrary size and the
+   * layout cache stores those wrong metrics under a correct-looking key.
+   *
+   * Keys are normalised (lower case, extension stripped).
+   */
+  private static readonly TTF_MAP: Record<string, string> = {
+    'arial':          'Arial, Helvetica, sans-serif',
+    'arialbd':        'Arial, Helvetica, sans-serif',
+    'ariali':         'Arial, Helvetica, sans-serif',
+    'arialn':         '"Arial Narrow", Arial, Helvetica, sans-serif',
+    'arialnb':        '"Arial Narrow", Arial, Helvetica, sans-serif',
+    'ariblk':         '"Arial Black", Arial, sans-serif',
+    'times':          '"Times New Roman", Times, Georgia, serif',
+    'timesbd':        '"Times New Roman", Times, Georgia, serif',
+    'timesi':         '"Times New Roman", Times, Georgia, serif',
+    'cour':           '"Courier New", Courier, monospace',
+    'couri':          '"Courier New", Courier, monospace',
+    'consola':        'Consolas, "Courier New", monospace',
+    'verdana':        'Verdana, Geneva, sans-serif',
+    'tahoma':         'Tahoma, Geneva, sans-serif',
+    'georgia':        'Georgia, "Times New Roman", serif',
+    'calibri':        'Calibri, Candara, Arial, sans-serif',
+    'cambria':        'Cambria, Georgia, serif',
+    'segoeui':        '"Segoe UI", system-ui, sans-serif',
+    'trebuc':         '"Trebuchet MS", Tahoma, sans-serif',
+    'impact':         'Impact, Haettenschweiler, sans-serif',
+    'comic':          '"Comic Sans MS", cursive',
+    'romantic':       '"Times New Roman", Times, Georgia, serif',
+    'simsun':         'SimSun, "Songti SC", serif',
+    'simhei':         'SimHei, "Heiti SC", sans-serif',
+    'msyh':           '"Microsoft YaHei", "PingFang SC", sans-serif',
+  };
 
   /**
-   * Resolve a font name from a DXF style or entity to a CSS font-family string.
+   * Default fallback. A concrete stack ending in a CSS generic, so it resolves
+   * on every platform rather than depending on a Windows-only family being
+   * present.
+   */
+  private static readonly FALLBACK = 'Arial, Helvetica, sans-serif';
+
+  /**
+   * Resolve a DXF font reference to a CSS font-family string that
+   * `ctx.font` will actually accept.
    *
-   * Handles:
-   *  - SHX names with or without `.shx` extension
-   *  - TrueType font names passed through unchanged
-   *  - Null / undefined → fallback
+   * Accepts, in order of preference:
+   *  - SHX names, with or without the `.shx` extension
+   *  - TrueType **file** names (`arial.ttf`, `ARIALN.TTF`, `times.ttf`)
+   *  - TrueType **family** names already in CSS form (`Times New Roman`)
+   *  - MTEXT `\f` payloads, whose `|b0|i0|c0|p34` suffix is stripped
+   *
+   * Never returns a bare `.ttf` / `.shx` filename, and never returns a
+   * multi-word family unquoted.
    */
   static resolve(fontName: string | null | undefined): string {
     if (!fontName) return FontResolverService.FALLBACK;
 
-    const key = fontName.trim().toLowerCase();
+    // An MTEXT \f payload carries style flags after the family name.
+    const name = fontName.split('|')[0].trim();
+    if (!name) return FontResolverService.FALLBACK;
 
-    // Direct SHX lookup
-    const mapped = FontResolverService.SHX_MAP[key];
-    if (mapped) return mapped;
+    const key = name.toLowerCase();
 
-    // Try without .shx extension
-    const withoutExt = key.replace(/\.shx$/i, '');
-    const mappedNoExt = FontResolverService.SHX_MAP[withoutExt];
-    if (mappedNoExt) return mappedNoExt;
+    // SHX, with and without the extension.
+    const shx = FontResolverService.SHX_MAP[key]
+      ?? FontResolverService.SHX_MAP[key.replace(/\.shx$/i, '')];
+    if (shx) return shx;
 
-    // If it looks like an SHX name (contains .shx) but isn't in our map,
-    // fall back to Arial rather than passing a non-existent font family.
-    if (key.endsWith('.shx')) return FontResolverService.FALLBACK;
+    // TrueType/OpenType by file name.
+    const stem = key.replace(/\.(ttf|ttc|otf|fon)$/i, '');
+    const ttf = FontResolverService.TTF_MAP[stem];
+    if (ttf) return ttf;
 
-    // Otherwise assume it's a TrueType font name and pass through.
-    return fontName;
+    // A font file we have no mapping for: guess a generic from the stem rather
+    // than emitting a filename the canvas would reject outright.
+    if (key !== stem || key.endsWith('.shx')) {
+      return FontResolverService.familyFromUnknownFile(stem);
+    }
+
+    // Already a family name — quote it if it needs quoting, and give it a
+    // generic to fall back on.
+    return FontResolverService.toCssFamily(name);
+  }
+
+  /**
+   * Last-ditch mapping for an unrecognised font file: infer a serif/mono/script
+   * intent from the stem so the drawing at least keeps the right texture.
+   */
+  private static familyFromUnknownFile(stem: string): string {
+    if (/(times|roman|serif|book|garamond|georgia|minion|cambria)/.test(stem)) {
+      return '"Times New Roman", Times, Georgia, serif';
+    }
+    if (/(cour|mono|consol|typewriter)/.test(stem)) {
+      return '"Courier New", Courier, monospace';
+    }
+    if (/(script|brush|hand|comic)/.test(stem)) {
+      return '"Segoe Script", "Brush Script MT", cursive';
+    }
+    return FontResolverService.FALLBACK;
+  }
+
+  /** Wraps a family name for CSS and appends a generic fallback. */
+  private static toCssFamily(name: string): string {
+    // Leave anything that already looks like a stack (commas/quotes) alone.
+    if (name.includes(',') || name.includes('"') || name.includes("'")) return name;
+
+    const generic = /(times|roman|serif|georgia|garamond|book)/i.test(name) ? 'serif'
+      : /(courier|mono|consol)/i.test(name) ? 'monospace'
+      : /(script|brush|hand)/i.test(name) ? 'cursive'
+      : 'sans-serif';
+
+    const quoted = /^[A-Za-z][A-Za-z0-9-]*$/.test(name) ? name : `"${name}"`;
+    return `${quoted}, ${generic}`;
   }
 }

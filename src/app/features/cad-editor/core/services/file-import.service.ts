@@ -5,6 +5,7 @@ import { ViewModelService } from './view-model.service';
 import { DxfImportService } from './dxf-import.service';
 import { ToolManagerService } from './tool-manager.service';
 import { ImageTool } from '../../tools/draw/image-tool';
+import { decodeDxfBytes } from '../utils/dxf-text-decoder';
 
 @Injectable({ providedIn: 'root' })
 export class FileImportService {
@@ -53,7 +54,10 @@ export class FileImportService {
   private _importDxf(file: File): void {
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      const text = ev.target?.result as string;
+      // Decode via the file's declared code page — pre-R2007 DXF is not UTF-8,
+      // and reading it as such turns every ° and ± into U+FFFD.
+      const bytes = ev.target?.result as ArrayBuffer | null;
+      const text = bytes ? decodeDxfBytes(bytes) : '';
       if (text) {
         try {
           await this.dxfImport.loadDxfDataAsync(text, file.name);
@@ -69,7 +73,7 @@ export class FileImportService {
     reader.onerror = () => {
       console.error(`Failed to read DXF file: ${file.name}`);
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   }
 
   private async _processNextImage(): Promise<void> {

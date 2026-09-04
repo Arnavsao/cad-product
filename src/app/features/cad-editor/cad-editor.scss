@@ -44,10 +44,10 @@
   --cad-select-color: var(--color-primary, #499bea);
   --cad-grip-color: var(--color-green, #4caf50);
 
-  --cad-header-h: 36px;
+  --cad-header-h: 48px;
   --cad-doc-tabs-h: 22px;
   --cad-toolbar-h: 68px;
-  --cad-sidebar-w: 56px;
+  --cad-sidebar-w: 62px;
   --cad-bottom-h: 30px;
   --cad-status-h: 26px;
 
@@ -162,14 +162,15 @@
         object-fit: contain;
       }
 
-      /* Mirrors the dashboard shell's `.brand__mark`, scaled from 28px to 22px so
-         it clears the 36px editor header. Uses the editor's own accent tokens so
-         it follows the CAD light/dark themes rather than the dashboard palette. */
+      /* The dashboard shell's `.brand__mark` at the same 28px: both headers are
+         48px, so there is no longer a reason for the editor's mark to be the
+         smaller of the two. Uses the editor's own accent tokens so it follows
+         the CAD light/dark themes rather than the dashboard palette. */
       .hdr-logo-mark {
         display: grid;
         place-items: center;
-        width: 22px;
-        height: 22px;
+        width: 28px;
+        height: 28px;
         border-radius: var(--cad-radius-md);
         background: var(--cad-accent);
         color: var(--cad-text-on-accent);
@@ -502,9 +503,13 @@
     border-right: 1px solid var(--cad-border);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 6px 0;
-    gap: 2px;
+    /* `stretch`, not `center`: the buttons fill the padded box, so the rail's
+       horizontal padding is what sets the gutter and the hover/active surface
+       lines up with it. A fixed button width would leave the padding decorative
+       and the surface floating. */
+    align-items: stretch;
+    padding: 8px 6px;
+    gap: 4px;
     z-index: 150;
 
     .sidebar-spacer {
@@ -512,28 +517,41 @@
     }
 
     .sb-btn {
-      width: 50px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 8px 0 6px;
-      border-radius: var(--cad-radius-sm);
+      justify-content: center;
+      gap: 5px;
+      /* Symmetric vertically; no horizontal padding, because the labels are
+         what set the rail's width. "AI Agent" renders 44.5px at 10px Inter and
+         "Settings" 43.8px, so the 50px button box leaves each ~5px of air —
+         any inner padding put the longest label back over the edge. */
+      padding: 9px 0;
+      border-radius: var(--cad-radius-md);
       border: none;
       background: transparent;
       color: var(--cad-text-dim);
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
-      gap: 3px;
 
       .sb-icon {
-        font-size: 22px;
-        line-height: 1;
+        /* A sized box, not `font-size`: the glyph is an inline 18x18 SVG, so
+           font-size only inflated the line box around it and the icon sat off
+           its own centre. */
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
       }
 
       .sb-label {
         font-size: 10px;
         font-family: var(--cad-font-ui);
         letter-spacing: 0.2px;
+        line-height: 1;
+        /* "AI Agent" is the longest label and the only one at risk of wrapping;
+           a second line would break the rail's vertical rhythm. */
+        white-space: nowrap;
       }
 
       &:hover {
@@ -544,6 +562,13 @@
       &.active {
         background: var(--cad-bg-active);
         color: var(--cad-accent);
+      }
+
+      /* Inset, unlike the editor's usual `outline-offset: 3px`: a 6px gutter
+         would clip an outset ring against the rail's border. */
+      &:focus-visible {
+        outline: 2px solid var(--cad-accent);
+        outline-offset: -2px;
       }
     }
   }

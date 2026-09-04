@@ -280,9 +280,11 @@ export function dxfEdgeLoopToFrozen(edges: any[]): IFrozenEdge[] {
   for (const edge of edges) {
     if (!edge) continue;
     if (edge.type === 'ARC' && edge.center && typeof edge.radius === 'number') {
-      const a0 = edge.startAngle ?? 0;
-      const a1 = edge.endAngle ?? Math.PI * 2;
       const ccw = edge.isCcw !== false;
+      // AutoCAD stores a clockwise edge's angles mirrored (negated); taken at
+      // face value a 60° sliver sweeps the other 300° and fills the drawing.
+      const a0 = ccw ? (edge.startAngle ?? 0) : -(edge.startAngle ?? 0);
+      const a1 = ccw ? (edge.endAngle ?? Math.PI * 2) : -(edge.endAngle ?? Math.PI * 2);
       frozen.push({
         kind: 'ARC',
         p0: { x: edge.center.x + edge.radius * Math.cos(a0), y: edge.center.y + edge.radius * Math.sin(a0) },
@@ -295,9 +297,19 @@ export function dxfEdgeLoopToFrozen(edges: any[]): IFrozenEdge[] {
       const rx = Math.hypot(ma.x, ma.y);
       const ry = rx * (edge.axisRatio ?? 1);
       const rot = Math.atan2(ma.y, ma.x);
-      const a0 = edge.startAngle ?? 0;
-      const a1 = edge.endAngle ?? Math.PI * 2;
       const ccw = edge.isCcw !== false;
+      // Hatch ellipse edges store *true* angles measured from the major axis,
+      // not the parametric angles the ellipse equation wants — and, as with
+      // arcs, a clockwise edge's angles arrive mirrored. Convert both here so
+      // `at()` and the renderers can treat a0/a1 as parameters.
+      const toParam = (trueAngle: number) => Math.atan2(rx * Math.sin(trueAngle), ry * Math.cos(trueAngle));
+      const sgn = ccw ? 1 : -1;
+      const t0 = edge.startAngle ?? 0;
+      const t1 = edge.endAngle ?? Math.PI * 2;
+      const a0 = toParam(sgn * t0);
+      // A full ellipse (0 → 360) would collapse to a zero sweep through atan2;
+      // keep it whole.
+      const a1 = Math.abs(t1 - t0) >= Math.PI * 2 - 1e-9 ? a0 + sgn * Math.PI * 2 : toParam(sgn * t1);
       const cos = Math.cos(rot), sin = Math.sin(rot);
       const at = (a: number) => {
         const lx = rx * Math.cos(a), ly = ry * Math.sin(a);

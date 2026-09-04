@@ -888,11 +888,83 @@ export class PolylineEntity extends Entity {
   globalWidth?: number;
   /** DXF-style per-vertex bulge values (bulges[i] is the bulge for segment pts[i] → pts[i+1]). */
   bulges?: number[];
+  /**
+   * DXF segment widths (groups 40/41): widths[i] applies to segment
+   * pts[i] → pts[i+1], tapering from `start` to `end`. Absent or all-zero means
+   * a hairline stroked at the entity's lineweight.
+   */
+  widths?: Array<{ start: number; end: number }>;
 
   constructor(pts: IPoint[], closed = false) {
     super('POLYLINE');
     this.pts = pts;
     this.closed = closed;
+  }
+
+  /** True when any segment carries a DXF width and must be drawn as a filled band. */
+  get hasWidth(): boolean {
+    return !!this.widths?.some((w) => w && (w.start > 0 || w.end > 0));
+  }
+
+  /**
+   * Draws segments that carry DXF widths as filled bands.
+   *
+   * A straight segment becomes a quadrilateral tapering between its two
+   * widths — so a 0 → w → 0 pair of segments is a filled arrowhead, exactly as
+   * AutoCAD draws it. Bulged segments are stroked at their mean width, which is
+   * indistinguishable at drawing scale and avoids offsetting an arc.
+   */
+  private _drawWide(ctx: CanvasRenderingContext2D, vm: ViewModelLike, doc: DocLike, byBlockColor: string | null): void {
+    this.setupContext(ctx, vm, doc, byBlockColor);
+    ctx.setLineDash([]);
+    const hairline = ctx.lineWidth;
+    const n = this.pts.length;
+    const segCount = this.closed ? n : n - 1;
+    const scale = vm.cumulativeScale ?? vm.scale;
+
+    for (let i = 0; i < segCount; i++) {
+      const j = (i + 1) % n;
+      const w = this.widths?.[i] ?? { start: 0, end: 0 };
+      const bulge = this.bulges?.[i] ?? 0;
+      const a = vm.w2s(this.pts[i].x, this.pts[i].y);
+      const b = vm.w2s(this.pts[j].x, this.pts[j].y);
+
+      if (Math.abs(bulge) > 1e-9) {
+        const g = arcGeomFromBulge(this.pts[i], this.pts[j], bulge);
+        ctx.beginPath();
+        if (g) {
+          const cS = vm.w2s(g.cx, g.cy);
+          const sS = vm.w2s(g.cx + g.r * Math.cos(g.startA), g.cy + g.r * Math.sin(g.startA));
+          ctx.arc(cS.x, cS.y, Math.hypot(sS.x - cS.x, sS.y - cS.y), -g.startA, -g.endA, g.ccw);
+        } else {
+          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        }
+        ctx.lineWidth = Math.max(hairline, ((w.start + w.end) / 2) * scale);
+        ctx.stroke();
+        continue;
+      }
+
+      if (w.start <= 0 && w.end <= 0) {
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        ctx.lineWidth = hairline;
+        ctx.stroke();
+        continue;
+      }
+
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-9) continue;
+      const nx = -dy / len, ny = dx / len;
+      const hs = (w.start * scale) / 2, he = (w.end * scale) / 2;
+      ctx.beginPath();
+      ctx.moveTo(a.x + nx * hs, a.y + ny * hs);
+      ctx.lineTo(b.x + nx * he, b.y + ny * he);
+      ctx.lineTo(b.x - nx * he, b.y - ny * he);
+      ctx.lineTo(a.x - nx * hs, a.y - ny * hs);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 
   get length(): number {
@@ -918,6 +990,7 @@ export class PolylineEntity extends Entity {
 
   override draw(ctx: CanvasRenderingContext2D, vm: ViewModelLike, doc: DocLike, byBlockColor: string | null = null): void {
     if (this.pts.length < 2) return;
+    if (this.hasWidth) { this._drawWide(ctx, vm, doc, byBlockColor); return; }
     ctx.beginPath();
     const p0 = vm.w2s(this.pts[0].x, this.pts[0].y);
     ctx.moveTo(p0.x, p0.y);

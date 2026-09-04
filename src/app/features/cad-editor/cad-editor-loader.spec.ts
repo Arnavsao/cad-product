@@ -27,6 +27,9 @@ describe('cad-editor full-page loader styles', () => {
     }
   `;
 
+  /** Mirrors `--cad-header-h` in cad-editor.scss. */
+  const HEADER_H = 48;
+
   beforeEach(() => {
     style = document.createElement('style');
     style.textContent = RULES;
@@ -36,7 +39,7 @@ describe('cad-editor full-page loader styles', () => {
     // Reproduce the editor shell: a fixed grid whose rows are sized like the real one.
     host.style.cssText =
       'position: fixed; inset: 0; display: grid; ' +
-      'grid-template-rows: 36px auto 22px minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);';
+      `grid-template-rows: ${HEADER_H}px auto 22px minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);`;
     host.innerHTML =
       `<div class="${CLASS}"><div class="mark"></div></div>` +
       `<header data-role="header" style="background:#111"></header>` +
@@ -59,9 +62,9 @@ describe('cad-editor full-page loader styles', () => {
   it('leaves the header in the first row rather than displacing it', () => {
     const header = host.querySelector<HTMLElement>('[data-role="header"]')!;
     const rect = header.getBoundingClientRect();
-    // Row 1 is 36px tall and starts at the top of the shell.
+    // Row 1 is HEADER_H tall and starts at the top of the shell.
     expect(rect.top).toBeCloseTo(host.getBoundingClientRect().top, 0);
-    expect(Math.round(rect.height)).toBe(36);
+    expect(Math.round(rect.height)).toBe(HEADER_H);
   });
 
   it('covers the whole editor shell so the half-built UI is hidden behind it', () => {
@@ -85,7 +88,7 @@ describe('cad-editor full-page loader styles', () => {
 
     const header = host.querySelector<HTMLElement>('[data-role="header"]')!;
     expect(Math.round(header.getBoundingClientRect().height))
-      .withContext('header gets pushed out of the 36px row')
-      .not.toBe(36);
+      .withContext('header gets pushed out of the header row')
+      .not.toBe(HEADER_H);
   });
 });

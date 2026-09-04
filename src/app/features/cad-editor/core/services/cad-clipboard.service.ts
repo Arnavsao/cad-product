@@ -479,7 +479,9 @@ export class CadClipboardService {
     const names = new Set<string>();
     for (const e of entities) {
       if ((e as any).type === 'DIMENSION') {
-        const sn: string = (e as any).dimStyleName ?? '';
+        // The field is `styleName`; `dimStyleName` never existed, so dimension
+        // styles were silently dropped from every copy.
+        const sn: string = (e as any).styleName ?? '';
         if (sn) names.add(sn);
       }
     }

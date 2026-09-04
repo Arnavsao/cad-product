@@ -1,3 +1,4 @@
+import { splitTextLines } from './text-control-codes';
 export interface IGlyphPosition {
   char: string;
   charIndex: number; // Index in the original string (including newlines)
@@ -89,7 +90,7 @@ export class TextLayoutEngine {
     const wf = Math.abs(opts.widthFactor) || 1;
     const finalScaleX = scale * wf;
 
-    const linesRaw = (opts.text || '').split(/\\P|\n/);
+    const linesRaw = splitTextLines(opts.text || '');
     const lineDy = worldHeight * opts.lineSpacing;
     const horiz = (opts.justify[1] || 'L') as 'L' | 'C' | 'R';
     const vert = (opts.justify[0] || 'T') as 'T' | 'M' | 'B';
@@ -188,14 +189,15 @@ export class TextLayoutEngine {
         totalW += Math.max(0, text.length - 1) * opts.charSpacing;
       }
 
+      // The entity's (x, y) is the *attachment point*, wrapped or not: for a
+      // centred justify it is the middle of the reference box, for a right
+      // justify its right edge. The wrapped case used to treat it as the box's
+      // left edge instead, which pushed every centred MTEXT half a box-width to
+      // the right — title-block cells overlapping their neighbours, a table
+      // caption hanging off the table's right edge.
       let lineStartX = lineData.indentOffset;
-      if (opts.autoWrap && opts.mtextWidth! > 0) {
-        if (horiz === 'C') lineStartX += (opts.mtextWidth! / 2) - (totalW / 2) - (lineData.indentOffset / 2);
-        else if (horiz === 'R') lineStartX += opts.mtextWidth! - totalW - lineData.indentOffset;
-      } else {
-        if (horiz === 'C') lineStartX += -totalW / 2;
-        else if (horiz === 'R') lineStartX += -totalW;
-      }
+      if (horiz === 'C') lineStartX += -totalW / 2 - (opts.autoWrap && opts.mtextWidth! > 0 ? lineData.indentOffset / 2 : 0);
+      else if (horiz === 'R') lineStartX += -totalW - (opts.autoWrap && opts.mtextWidth! > 0 ? lineData.indentOffset : 0);
 
       for (let j = 0; j < text.length; j++) {
         const char = text[j];
@@ -242,8 +244,11 @@ export class TextLayoutEngine {
     }
 
     if (opts.autoWrap && opts.mtextWidth! > 0) {
-      minLocalX = Math.min(minLocalX, 0);
-      maxLocalX = Math.max(maxLocalX, opts.mtextWidth!);
+      // The reference box sits around the attachment point per the justify.
+      const w = opts.mtextWidth!;
+      const boxMin = horiz === 'C' ? -w / 2 : horiz === 'R' ? -w : 0;
+      minLocalX = Math.min(minLocalX, boxMin);
+      maxLocalX = Math.max(maxLocalX, boxMin + w);
     }
 
     const localBounds = { minX: minLocalX, minY: minLocalY, maxX: maxLocalX, maxY: maxLocalY };

@@ -11,6 +11,8 @@ import {
 import type { Entity } from '../models/entity.model';
 import { catmullRomChain } from '../models/entity-extended.model';
 import { TextLayoutEngine } from '../utils/text-layout-engine';
+import { decodeTextCodes, splitDimensionText } from '../utils/text-control-codes';
+import { DEFAULT_DIM_STYLE } from '../models/dimension-style.model';
 import { HATCH_PATTERNS } from '../registries/hatch-patterns';
 import { frozenLoopToPolygon } from '../models/hatch-boundary.model';
 
@@ -890,21 +892,34 @@ export class PdfExportService {
       this.drawArrowPdf(pdf, mDimP2, -sux, -suy, arrowMm);
     }
 
-    // Measurement text
+    // ── Measurement text ─────────────────────────────────────────────────────
+    // Mirrors DimensionEntity.draw(): DIMLFAC scales the measurement, the
+    // style's precision governs the decimals, and `%%` codes are decoded. The
+    // old `len.toFixed(2)` ignored all three, so a PDF could disagree with what
+    // was on screen.
+    const measured = typeof e.formatMeasurement === 'function'
+      ? e.formatMeasurement(this.doc.activeFile?.dimStyles?.get(e.styleName) ?? DEFAULT_DIM_STYLE)
+      : len.toFixed(2);
     let text: string;
     if (typeof e.textOverride === 'string' && e.textOverride.length > 0) {
       text = e.textOverride;
       // Replace <> placeholder with measured value
       if (text.indexOf('<>') >= 0) {
-        text = text.split('<>').join(len.toFixed(2));
+        text = text.split('<>').join(measured);
       }
     } else {
-      text = len.toFixed(2);
+      text = measured;
     }
+    // `\X` stacks text above/below the line; jsPDF draws one string, so join.
+    const [pdfAbove, pdfBelow] = splitDimensionText(decodeTextCodes(text).text);
+    text = pdfBelow == null ? pdfAbove : `${pdfAbove} ${pdfBelow}`;
 
-    // Text position: midpoint of dim line, offset perpendicular
+    // Text position: AutoCAD's stored position when the file gave one,
+    // otherwise the midpoint of the dim line offset perpendicular.
     const midDimWorld = { x: (dimP1.x + dimP2.x) / 2, y: (dimP1.y + dimP2.y) / 2 };
-    const textPosWorld = { x: midDimWorld.x + textOffset * ex, y: midDimWorld.y + textOffset * ey };
+    const textPosWorld = e.textPoint
+      ? { x: e.textPoint.x, y: e.textPoint.y }
+      : { x: midDimWorld.x + textOffset * ex, y: midDimWorld.y + textOffset * ey };
     const mTextPos = w2mm(textPosWorld.x, textPosWorld.y);
 
     // Dimension text height → mm, clamped to readable floor.

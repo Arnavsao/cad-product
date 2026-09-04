@@ -67,7 +67,16 @@ export class DxfFile {
   /** Dimension styles available in this drawing. Keyed by style name. */
   dimStyles: Map<string, DimensionStyle> = createDefaultDimStyles();
   /** Text styles from the DXF STYLE table. Keyed by style name. */
-  textStyles: Map<string, { font?: string; widthFactor?: number; obliqueAngle?: number }> = new Map();
+  textStyles: Map<string, {
+    /** Group 3 — primary font file, e.g. `arial.ttf` or `romans.shx`. */
+    font?: string;
+    widthFactor?: number;
+    obliqueAngle?: number;
+    /** Group 40 — fixed height. 0 means each entity carries its own. */
+    fixedHeight?: number;
+    /** Group 4 — bigfont file (CJK). */
+    bigFont?: string;
+  }> = new Map();
   /** Style name used for newly-created dimensions. Defaults to "Standard". */
   activeDimStyleName = 'Standard';
   entities: Entity[] = [];

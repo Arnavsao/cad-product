@@ -6,6 +6,7 @@ import { HATCH_PATTERNS } from '../registries/hatch-patterns';
 import { DocumentService } from './document.service';
 import { translateEntitiesInPlace } from '../../tools/geometry-utils';
 import { attDefToDxf, attribToDxf } from '../models/block-attribute.model';
+import { decodeMtext, decodeTextCodes } from '../utils/text-control-codes';
 
 /**
  * Port of DXF export functions from 60-export-command-line.js.
@@ -62,18 +63,34 @@ export class ExportService {
       case 'POLYLINE': {
         const closed = ent.closed ? 1 : 0;
         s = `${header('LWPOLYLINE')}90\n${ent.pts.length}\n70\n${closed}\n`;
-        for (const p of ent.pts) s += `10\n${p.x}\n20\n${p.y}\n`;
+        // Per-vertex widths (40/41) and bulge (42) ride along with each point so
+        // arrowheads and arcs survive a save instead of flattening to hairlines.
+        ent.pts.forEach((p: IPoint, i: number) => {
+          s += `10\n${p.x}\n20\n${p.y}\n`;
+          const w = ent.widths?.[i];
+          if (w && (w.start > 0 || w.end > 0)) s += `40\n${w.start}\n41\n${w.end}\n`;
+          const bulge = ent.bulges?.[i] ?? 0;
+          if (bulge) s += `42\n${bulge}\n`;
+        });
         break;
       }
       case 'TEXT': {
         const h = ent.height || 2.5;
         const justify = typeof ent.justify === 'string' ? ent.justify : 'BL';
-        
+        // Write back the source string when the import decoded control codes
+        // out of it, so `%%UHALF ELEVATION` survives a round-trip instead of
+        // being flattened to plain text with the underline silently dropped.
+        const body = this._sourceTextFor(ent);
+        // Group 7 — the STYLE table entry, without which a reader has no way to
+        // recover the font.
+        const styleStr = ent.styleName ? `7\n${ent.styleName}\n` : '';
+
         if (ent.isMText) {
+          // Group 50 on MTEXT is radians per the spec, unlike TEXT's degrees.
           const rot = ent.rotation || 0;
           const attachMap: Record<string, number> = { TL: 1, TC: 2, TR: 3, ML: 4, MC: 5, MR: 6, BL: 7, BC: 8, BR: 9 };
           const attach = attachMap[justify] || 7;
-          s = `${header('MTEXT')}100\nAcDbMText\n10\n${ent.x}\n20\n${ent.y}\n30\n0.0\n40\n${h}\n41\n${ent.mtextWidth || 0}\n71\n${attach}\n72\n1\n1\n${ent.text}\n50\n${rot}\n`;
+          s = `${header('MTEXT')}100\nAcDbMText\n10\n${ent.x}\n20\n${ent.y}\n30\n0.0\n40\n${h}\n41\n${ent.mtextWidth || 0}\n71\n${attach}\n72\n1\n1\n${body}\n${styleStr}50\n${rot}\n`;
         } else {
           const rot = (ent.rotation || 0) * (180 / Math.PI);
           const halign = justify[1] === 'R' ? 2 : justify[1] === 'C' ? 1 : 0;
@@ -81,7 +98,9 @@ export class ExportService {
           const alignPoint = halign !== 0 || valign !== 0
             ? `11\n${ent.x}\n21\n${ent.y}\n31\n0.0\n`
             : '';
-          s = `${header('TEXT')}10\n${ent.x}\n20\n${ent.y}\n30\n0.0\n40\n${h}\n1\n${ent.text}\n50\n${rot}\n72\n${halign}\n73\n${valign}\n${alignPoint}`;
+          const widthStr = ent.widthFactor && ent.widthFactor !== 1 ? `41\n${ent.widthFactor}\n` : '';
+          const obliqueStr = ent.obliqueAngle ? `51\n${ent.obliqueAngle * 180 / Math.PI}\n` : '';
+          s = `${header('TEXT')}10\n${ent.x}\n20\n${ent.y}\n30\n0.0\n40\n${h}\n1\n${body}\n${styleStr}${widthStr}50\n${rot}\n${obliqueStr}72\n${halign}\n73\n${valign}\n${alignPoint}`;
         }
         break;
       }
@@ -168,14 +187,28 @@ export class ExportService {
           const textMidY = dim.textPoint?.y ?? dim.overrideCenter.y;
           s = `${header('DIMENSION')}100\nAcDbDimension\n2\n*D0\n10\n${dim.overrideCenter.x}\n20\n${dim.overrideCenter.y}\n30\n0.0\n11\n${textMidX}\n21\n${textMidY}\n31\n0.0\n70\n36\n1\n${text}\n3\n${dim.styleName || 'Standard'}\n${rotStr}100\nAcDbRadialDimensionLarge\n15\n${dim.arcPoint.x}\n25\n${dim.arcPoint.y}\n35\n0.0\n13\n${dim.trueCenter.x}\n23\n${dim.trueCenter.y}\n33\n0.0\n14\n${dim.jogPoint.x}\n24\n${dim.jogPoint.y}\n34\n0.0\n`;
         } else {
-          // Aligned Dimension
-          const textMidX = (dim.p1.x + dim.p2.x) / 2;
-          const textMidY = (dim.p1.y + dim.p2.y) / 2;
+          // Linear / aligned dimension.
+          // Group 11 is where the text actually sits. Emitting the bare
+          // midpoint of p1-p2 instead would discard the placement on every
+          // save — including the placement the file was imported with.
+          const textMidX = dim.textPoint?.x ?? (dim.p1.x + dim.p2.x) / 2;
+          const textMidY = dim.textPoint?.y ?? (dim.p1.y + dim.p2.y) / 2;
           const dlpX = dim.dimLinePoint?.x || 0;
           const dlpY = dim.dimLinePoint?.y || 0;
-          // 70 = 32 (Aligned dimension)
-          s = `${header('DIMENSION')}100\nAcDbDimension\n2\n*D0\n10\n${dlpX}\n20\n${dlpY}\n30\n0.0\n11\n${textMidX}\n21\n${textMidY}\n31\n0.0\n70\n32\n1\n${text}\n3\n${dim.styleName || 'Standard'}\n${rotStr}100\nAcDbAlignedDimension\n13\n${dim.p1.x}\n23\n${dim.p1.y}\n33\n0.0\n14\n${dim.p2.x}\n24\n${dim.p2.y}\n34\n0.0\n`;
+          // A non-null rotation means a rotated linear dimension: base type 0,
+          // with its measurement axis in group 50 and the AcDbRotatedDimension
+          // subclass after AcDbAlignedDimension. A null rotation is aligned,
+          // base type 1. Bit 32 additionally marks group 11 as authoritative.
+          const isRotated = typeof dim.rotation === 'number';
+          const flags = (isRotated ? 0 : 1) | (dim.textPoint ? 32 : 0);
+          const rotatedTail = isRotated
+            ? `50\n${dim.rotation * 180 / Math.PI}\n100\nAcDbRotatedDimension\n`
+            : '';
+          s = `${header('DIMENSION')}100\nAcDbDimension\n2\n*D0\n10\n${dlpX}\n20\n${dlpY}\n30\n0.0\n11\n${textMidX}\n21\n${textMidY}\n31\n0.0\n70\n${flags}\n1\n${text}\n3\n${dim.styleName || 'Standard'}\n${rotStr}100\nAcDbAlignedDimension\n13\n${dim.p1.x}\n23\n${dim.p1.y}\n33\n0.0\n14\n${dim.p2.x}\n24\n${dim.p2.y}\n34\n0.0\n${rotatedTail}`;
         }
+        // DIMLFAC / DIMSCALE ride out as the same DSTYLE XDATA AutoCAD uses, so
+        // a re-import reads back the values this one was rendered with.
+        s += this._serializeDimStyleOverrides(dim);
         break;
       }
 
@@ -187,6 +220,50 @@ export class ExportService {
       s += this._serializePreservedMetadata(ent.rawDxfObject);
     }
     return s;
+  }
+
+  /**
+   * The string to write as a text entity's group 1.
+   *
+   * Imported text keeps its original control codes in `rawText` so a save can
+   * emit exactly what it read. But `text` is what the user edits, and an edited
+   * entity's `rawText` is stale — writing it back would silently discard the
+   * edit. So the original is only reused when decoding it still reproduces the
+   * current text; otherwise the edited text wins and the codes are dropped,
+   * which is the lossy-but-honest outcome.
+   */
+  private _sourceTextFor(ent: any): string {
+    const raw = ent.rawText;
+    if (typeof raw !== 'string' || !raw.length) return ent.text ?? '';
+    const decoded = ent.isMText
+      ? decodeTextCodes(decodeMtext(raw).text).text
+      : decodeTextCodes(raw).text;
+    return decoded === ent.text ? raw : (ent.text ?? '');
+  }
+
+  /**
+   * Emits a dimension's DIMLFAC / DIMSCALE overrides as DSTYLE XDATA — the same
+   * encoding AutoCAD uses, so the values survive a round-trip through any
+   * reader rather than living only in this app's own format.
+   *
+   * Skipped when the entity still carries its imported raw tags, since
+   * `_serializePreservedMetadata` re-emits the original XDATA and two DSTYLE
+   * blocks on one entity would be malformed.
+   */
+  private _serializeDimStyleOverrides(dim: any): string {
+    const hasPreservedXData = Array.isArray(dim.rawDxfObject?.originalTags)
+      && dim.rawDxfObject.originalTags.some((t: any) => Number(t.code) === 1001);
+    if (hasPreservedXData) return '';
+
+    const parts: string[] = [];
+    if (typeof dim.linearFactor === 'number' && dim.linearFactor > 0 && dim.linearFactor !== 1) {
+      parts.push(`1070\n144\n1040\n${dim.linearFactor}\n`);
+    }
+    if (typeof dim.globalScale === 'number' && dim.globalScale > 0 && dim.globalScale !== 1) {
+      parts.push(`1070\n40\n1040\n${dim.globalScale}\n`);
+    }
+    if (!parts.length) return '';
+    return `1001\nACAD\n1000\nDSTYLE\n1002\n{\n${parts.join('')}1002\n}\n`;
   }
 
   private _serializePreservedMetadata(rawObj: any): string {
@@ -265,10 +342,39 @@ export class ExportService {
     dxf += `0\nTABLE\n2\nLAYER\n70\n${file.layers.size}\n`;
     for (const [name, lay] of file.layers) {
       const flags = lay.frozen ? 1 : lay.visible === false ? 64 : 0;
+      // A layer that is off is encoded as a negative colour, not a flag.
       const colorNum = lay.colorNumber || 7;
-      dxf += `0\nLAYER\n2\n${name}\n70\n${flags}\n62\n${colorNum}\n6\n${lay.lineType || 'Continuous'}\n`;
+      const signedColor = lay.visible === false ? -Math.abs(colorNum) : colorNum;
+      const lwStr = lay.lineWeight > 0 ? `370\n${lay.lineWeight}\n` : '';
+      dxf += `0\nLAYER\n2\n${name}\n70\n${flags}\n62\n${signedColor}\n6\n${lay.lineType || 'Continuous'}\n${lwStr}`;
     }
     dxf += `0\nENDTAB\n`;
+
+    // STYLE table. Without it a re-import has no font information at all, which
+    // is precisely the gap that made imported drawings render in one typeface.
+    const textStyles = file.textStyles ?? new Map();
+    if (textStyles.size) {
+      dxf += `0\nTABLE\n2\nSTYLE\n70\n${textStyles.size}\n`;
+      for (const [name, st] of textStyles) {
+        dxf += `0\nSTYLE\n2\n${name}\n70\n0\n40\n${st.fixedHeight ?? 0}\n`
+          + `41\n${st.widthFactor ?? 1}\n50\n${st.obliqueAngle ?? 0}\n71\n0\n42\n2.5\n`
+          + `3\n${st.font ?? 'arial.ttf'}\n4\n${st.bigFont ?? ''}\n`;
+      }
+      dxf += `0\nENDTAB\n`;
+    }
+
+    // DIMSTYLE table, so dimension precision and DIMLFAC survive the round-trip.
+    if (file.dimStyles?.size) {
+      dxf += `0\nTABLE\n2\nDIMSTYLE\n70\n${file.dimStyles.size}\n`;
+      for (const [name, ds] of file.dimStyles) {
+        const d = ds as any;
+        dxf += `0\nDIMSTYLE\n2\n${name}\n70\n0\n`
+          + `41\n${d.arrowSize ?? 2.5}\n42\n${d.extensionGap ?? 0.625}\n44\n${d.extensionPast ?? 1.25}\n`
+          + `140\n${d.textHeight ?? 2.5}\n147\n${d.textOffset ?? 0.625}\n`
+          + `40\n${d.globalScale ?? 1}\n144\n${d.linearFactor ?? 1}\n271\n${d.unitPrecision ?? 2}\n`;
+      }
+      dxf += `0\nENDTAB\n`;
+    }
 
     dxf += `0\nTABLE\n2\nLTYPE\n70\n2\n`;
     dxf += `0\nLTYPE\n2\nCONTINUOUS\n70\n0\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n`;

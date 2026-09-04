@@ -338,6 +338,9 @@ export function rotateEntityInPlace(e: Entity, cx: number, cy: number, rad: numb
       if (ent.arcPoint) ent.arcPoint = rotatePoint(ent.arcPoint.x, ent.arcPoint.y, cx, cy, rad);
       if (ent.jogPoint) ent.jogPoint = rotatePoint(ent.jogPoint.x, ent.jogPoint.y, cx, cy, rad);
       if (ent.textPoint) ent.textPoint = rotatePoint(ent.textPoint.x, ent.textPoint.y, cx, cy, rad);
+      // A rotated linear dimension measures along a fixed axis; that axis has
+      // to turn with the entity or the reading changes.
+      if (typeof ent.rotation === 'number') ent.rotation += rad;
       break;
     }
     case 'DIMRADIUS':
@@ -624,6 +627,12 @@ export function mirrorEntityInPlace(e: Entity, x1: number, y1: number, x2: numbe
       if (ent.arcPoint) ent.arcPoint = mirrorPoint(ent.arcPoint.x, ent.arcPoint.y, x1, y1, x2, y2);
       if (ent.jogPoint) ent.jogPoint = mirrorPoint(ent.jogPoint.x, ent.jogPoint.y, x1, y1, x2, y2);
       if (ent.textPoint) ent.textPoint = mirrorPoint(ent.textPoint.x, ent.textPoint.y, x1, y1, x2, y2);
+      // Reflecting the measurement axis about the mirror line: the reflection
+      // of a direction at angle t in a line at angle m is 2m - t.
+      if (typeof ent.rotation === 'number') {
+        const mirrorAngle = Math.atan2(y2 - y1, x2 - x1);
+        ent.rotation = 2 * mirrorAngle - ent.rotation;
+      }
       break;
     }
     case 'DIMRADIUS':

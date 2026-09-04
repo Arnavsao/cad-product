@@ -7,6 +7,7 @@ import type { IAttrib } from './block-attribute.model';
 import type { DimTextPlacement } from './dimension-style.model';
 import { HatchRendererService } from '../services/hatch-renderer.service';
 import { TextLayoutEngine, type ITextLayout, type ITextLayoutOptions } from '../utils/text-layout-engine';
+import { decodeTextCodes, splitDimensionText, splitTextLines } from '../utils/text-control-codes';
 /**
  * Stubs for extended entity types â€” enough fidelity for DXF round-trip + basic rendering.
  * The full implementation (MTEXT wrap, hatch patterns, spline De Boor, etc.) lives in
@@ -65,6 +66,25 @@ export class TextEntity extends Entity {
   /** Retained so JSON/DXF serializers do not downgrade MTEXT to TEXT. */
   isMText = false;
   font = 'Arial';
+
+  /**
+   * Name of the DXF STYLE table entry this text came from (group 7).
+   *
+   * `font` is the *resolved* CSS stack; this keeps the original linkage so the
+   * style can be re-resolved after an edit and written back out on export.
+   * `null` for text created in-app.
+   */
+  styleName: string | null = null;
+
+  /**
+   * The entity's text exactly as the DXF stored it, control codes intact.
+   *
+   * `text` holds the decoded, displayable form — `%%U` and the MTEXT backslash
+   * codes have been consumed into `underline`, `font` and friends. Keeping the
+   * source here means a re-export can emit what came in rather than a lossy
+   * round-trip. `null` when nothing was decoded away.
+   */
+  rawText: string | null = null;
 
   // Formatting (Step 6 + 9-point justify)
   bold = false;
@@ -1375,10 +1395,15 @@ export class InsertEntity extends Entity {
 
     const insertVm = this._buildInsertVm(vm, def);
 
+    // BYBLOCK children take the insert's *resolved* colour. `this.color` is
+    // only set for true-colour inserts; an ACI-indexed insert (the common
+    // case) left it null, so BYBLOCK geometry fell back to white — a green
+    // table rendered white.
+    const byBlock = this.resolvedColor(doc, _byBlockColor);
     for (const child of def.entities ?? []) {
       if (!child.visible) continue;
       ctx.save();
-      child.draw(ctx, insertVm, doc, this.color);
+      child.draw(ctx, insertVm, doc, byBlock);
       ctx.restore();
     }
 
@@ -1737,7 +1762,7 @@ export class LeaderEntity extends Entity {
       const prevFill = ctx.fillStyle;
       if (this.textColor) ctx.fillStyle = this.textColor;
 
-      const lines = this.text.split(/\\P|\n/);
+      const lines = splitTextLines(this.text);
       const lineDy = hPx * this.lineSpacing;
       const N = lines.length;
       const blockY = -((N - 1) * lineDy) / 2;
@@ -1915,6 +1940,44 @@ export class DimensionEntity extends Entity {
   textAlongOffset: number | null = null;
 
   /**
+   * DIMLFAC override — scales the measured length before formatting.
+   * `null` → inherit from the named style.
+   *
+   * Almost always set per entity rather than on the style: AutoCAD writes it as
+   * DSTYLE XDATA (group 144), and a single drawing routinely mixes factors for
+   * details drawn at different plot scales.
+   */
+  linearFactor: number | null = null;
+
+  /**
+   * DIMSCALE override — scales visual sizes only, never the measured value.
+   * `null` → inherit from the named style.
+   *
+   * Must be honoured alongside {@link linearFactor}: a style may carry
+   * DIMSCALE 150 while every entity referencing it overrides to 1, and applying
+   * the style value alone would render text and arrows 150× too large.
+   */
+  globalScale: number | null = null;
+
+  /**
+   * AutoCAD's stored dimension-text midpoint (DXF group 11).
+   *
+   * When the "text at user-defined location" bit (32) is set — which AutoCAD
+   * sets whenever text has been nudged off centre — this position is
+   * authoritative and must be used verbatim. Recomputing it from the dimension
+   * line is what makes densely annotated drawings collide.
+   */
+  textPoint: IPoint | null = null;
+
+  /**
+   * DXF group 42 — the measurement AutoCAD itself last computed, already scaled
+   * by DIMLFAC. Kept as a fallback for files that supply it without a readable
+   * DIMLFAC, and as a cross-check in tests. Not used while the geometry is live,
+   * since editing the dimension would leave it stale.
+   */
+  actualMeasurement: number | null = null;
+
+  /**
    * Per-entity text placement override. `null` â†’ inherit from named style.
    *
    *   'auto'    â†’ smart: inside when space permits, outside with jog leader otherwise
@@ -1944,9 +2007,51 @@ export class DimensionEntity extends Entity {
     }
   }
 
-  override getMeasurementText(doc: DocLike): string {
-    const s = this._resolveStyle(doc);
-    return formatDimensionLength(this.length, {
+  /**
+   * True when the text sits far enough off the dimension line that the line
+   * should be drawn unbroken beneath it.
+   *
+   * @param textPos stored text position, or `null` when none was supplied
+   */
+  private _textClearsDimLine(
+    textPos: IPoint | null,
+    midDim: IPoint,
+    textHeightWorld: number,
+    padding: number,
+  ): boolean {
+    if (!textPos) return false;
+    const dist = Math.hypot(textPos.x - midDim.x, textPos.y - midDim.y);
+    return dist > textHeightWorld / 2 + padding * 0.5;
+  }
+
+  /**
+   * Effective DIMLFAC: per-entity override, else the style's, else 1.
+   * A non-positive factor is meaningless and treated as 1.
+   */
+  effectiveLinearFactor(s: DimensionStyle): number {
+    const f = this.linearFactor ?? (s as any).linearFactor ?? 1;
+    return Number.isFinite(f) && f > 0 ? f : 1;
+  }
+
+  /**
+   * Effective DIMSCALE: per-entity override, else the style's, else 1.
+   * DXF uses 0 to mean "derive from the annotation scale", which is not a usable
+   * multiplier here, so it collapses to 1 as well.
+   */
+  effectiveGlobalScale(s: DimensionStyle): number {
+    const g = this.globalScale ?? (s as any).globalScale ?? 1;
+    return Number.isFinite(g) && g > 0 ? g : 1;
+  }
+
+  /**
+   * The measurement as it should read on the drawing — DIMLFAC applied, then
+   * formatted per the effective primary-unit settings.
+   *
+   * Single source of truth for `draw()`, the properties panel and the inline
+   * editor, which previously each formatted the raw length independently.
+   */
+  formatMeasurement(s: DimensionStyle): string {
+    return formatDimensionLength(this.length * this.effectiveLinearFactor(s), {
       format: this.unitFormat ?? s.unitFormat,
       precision: this.unitPrecision ?? s.unitPrecision,
       prefix: this.unitPrefix ?? s.unitPrefix,
@@ -1955,6 +2060,23 @@ export class DimensionEntity extends Entity {
       suppressTrailingZeros: this.suppressTrailingZeros ?? s.suppressTrailingZeros,
       roundOff: this.roundOff ?? s.roundOff,
     });
+  }
+
+  /**
+   * The final display string: the override with `<>` substituted, or the bare
+   * measurement. `\X` is *not* resolved here — it is a layout instruction, and
+   * splitting it is the caller's job (see {@link splitDimensionText}).
+   */
+  resolveDisplayText(s: DimensionStyle): string {
+    const measured = this.formatMeasurement(s);
+    if (this.textOverride == null) return measured;
+    return this.textOverride.indexOf('<>') >= 0
+      ? this.textOverride.split('<>').join(measured)
+      : this.textOverride;
+  }
+
+  override getMeasurementText(doc: DocLike): string {
+    return this.formatMeasurement(this._resolveStyle(doc));
   }
 
   get text(): string {
@@ -2176,8 +2298,11 @@ export class DimensionEntity extends Entity {
       extensionGap *= scaleMultiplier;
       extensionPast *= scaleMultiplier;
     } else {
-      const globalScale = (s as any).globalScale ?? 1.0;
-      if (globalScale > 0 && globalScale !== 1.0) {
+      // Per-entity DIMSCALE wins over the style's. Imported drawings routinely
+      // pair a style-level DIMSCALE of 150 with a per-entity override of 1;
+      // taking the style value alone renders text and arrows 150x oversized.
+      const globalScale = this.effectiveGlobalScale(s);
+      if (globalScale !== 1.0) {
         arrowSize *= globalScale;
         textHeight *= globalScale;
         padding *= globalScale;
@@ -2213,29 +2338,27 @@ export class DimensionEntity extends Entity {
     this.setupContext(ctx, vm, doc, byBlockColor);
 
     // â”€â”€ Text metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const measured = formatDimensionLength(this.length, {
-      format: this.unitFormat ?? s.unitFormat,
-      precision: this.unitPrecision ?? s.unitPrecision,
-      prefix: this.unitPrefix ?? s.unitPrefix,
-      suffix: this.unitSuffix ?? s.unitSuffix,
-      decimalSeparator: this.decimalSeparator ?? s.decimalSeparator,
-      suppressTrailingZeros: this.suppressTrailingZeros ?? s.suppressTrailingZeros,
-      roundOff: this.roundOff ?? s.roundOff,
-    });
-    const text = this.textOverride == null
-      ? measured
-      : this.textOverride.indexOf('<>') >= 0
-        ? this.textOverride.split('<>').join(measured)
-        : this.textOverride;
+    // DIMLFAC is applied inside resolveDisplayText, and `%%` codes are decoded
+    // so a `%%C`-prefixed override reads as `Ø` rather than as its escape.
+    const rawText = decodeTextCodes(this.resolveDisplayText(s)).text;
+    // `\X` stacks the text: the part before it above the dimension line, the
+    // part after below. `<>\X(BERM)` reads as `3000` over `(BERM)`.
+    const [textAbove, textBelow] = splitDimensionText(rawText);
+    const text = textBelow == null ? textAbove : `${textAbove} ${textBelow}`;
 
     const heightPx = textHeight * vm.scale;
     ctx.font = `${heightPx}px sans-serif`;
-    const m = ctx.measureText(text);
-    const textWidthPx = m.width;
+    const mAbove = ctx.measureText(textAbove);
+    const mBelow = textBelow == null ? null : ctx.measureText(textBelow);
+    const m = mAbove;
+    // A stacked dimension is as wide as its widest line and twice as tall.
+    const textWidthPx = Math.max(mAbove.width, mBelow?.width ?? 0);
     const textWidthWorld = textWidthPx / vm.scale;
-    const textHeightPx = (m.actualBoundingBoxAscent !== undefined && m.actualBoundingBoxDescent !== undefined)
+    const singleLinePx = (m.actualBoundingBoxAscent !== undefined && m.actualBoundingBoxDescent !== undefined)
       ? m.actualBoundingBoxAscent + m.actualBoundingBoxDescent
       : heightPx * 1.2;
+    const lineStepPx = heightPx * 1.2;
+    const textHeightPx = textBelow == null ? singleLinePx : singleLinePx + lineStepPx;
     const textHeightWorld = textHeightPx / vm.scale;
     const effectiveTextOffset = Math.max(arrowSize * 2, (textHeightWorld / 2) + padding);
 
@@ -2309,14 +2432,29 @@ export class DimensionEntity extends Entity {
     const perpFactor = isCentered ? 0 : flipSign;
 
     const textAlongOffset = this.textAlongOffset ?? 0;
-    const midDimWorld = {
+    let midDimWorld = {
       x: (dimP1.x + dimP2.x) / 2 + textAlongOffset * f.ux,
       y: (dimP1.y + dimP2.y) / 2 + textAlongOffset * f.uy
     };
-    const textPosWorld = {
+    let textPosWorld = {
       x: midDimWorld.x + effectiveTextOffset * perpFactor * ex,
       y: midDimWorld.y + effectiveTextOffset * perpFactor * ey,
     };
+
+    // ── AutoCAD's own text position (DXF group 11) ────────────────────────────
+    // When the file records where the text actually sits, that beats anything
+    // we would compute: it already accounts for DIMTAD, for text nudged clear
+    // of a neighbour, and for the draughtsman's manual placement. Recomputing
+    // it is what turns a dense drawing into a pile of overlapping labels.
+    const usingStoredTextPos = this.textPoint != null && !useOutsideText;
+    if (usingStoredTextPos && this.textPoint) {
+      textPosWorld = { x: this.textPoint.x, y: this.textPoint.y };
+      // Foot of the perpendicular from the text down onto the dimension line —
+      // used only to centre the line break, when there is one.
+      const t = (textPosWorld.x - dimP1.x) * f.ux + (textPosWorld.y - dimP1.y) * f.uy;
+      midDimWorld = { x: dimP1.x + t * f.ux, y: dimP1.y + t * f.uy };
+    }
+
     const sTextPos = vm.w2s(textPosWorld.x, textPosWorld.y);
 
     // â”€â”€ Extension lines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2338,7 +2476,14 @@ export class DimensionEntity extends Entity {
     }
     ctx.beginPath();
 
-    if (!useOutsideText && perpFactor === 0) {
+    // A stored text position already sits clear of the line (DIMTAD "above" is
+    // the near-universal case), so the line stays whole — breaking it there
+    // would gap the line under text that is not on it.
+    const breakLineForText = !useOutsideText && perpFactor === 0 && !this._textClearsDimLine(
+      usingStoredTextPos ? textPosWorld : null, midDimWorld, textHeightWorld, padding,
+    );
+
+    if (breakLineForText) {
       // Break the dimension line for the text
       const gapWorld = textWidthWorld / 2 + padding;
       const dimDirX = f.ux;
@@ -2418,7 +2563,7 @@ export class DimensionEntity extends Entity {
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, 0, 0);
+      drawStackedDimText(ctx, textAbove, textBelow, lineStepPx);
       ctx.restore();
 
     } else {
@@ -2461,7 +2606,7 @@ export class DimensionEntity extends Entity {
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, 0, 0);
+      drawStackedDimText(ctx, textAbove, textBelow, lineStepPx);
       ctx.restore();
     }
   }
@@ -2534,6 +2679,15 @@ export class DimensionEntity extends Entity {
     }
 
     if (!useOutside) {
+      // Mirrors draw(): a stored text position (DXF group 11) wins, so the
+      // inline editor opens exactly where the text is painted rather than at a
+      // recomputed midpoint.
+      if (this.textPoint) {
+        return {
+          sPos: vm.w2s(this.textPoint.x, this.textPoint.y),
+          angle, align: 'center', baseline: 'middle',
+        };
+      }
       const textPosWorld = {
         x: midDimWorld.x + effectiveTextOffset * perpFactor * ex,
         y: midDimWorld.y + effectiveTextOffset * perpFactor * ey,
@@ -2585,6 +2739,8 @@ export class DimensionEntity extends Entity {
       xs.push(this.p1.x + so * f.nx, this.p2.x + so * f.nx);
       ys.push(this.p1.y + so * f.ny, this.p2.y + so * f.ny);
     }
+    // Text placed away from the dimension line still belongs to its extent.
+    if (this.textPoint) { xs.push(this.textPoint.x); ys.push(this.textPoint.y); }
     const minX = Math.min(...xs), minY = Math.min(...ys);
     const maxX = Math.max(...xs), maxY = Math.max(...ys);
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
@@ -2613,10 +2769,14 @@ export class DimensionEntity extends Entity {
     if (pointToScreenSegmentDist(sx, sy, sP1, vm.w2s(dp1Ext.x, dp1Ext.y)) <= tol) return true;
     if (pointToScreenSegmentDist(sx, sy, sP2, vm.w2s(dp2Ext.x, dp2Ext.y)) <= tol) return true;
 
-    // 3. Text area (approximate center point)
-    const midX = (dimP1.x + dimP2.x) / 2;
-    const midY = (dimP1.y + dimP2.y) / 2;
-    const sMid = vm.w2s(midX, midY);
+    // 3. Text area (approximate center point). Prefer the stored position when
+    // the file supplied one — otherwise clicking text that AutoCAD placed well
+    // clear of the dimension line would miss.
+    const textCenter = this.textPoint ?? {
+      x: (dimP1.x + dimP2.x) / 2,
+      y: (dimP1.y + dimP2.y) / 2,
+    };
+    const sMid = vm.w2s(textCenter.x, textCenter.y);
     // Allow a larger radius around the midpoint for clicking the text
     if (Math.hypot(sx - sMid.x, sy - sMid.y) <= tol * 4) return true;
 
@@ -2720,6 +2880,32 @@ function defaultDimLinePoint(p1: IPoint, p2: IPoint): IPoint {
   const nx = -dy / len;
   const ny = dx / len;
   return { x: (p1.x + p2.x) / 2 + 5 * nx, y: (p1.y + p2.y) / 2 + 5 * ny };
+}
+
+/**
+ * Draws dimension text, stacked when the source used `\X`.
+ *
+ * Expects the context already translated to the text centre and rotated to the
+ * dimension's angle, with `textAlign`/`textBaseline` both centred. A single
+ * line draws on the centre; a stacked pair straddles it, matching AutoCAD's
+ * `10280` over `(OVERALL SLAB LENGTH)`.
+ *
+ * @param below `null` for ordinary single-line text
+ * @param lineStepPx distance between the two baselines, in screen pixels
+ */
+function drawStackedDimText(
+  ctx: CanvasRenderingContext2D,
+  above: string,
+  below: string | null,
+  lineStepPx: number,
+): void {
+  if (below == null) {
+    ctx.fillText(above, 0, 0);
+    return;
+  }
+  const half = lineStepPx / 2;
+  ctx.fillText(above, 0, -half);
+  ctx.fillText(below, 0, half);
 }
 
 /**
@@ -2956,7 +3142,7 @@ export class MLeaderEntity extends DimensionEntity {
 
       ctx.fillStyle = s.textColor === 'ByBlock' ? (byBlockColor || '#fff') : (s.textColor || '#fff');
 
-      const lines = this.content.split(/\\P|\n/);
+      const lines = splitTextLines(this.content);
       const lineDy = hPx * 1.2;
       const N = lines.length;
       const blockY = -((N - 1) * lineDy) / 2;

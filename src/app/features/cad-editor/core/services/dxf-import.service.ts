@@ -38,7 +38,9 @@ import { DxfHatchHandler } from './dxf-hatch-handler';
 import { attDefFromDxf, attribFromDxf } from '../models/block-attribute.model';
 
 import { validateAc1032Header } from '../utils/dxf-header-validator';
-import { scanRawDxfObjects, scanDimStyles } from '../utils/dxf-scanner';
+import { scanRawDxfObjects, scanDxfTables, scanDimStyleOverrides } from '../utils/dxf-scanner';
+import type { IDxfDimStyleData } from '../utils/dxf-scanner';
+import { decodeMtext, decodeTextCodes } from '../utils/text-control-codes';
 import type { RawDxfObject } from '../models/entity.model';
 import { DXF_ACI_COLORS } from '../registries/aci-colors';
 import { FontResolverService } from './font-resolver.service';
@@ -125,17 +127,36 @@ export class DxfImportService {
         if (ro.handle) rawObjMap.set(ro.handle, ro);
       }
 
-      const parsedDimStyles = scanDimStyles(fileText);
+      // dxf-parser exposes only the viewPort/lineType/layer tables, so the
+      // DIMSTYLE and STYLE tables are scanned out of the raw text ourselves.
+      const {
+        dimStyles: parsedDimStyles,
+        textStyles: parsedTextStyles,
+        layers: parsedLayers,
+      } = scanDxfTables(fileText);
+      // Per-entity DIMSTYLE overrides (DIMLFAC & friends) live in XDATA, which
+      // dxf-parser discards the values of.
+      const dimOverrides = scanDimStyleOverrides(rawObjects);
 
       this.profiler.markEnd('DXF Validation & Scanning');
 
       const dxfFile = new DxfFile(filename);
       dxfFile.metadata = headerValidation.metadata;
-      
+
       for (const [name, styleData] of parsedDimStyles.entries()) {
         const existing = dxfFile.dimStyles.get(name) ?? new (dxfFile.dimStyles.get('Standard')!.constructor as any)(name);
         Object.assign(existing, styleData);
         dxfFile.dimStyles.set(name, existing);
+      }
+
+      for (const [name, style] of parsedTextStyles.entries()) {
+        dxfFile.textStyles.set(name, {
+          font: style.font,
+          widthFactor: style.widthFactor,
+          obliqueAngle: style.obliqueAngle,
+          fixedHeight: style.fixedHeight,
+          bigFont: style.bigFont,
+        });
       }
 
       // Linetypes
@@ -153,7 +174,25 @@ export class DxfImportService {
       if (dxf.tables?.layer?.layers) {
         for (const key in dxf.tables.layer.layers) {
           const lay = dxf.tables.layer.layers[key];
-          dxfFile.layers.set(lay.name, new Layer(lay.name, lay.color || '#ffffff', lay.colorIndex));
+          const layer = new Layer(lay.name, lay.color || '#ffffff', lay.colorIndex);
+          // dxf-parser reads only name/colour/frozen; linetype, lineweight and
+          // the plot flag come from our own scan of the same table.
+          const scanned = parsedLayers.get(lay.name);
+          if (scanned) {
+            if (scanned.lineType) layer.lineType = scanned.lineType;
+            // Group 370 is in 1/100 mm; negatives are BYLAYER/BYBLOCK/DEFAULT
+            // sentinels, which the renderer already treats as "use the default".
+            if (typeof scanned.lineWeight === 'number' && scanned.lineWeight > 0) {
+              layer.lineWeight = scanned.lineWeight;
+            }
+            if (scanned.visible === false) layer.visible = false;
+            if (scanned.frozen) layer.frozen = true;
+            if (scanned.locked) layer.locked = true;
+            if (scanned.plot === false) layer.print = false;
+          } else if (lay.frozen) {
+            layer.frozen = true;
+          }
+          dxfFile.layers.set(lay.name, layer);
         }
       }
       if (dxfFile.layers.size === 0) {
@@ -162,13 +201,16 @@ export class DxfImportService {
         dxfFile.layers.set('Layer 0', new Layer('Layer 0'));
       }
 
-      // Text styles (STYLE table)
+      // Text styles (STYLE table). Our scan above is authoritative; this only
+      // fills gaps for parsers that do surface the table.
       const styleTable = dxf.tables?.style?.styles ?? dxf.tables?.style;
       if (styleTable && typeof styleTable === 'object') {
         for (const key in styleTable) {
           const st = styleTable[key];
           if (st && typeof st === 'object') {
-            dxfFile.textStyles.set(st.name ?? key, {
+            const name = st.name ?? key;
+            if (dxfFile.textStyles.has(name)) continue;
+            dxfFile.textStyles.set(name, {
               font: st.font ?? st.fontFamily ?? st.primaryFontFileName ?? undefined,
               widthFactor: st.widthFactor ?? st.xScale ?? undefined,
               obliqueAngle: st.obliqueAngle ?? undefined,
@@ -191,7 +233,7 @@ export class DxfImportService {
                 if (bent.handle) rawObjMap.delete(bent.handle);
                 continue;
               }
-              const e = this.createEntity(bent, dxfFile, rawObjMap);
+              const e = this.createEntity(bent, dxfFile, rawObjMap, dimOverrides);
               if (e) blockEnts.push(e);
             }
           }
@@ -209,7 +251,7 @@ export class DxfImportService {
       let loadedCount = 0;
       if (dxf.entities) {
         for (const ent of dxf.entities) {
-          const e = this.createEntity(ent, dxfFile, rawObjMap);
+          const e = this.createEntity(ent, dxfFile, rawObjMap, dimOverrides);
           if (e) { dxfFile.entities.push(e); loadedCount++; }
         }
       }
@@ -567,7 +609,12 @@ export class DxfImportService {
     return dxfFile.entities.length;
   }
 
-  private createEntity(ent: any, dxfFile: DxfFile, rawObjMap: Map<string, RawDxfObject>): Entity | null {
+  private createEntity(
+    ent: any,
+    dxfFile: DxfFile,
+    rawObjMap: Map<string, RawDxfObject>,
+    dimOverrides: Map<string, IDxfDimStyleData> = new Map(),
+  ): Entity | null {
     let e: Entity | null = null;
 
     switch (ent.type) {
@@ -587,12 +634,50 @@ export class DxfImportService {
       }
       case 'LWPOLYLINE':
       case 'POLYLINE': {
-        const pts = (ent.vertices ?? []).map((v: any) => ({ x: v.x, y: v.y }));
-        if (pts.length) e = new PolylineEntity(pts, !!ent.shape);
+        const raw: any[] = ent.vertices ?? [];
+        const pts = raw.map((v: any) => ({ x: v.x, y: v.y }));
+        if (pts.length) {
+          const pl = new PolylineEntity(pts, !!ent.shape);
+          // Group 42 — arc bulge on the vertex that starts the segment. Dropping
+          // it flattened every curved polyline to chords.
+          const bulges = raw.map((v: any) => Number(v.bulge ?? 0) || 0);
+          if (bulges.some((b) => b !== 0)) pl.bulges = bulges;
+          // Groups 40/41 per vertex (or 43 constant) — segment widths. A
+          // tapered 0 → w → 0 run is how AutoCAD draws a filled arrowhead, so
+          // without these the "TO INDORE JN. →" arrows lose their heads.
+          const constW = Number(ent.width ?? ent.constantWidth ?? 0) || 0;
+          const widths = raw.map((v: any) => ({
+            start: Number(v.startWidth ?? constW) || constW,
+            end: Number(v.endWidth ?? constW) || constW,
+          }));
+          if (widths.some((w) => w.start > 0 || w.end > 0)) pl.widths = widths;
+          e = pl;
+        }
         break;
       }
+      // ATTRIB is a TEXT subclass carrying a block attribute's value, so it
+      // shares this branch. It used to fall through into the VIEWPORT case,
+      // which needs a centre/width/height and so always produced nothing.
+      case 'ATTRIB':
+      case 'ATTDEF':
       case 'TEXT':
       case 'MTEXT': {
+        // Attribute flag bit 1 marks the value invisible.
+        if (ent.type === 'ATTRIB' && (Number(ent.attributeFlags ?? 0) & 1) !== 0) break;
+        if (ent.type === 'ATTDEF') {
+          // An ATTDEF outside any block is drawn by AutoCAD as its *tag* — the
+          // section markers "A1"/"A2" in a GA are exactly this. dxf-parser
+          // names its fields differently from TEXT and skips 72/74 entirely.
+          if (ent.invisible) break;
+          ent = {
+            ...ent,
+            text: ent.tag ?? ent.text ?? '',
+            styleName: ent.textStyle,
+            xScale: ent.scale,
+            halign: Number(this._rawTagValue(rawObjMap, ent.handle, 72) ?? 0) || 0,
+            valign: Number(this._rawTagValue(rawObjMap, ent.handle, 74) ?? 0) || 0,
+          };
+        }
         let rot = ent.rotation || 0;
         if (rot) rot = (rot * Math.PI) / 180;
         const options = {
@@ -603,10 +688,62 @@ export class DxfImportService {
           colorNumber: ent.colorIndex !== undefined ? ent.colorIndex : 256,
           isMText: ent.type === 'MTEXT',
         };
-        const height = ent.textHeight ?? ent.height ?? 2.5;
-        const x = ent.startPoint?.x ?? ent.position?.x ?? 0;
-        const y = ent.startPoint?.y ?? ent.position?.y ?? 0;
-        e = new TextEntity(x, y, ent.text, height, rot, options);
+        // ── Control codes ────────────────────────────────────────────────────
+        // Both encodings reach the canvas verbatim otherwise, so a heading
+        // stored as `%%UHALF ELEVATION` renders with the code visible instead
+        // of underlined, and `\pxqr;TO DAHODE JN.` shows its paragraph tag.
+        const rawText: string = ent.text ?? '';
+        const mtext = ent.type === 'MTEXT' ? decodeMtext(rawText) : null;
+        // MTEXT may still carry the older %% escapes inside its decoded text.
+        const plain = decodeTextCodes(mtext ? mtext.text : rawText);
+        const decodedText = plain.text;
+
+        // Resolve the STYLE table entry. dxf-parser's TEXT handler has no
+        // `case 7`, so the name only ever arrives via the raw tags.
+        const styleName =
+          ent.styleName ?? ent.textStyleName ?? this._rawTagValue(rawObjMap, ent.handle, 7);
+        const textStyle = styleName ? dxfFile.textStyles.get(styleName) : undefined;
+
+        // A style's fixed height (group 40) applies when the entity has none.
+        let height = ent.textHeight ?? ent.height ?? 0;
+        if (!(height > 0) && textStyle?.fixedHeight && textStyle.fixedHeight > 0) {
+          height = textStyle.fixedHeight;
+        }
+        if (!(height > 0)) height = 2.5;
+        // `\H0.7x;` scales the height relative to the entity's own.
+        if (mtext?.heightFactor) height *= mtext.heightFactor;
+
+        let x = ent.startPoint?.x ?? ent.position?.x ?? 0;
+        let y = ent.startPoint?.y ?? ent.position?.y ?? 0;
+        // Justified TEXT is anchored at group 11, not group 10: for centred or
+        // right-justified text group 10 is merely where the first character
+        // lands. Using it shifted every centred label left by half its width.
+        // Aligned (3) and Fit (5) run between the two points, so they anchor at
+        // the midpoint and take their rotation from the pair.
+        if (ent.type !== 'MTEXT') {
+          const ep = ent.endPoint;
+          const h = Number(options.halign ?? 0), v = Number(options.valign ?? 0);
+          if (ep && Number.isFinite(ep.x) && Number.isFinite(ep.y) && (h !== 0 || v !== 0)) {
+            if (h === 3 || h === 5) {
+              rot = Math.atan2(ep.y - y, ep.x - x);
+              x = (x + ep.x) / 2;
+              y = (y + ep.y) / 2;
+              options.halign = 1;
+            } else {
+              x = ep.x;
+              y = ep.y;
+            }
+          }
+        }
+        e = new TextEntity(x, y, decodedText, height, rot, options);
+
+        if (typeof styleName === 'string' && styleName.length) {
+          (e as TextEntity).styleName = styleName;
+        }
+        if (decodedText !== rawText) (e as TextEntity).rawText = rawText;
+        if (mtext?.underline || plain.underline) (e as TextEntity).underline = true;
+        if (mtext?.overline || plain.overline) (e as TextEntity).overline = true;
+        if (mtext?.strikethrough) (e as TextEntity).strikethrough = true;
 
         // --- MTEXT width fallback: read group 41 from raw tags if dxf-parser missed it ---
         if (ent.type === 'MTEXT' && (e as TextEntity).mtextWidth === 0 && ent.handle) {
@@ -627,27 +764,44 @@ export class DxfImportService {
           (e as TextEntity).autoWrap = true;
         }
 
-        // DXF text properties not covered by constructor options.
-        if (typeof ent.widthFactor === 'number' && Number.isFinite(ent.widthFactor) && ent.widthFactor > 0) {
-          (e as TextEntity).widthFactor = ent.widthFactor;
+        // ── Width factor (group 41) and oblique angle (group 51) ─────────────
+        // dxf-parser exposes group 41 as `xScale`, never as `widthFactor`, and
+        // does not read group 51 at all — hence the raw-tag fallbacks.
+        //
+        // Group 41 is TEXT-only here: on MTEXT the same code is the reference
+        // rectangle *width*, so reading it as a factor stretches a 166-unit
+        // column of notes to 166x its size.
+        let hasEntityWidthFactor = false;
+        if (ent.type !== 'MTEXT') {
+          const rawWidthFactor = ent.widthFactor ?? ent.xScale
+            ?? Number(this._rawTagValue(rawObjMap, ent.handle, 41) ?? NaN);
+          if (Number.isFinite(rawWidthFactor) && rawWidthFactor > 0) {
+            (e as TextEntity).widthFactor = rawWidthFactor;
+            hasEntityWidthFactor = true;
+          }
         }
-        if (typeof ent.obliqueAngle === 'number' && Number.isFinite(ent.obliqueAngle) && ent.obliqueAngle !== 0) {
-          (e as TextEntity).obliqueAngle = ent.obliqueAngle * Math.PI / 180;
+
+        const rawOblique = ent.obliqueAngle
+          ?? Number(this._rawTagValue(rawObjMap, ent.handle, 51) ?? NaN);
+        let hasEntityOblique = false;
+        if (Number.isFinite(rawOblique) && rawOblique !== 0) {
+          (e as TextEntity).obliqueAngle = rawOblique * Math.PI / 180;
+          hasEntityOblique = true;
         }
-        // Resolve font and style properties from DXF text style table.
-        let resolvedFont: string | null = null;
-        if (ent.styleName || ent.textStyleName) {
-          const styleName = ent.styleName ?? ent.textStyleName;
-          const style = dxfFile.textStyles.get(styleName);
-          if (style) {
-            if (style.font) resolvedFont = style.font;
-            // Inherit widthFactor/obliqueAngle from style when entity doesn't override.
-            if ((e as TextEntity).widthFactor === 1 && style.widthFactor !== undefined && style.widthFactor > 0) {
-              (e as TextEntity).widthFactor = style.widthFactor;
-            }
-            if ((e as TextEntity).obliqueAngle === 0 && style.obliqueAngle !== undefined && style.obliqueAngle !== 0) {
-              (e as TextEntity).obliqueAngle = style.obliqueAngle * Math.PI / 180;
-            }
+
+        // ── Font ─────────────────────────────────────────────────────────────
+        // Precedence: an MTEXT `\f` code, then the entity's own font, then the
+        // STYLE table entry. Without the STYLE table every drawing rendered in
+        // one fallback face regardless of what it asked for.
+        let resolvedFont: string | null = mtext?.font ?? null;
+        if (textStyle) {
+          if (!resolvedFont && textStyle.font) resolvedFont = textStyle.font;
+          // Style values apply only where the entity gave none of its own.
+          if (!hasEntityWidthFactor && textStyle.widthFactor !== undefined && textStyle.widthFactor > 0) {
+            (e as TextEntity).widthFactor = textStyle.widthFactor;
+          }
+          if (!hasEntityOblique && textStyle.obliqueAngle !== undefined && textStyle.obliqueAngle !== 0) {
+            (e as TextEntity).obliqueAngle = textStyle.obliqueAngle * Math.PI / 180;
           }
         }
         if (ent.font) resolvedFont = ent.font;
@@ -932,21 +1086,65 @@ export class DxfImportService {
           const dim = new DimensionEntity(p1, p2, dimLinePt);
           dim['arrowAspect'] = 2;
           if (typeof ent.text === 'string' && ent.text.length) dim.textOverride = ent.text;
-          // Preserve DXF dimension style name. If the referenced style isn't
-          // present in dxfFile.dimStyles, draw() falls back to DEFAULT_DIM_STYLE.
-          const styleName = ent.styleName ?? ent.dimensionStyleName ?? ent.dimStyleName;
+
+          // Preserve DXF dimension style name. dxf-parser's DIMENSION handler
+          // has no `case 3`, so without the raw-tag fallback every dimension
+          // resolves to `Standard` — and inherits its 4-decimal precision.
+          let styleName = ent.styleName ?? ent.dimensionStyleName ?? ent.dimStyleName;
+          if (typeof styleName !== 'string' || !styleName.length) {
+            styleName = this._rawTagValue(rawObjMap, ent.handle, 3);
+          }
           if (typeof styleName === 'string' && styleName.length) dim.styleName = styleName;
-          
-          const rDeg = ent.textRotation ?? ent.rotation ?? ent.rawDxfObject?.textRotation ?? ent.rawDxfObject?.rotation;
+
+          // ── Dimension-style overrides carried as XDATA on the entity ──────
+          // DIMLFAC scales the measurement (a span drawn 68.5333 units long
+          // reports 10280 at factor 150); DIMSCALE scales only the visuals.
+          // Both must be applied: a style may set DIMSCALE 150 while every
+          // entity referencing it overrides back to 1.
+          const ov = ent.handle ? dimOverrides.get(ent.handle) : undefined;
+          if (ov) {
+            if (typeof ov.linearFactor === 'number' && ov.linearFactor > 0) {
+              dim.linearFactor = ov.linearFactor;
+            }
+            if (typeof ov.globalScale === 'number' && ov.globalScale > 0) {
+              dim.globalScale = ov.globalScale;
+            }
+            if (typeof ov.unitPrecision === 'number') dim.unitPrecision = ov.unitPrecision;
+            if (typeof ov.textOffset === 'number') dim.textOffset = ov.textOffset;
+            if (typeof ov.arrowSize === 'number') dim.arrowSize = ov.arrowSize;
+            if (typeof ov.textHeight === 'number') dim.textHeight = ov.textHeight;
+          }
+
+          // Rotation (group 50). Base type 0 is a rotated/horizontal/vertical
+          // linear dimension, which measures the *projection* onto that axis —
+          // an absent group 50 means 0°, not "aligned". Base type 1 is aligned
+          // and keeps `rotation` null so the point-to-point distance is used.
+          if ((dimType & 7) === 0) {
+            const ang = Number(ent.angle ?? 0);
+            dim.rotation = (Number.isFinite(ang) ? ang : 0) * Math.PI / 180;
+          }
+
+          // AutoCAD's own text position (group 11). Authoritative whenever the
+          // "text at user-defined location" bit is set, which is what keeps
+          // dense drawings from collapsing into overlapping labels.
+          if (ent.middleOfText && Number.isFinite(ent.middleOfText.x) && Number.isFinite(ent.middleOfText.y)) {
+            dim.textPoint = { x: ent.middleOfText.x, y: ent.middleOfText.y };
+          }
+
+          // Group 42 — AutoCAD's cached measurement, already DIMLFAC-scaled.
+          if (Number.isFinite(Number(ent.actualMeasurement))) {
+            dim.actualMeasurement = Number(ent.actualMeasurement);
+          }
+
+          const rDeg = ent.textRotation ?? ent.rawDxfObject?.textRotation ?? ent.rawDxfObject?.rotation;
           if (rDeg !== undefined && rDeg !== null && Number.isFinite(Number(rDeg))) {
             dim.textRotationOverride = Number(rDeg) * Math.PI / 180;
           }
-          
+
           e = dim;
         }
         break;
       }
-      case 'ATTRIB':
       case 'VIEWPORT': {
         // VIEWPORT entities have a center, width, height, and view properties
         if (ent.center && ent.width !== undefined && ent.height !== undefined) {
@@ -1003,6 +1201,30 @@ export class DxfImportService {
       }
     }
     return e;
+  }
+
+  /**
+   * Reads a group code straight off the raw tag block for an entity.
+   *
+   * `dxf-parser`'s handlers cover only a subset of each entity's groups — TEXT
+   * has no `case 7` (style name) and DIMENSION no `case 3` (dimension style) —
+   * so anything they skip has to be recovered from the tags the lexical scanner
+   * kept.
+   *
+   * @returns the trimmed value, or `undefined` when the tag is absent.
+   */
+  private _rawTagValue(
+    rawObjMap: Map<string, RawDxfObject>,
+    handle: string | undefined,
+    code: number,
+  ): string | undefined {
+    if (!handle) return undefined;
+    const raw = rawObjMap.get(handle);
+    if (!raw) return undefined;
+    const tag = raw.originalTags.find((t) => Number(t.code) === code);
+    if (!tag) return undefined;
+    const value = String(tag.value).trim();
+    return value.length ? value : undefined;
   }
 
   private leaderFromRawTags(

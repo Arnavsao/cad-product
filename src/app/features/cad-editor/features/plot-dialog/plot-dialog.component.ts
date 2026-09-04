@@ -457,19 +457,19 @@ import {
 
     /* ── Body ── */
     .pd-body { display:flex;gap:12px;flex:1;overflow:hidden;min-height:0;padding:12px; }
-    .pd-col { width:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:8px; }
+    .pd-col { width:320px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-right:10px; }
     .pd-col::-webkit-scrollbar { width:6px; }
     .pd-col::-webkit-scrollbar-thumb { background:var(--cad-border,#3a3f4b);border-radius:3px; }
     .pd-col-preview { flex:1;display:flex;flex-direction:column;min-width:0; }
 
     /* ── Fieldsets ── */
-    .pd-fieldset { border:1px solid var(--cad-border,#3a3f4b);border-radius:4px;padding:8px 10px 10px;margin:0;background:var(--cad-bg-panel-solid,#1e2026); }
+    .pd-fieldset { border:1px solid var(--cad-border,#3a3f4b);border-radius:4px;padding:12px 14px 14px;margin:0;background:var(--cad-bg-panel-solid,#1e2026); }
     .pd-fieldset legend { font-size:10.5px;color:var(--cad-accent,#5ab0ff);padding:0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.3px; }
 
     .pd-divider { border:none;border-top:1px solid var(--cad-border,#3a3f4b);margin:2px 0; }
 
     /* ── Controls ── */
-    .pd-group { display:flex;flex-direction:column;gap:4px; }
+    .pd-group { display:flex;flex-direction:column;gap:6px; }
     .pd-group.pd-disabled { opacity:.5;pointer-events:none; }
     .pd-label { font-size:10.5px;color:var(--cad-text-dim,#888);font-weight:500; }
     .pd-select { background:var(--cad-bg-input,#252830);border:1px solid var(--cad-border,#3a3f4b);color:var(--cad-text-primary,#d4d4d4);padding:4px 6px;border-radius:3px;font-family:inherit;font-size:11.5px;width:100%; }

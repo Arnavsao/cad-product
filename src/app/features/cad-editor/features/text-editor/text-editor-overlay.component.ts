@@ -7,6 +7,7 @@ import { ViewModelService } from '../../core/services/view-model.service';
 import { TextLayoutEngine, type ITextLayout } from '../../core/utils/text-layout-engine';
 import { ListHelper } from './list-helper';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { splitTextLines } from '../../core/utils/text-control-codes';
 
 interface IRect { x: number; y: number; w: number; h: number; }
 
@@ -601,7 +602,7 @@ private updateLeaderMetrics(ent: any): void {
         })();
     const sIns = this.vm.w2s(ins.x, ins.y);
 
-    const lines = (ent.text || '').split(/\\P|\n/);
+    const lines = splitTextLines(ent.text || '');
     const N = Math.max(1, lines.length);
 
     // Width: widest measured line + breathing room (text doesn't wrap).
@@ -669,7 +670,7 @@ private updateLeaderMetrics(ent: any): void {
     const sIns = metrics.sPos;
     const angle = metrics.angle;
     
-    const lines = (ent.text || '').split(/\\P|\n/);
+    const lines = splitTextLines(ent.text || '');
     const N = Math.max(1, lines.length);
 
     const maxLineW = this.measureMaxLineWidth(lines, { font: 'Arial', italic: false, bold: false }, fontSizePx);
