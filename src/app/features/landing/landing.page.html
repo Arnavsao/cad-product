@@ -1,19 +1,23 @@
 <div class="landing">
+  <ui-grid-backdrop />
+
   <header class="landing__nav">
-    <a class="brand" routerLink="/" aria-label="CADO home">
+    <a class="brand" routerLink="/" aria-label="{{ appName }} home">
       <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
       <span class="brand__name">{{ appName }}</span>
     </a>
     <nav class="landing__nav-actions" aria-label="Account">
+      <a class="landing__nav-link" routerLink="/features">Features</a>
+      <a class="landing__nav-link" routerLink="/pricing">Pricing</a>
       @if (!auth.enabled()) {
-        <a uiButton size="sm" variant="ghost" routerLink="/editor">Open editor</a>
+      <a uiButton size="sm" variant="ghost" routerLink="/editor">Open editor</a>
       } @else if (!auth.isLoaded()) {
-        <ui-skeleton width="72px" height="28px" radius="var(--ui-radius-md)" />
+      <ui-skeleton width="72px" height="28px" radius="var(--ui-radius-md)" />
       } @else if (auth.isSignedIn()) {
-        <a uiButton size="sm" variant="ghost" routerLink="/dashboard">Dashboard</a>
+      <a uiButton size="sm" variant="ghost" routerLink="/dashboard">Dashboard</a>
       } @else {
-        <a uiButton size="sm" variant="ghost" routerLink="/sign-in">Sign in</a>
-        <a uiButton size="sm" variant="primary" routerLink="/sign-up">Create account</a>
+      <a uiButton size="sm" variant="ghost" routerLink="/sign-in">Sign in</a>
+      <a uiButton size="sm" variant="primary" routerLink="/sign-up">Create account</a>
       }
     </nav>
   </header>
@@ -23,48 +27,207 @@
       <p class="hero__eyebrow">Browser-native 2D CAD</p>
       <h1 class="hero__title">Draw anywhere.<br />Your drawings, in the browser.</h1>
       <p class="hero__sub">
-        CADO is a full 2D CAD editor that runs in any modern browser — DXF in and out, layouts and plotting,
+        {{ appName }} is a full 2D CAD editor that runs in any modern browser — DXF in and out, layouts and plotting,
         autosave and cloud files.
       </p>
       <div class="hero__cta">
         @if (!auth.enabled()) {
-          <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
+        <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
         } @else if (!auth.isLoaded()) {
-          <ui-skeleton width="120px" height="42px" radius="var(--ui-radius-lg)" />
-          <ui-skeleton width="160px" height="42px" radius="var(--ui-radius-lg)" />
+        <ui-skeleton width="120px" height="42px" radius="var(--ui-radius-lg)" />
+        <ui-skeleton width="160px" height="42px" radius="var(--ui-radius-lg)" />
         } @else if (auth.isSignedIn()) {
-          <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
-          <a uiButton size="lg" routerLink="/editor">Open editor</a>
+        <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
+        <a uiButton size="lg" routerLink="/editor">Open editor</a>
         } @else {
-          <a uiButton variant="primary" size="lg" routerLink="/sign-in">Sign in</a>
-          <a uiButton size="lg" routerLink="/sign-up">Create account</a>
+        <a uiButton variant="primary" size="lg" routerLink="/sign-up">Start drawing</a>
+        <a uiButton size="lg" routerLink="/sign-in">Sign in</a>
         }
       </div>
     </section>
 
-    <section class="features" aria-label="Highlights">
-      <article class="feature">
-        <div class="feature__icon"><ui-icon name="pencil" [size]="20" /></div>
-        <h2>Precise drafting</h2>
-        <p>12 object snaps, associative dimensions and hatch.</p>
+    <!--
+      The hero effect. `ui-sheet` carries the named view timeline every stroke
+      inside animates against (see blueprint.scss) — the plan assembles in
+      drafting order as this scrolls up: walls, then doors and windows, then
+      dimensions, then the hatch.
+    -->
+    <section class="sheet ui-sheet" aria-labelledby="sheet-caption">
+      <h2 class="ui-visually-hidden" id="sheet-caption">A floor plan being drafted</h2>
+
+      <!--
+        The canvas box is locked to the viewBox ratio and carries no padding, so
+        the overlay measurements below can be positioned in plain percentages of
+        the plan's own coordinates — and so the pointer readout maps against the
+        same box the geometry is drawn in.
+      -->
+      <div class="sheet__canvas" #sheet>
+        <svg
+          class="sheet__plan"
+          viewBox="0 0 960 600"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label="Floor plan of a three-room apartment, 7000 by 3400 millimetres, with dimension lines and object snaps"
+          focusable="false"
+        >
+          <defs>
+            <pattern id="cado-hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line class="sheet__hatch-line" x1="0" y1="0" x2="0" y2="14" />
+            </pattern>
+          </defs>
+
+          <!-- Hatch first, so the walls bounding it draw over the top. -->
+          <rect
+            class="ui-fade ui-ink--detail sheet__hatch"
+            x="148" y="318" width="404" height="154"
+            fill="url(#cado-hatch)"
+          />
+
+          <!-- Walls. One path, so the dash traces the shell continuously. -->
+          <path
+            class="ui-ink ui-ink--walls sheet__wall"
+            pathLength="1"
+            d="M140 140H240 M360 140H640 M760 140H840 M840 140V480 M840 480H470 M380 480H140 M140 480V140
+               M560 140V200 M560 280V480 M140 310H250 M330 310H560"
+          />
+
+          <!-- Door leaves and their swings. -->
+          <path
+            class="ui-ink ui-ink--doors sheet__thin"
+            pathLength="1"
+            d="M380 480V392 M380 392A88 88 0 0 1 468 480
+               M560 200H640 M640 200A80 80 0 0 1 560 280
+               M330 310V230 M330 230A80 80 0 0 0 250 310"
+          />
+
+          <!-- Windows: the wall is gapped above, these are the glazing lines. -->
+          <path
+            class="ui-ink ui-ink--doors sheet__thin"
+            pathLength="1"
+            d="M240 134H360 M240 140H360 M240 146H360 M640 134H760 M640 140H760 M640 146H760"
+          />
+
+          <!-- Dimensions: extension lines, then the dimension line itself. -->
+          <path
+            class="ui-ink ui-ink--dims sheet__dim"
+            pathLength="1"
+            d="M140 132V80 M840 132V80 M140 92H840 M132 140H80 M132 480H80 M92 140V480"
+          />
+          <path
+            class="ui-fade ui-ink--dims sheet__arrow"
+            d="M140 92L154 87.5L154 96.5Z M840 92L826 87.5L826 96.5Z
+               M92 140L87.5 154L96.5 154Z M92 480L87.5 466L96.5 466Z"
+          />
+
+          <!-- Object snaps: square endpoint, triangle midpoint, circle centre. -->
+          <rect class="ui-fade ui-snap sheet__snap" x="134" y="134" width="12" height="12" />
+          <rect class="ui-fade ui-snap sheet__snap" x="834" y="474" width="12" height="12" />
+          <path class="ui-fade ui-snap sheet__snap" d="M140 302L147 314H133Z" />
+          <circle class="ui-fade ui-snap sheet__snap" cx="700" cy="310" r="6" />
+        </svg>
+
+        <!--
+          Measurements are HTML, not SVG <text>: the count-up is a CSS counter,
+          which SVG text does not render.
+        -->
+        <span class="sheet__dim-val sheet__dim-val--top ui-fade ui-ink--dims" aria-label="7000 millimetres">
+          <span class="ui-dim-val ui-ink--dims" style="--ui-dim-to: 7000" aria-hidden="true"></span>
+          <span aria-hidden="true">mm</span>
+        </span>
+        <span class="sheet__dim-val sheet__dim-val--left ui-fade ui-ink--dims" aria-label="3400 millimetres">
+          <span class="ui-dim-val ui-ink--dims" style="--ui-dim-to: 3400" aria-hidden="true"></span>
+          <span aria-hidden="true">mm</span>
+        </span>
+      </div>
+
+      <div class="sheet__status" aria-hidden="true">
+        <p class="sheet__cmd">
+          <span class="sheet__cmd-name">_LINE</span>
+          <span class="sheet__cmd-text">Specify first point:</span>
+          <span class="sheet__caret"></span>
+        </p>
+        <p class="sheet__readout">
+          <span class="sheet__coord">X&nbsp;<span #coordX>0.0</span></span>
+          <span class="sheet__coord">Y&nbsp;<span #coordY>0.0</span></span>
+        </p>
+      </div>
+    </section>
+
+    <section class="strip" aria-label="What it does">
+      <article class="cap" uiReveal>
+        <div class="cap__icon"><ui-icon name="download" [size]="18" /></div>
+        <h2 class="cap__title">DXF round-trip</h2>
+        <p class="cap__body">Open a drawing from your desk, edit it, export it back. Layers and blocks survive.</p>
       </article>
-      <article class="feature">
-        <div class="feature__icon"><ui-icon name="file" [size]="20" /></div>
-        <h2>Files you own</h2>
-        <p>DXF import/export, layouts, PDF plot.</p>
+      <article class="cap" uiReveal="80">
+        <div class="cap__icon"><ui-icon name="grid" [size]="18" /></div>
+        <h2 class="cap__title">Layouts and plotting</h2>
+        <p class="cap__body">Paper-space layouts with viewports, then plot to PDF or SVG at a real scale.</p>
       </article>
-      <article class="feature">
-        <div class="feature__icon"><ui-icon name="cloud" [size]="20" /></div>
-        <h2>Never lose work</h2>
-        <p>Autosave, recovery and cloud drawings.</p>
+      <article class="cap" uiReveal="160">
+        <div class="cap__icon"><ui-icon name="pencil" [size]="18" /></div>
+        <h2 class="cap__title">Associative dimensions</h2>
+        <p class="cap__body">Twelve object snaps, dimension styles, hatch and tables. Move the geometry — the
+          measurement follows.</p>
       </article>
+      <article class="cap" uiReveal="240">
+        <div class="cap__icon"><ui-icon name="cloud" [size]="18" /></div>
+        <h2 class="cap__title">Never lose work</h2>
+        <p class="cap__body">Autosave, local recovery and versioned cloud drawings you can share.</p>
+      </article>
+    </section>
+
+    <section class="demo" uiReveal aria-labelledby="demo-title">
+      <h2 class="demo__title" id="demo-title">The actual editor</h2>
+      <p class="demo__sub">Not a mockup — this is the drafting surface you get on the free plan.</p>
+
+      <div class="demo__frame">
+        @if (demoVideo) {
+        <!-- preload="metadata" so the poster and duration arrive without pulling the media. -->
+        <video
+          class="demo__video"
+          [src]="demoVideo"
+          [poster]="demoPoster"
+          muted
+          loop
+          autoplay
+          playsinline
+          preload="metadata"
+          aria-label="Screen recording of the {{ appName }} editor"
+        ></video>
+        } @else {
+        <p class="demo__placeholder">
+          <ui-icon name="upload" [size]="22" [strokeWidth]="1.5" />
+          <strong>[EDITOR SCREEN CAPTURE]</strong>
+          <span>Drop a muted, looping clip at <code>public/editor-demo.mp4</code> with a poster frame, then set
+            <code>demoVideo</code> in <code>landing.page.ts</code>.</span>
+        </p>
+        }
+      </div>
+    </section>
+
+    <section class="close" uiReveal aria-labelledby="close-title">
+      <h2 class="close__title" id="close-title">Open a drawing in the next ten seconds.</h2>
+      <p class="close__sub">No install, no licence server. It runs in the tab you already have open.</p>
+      <div class="close__cta">
+        @if (!auth.enabled()) {
+        <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
+        } @else if (!auth.isLoaded()) {
+        <ui-skeleton width="150px" height="42px" radius="var(--ui-radius-lg)" />
+        } @else if (auth.isSignedIn()) {
+        <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
+        } @else {
+        <a uiButton variant="primary" size="lg" routerLink="/sign-up">Create a free account</a>
+        <a uiButton size="lg" variant="ghost" routerLink="/features">See what it does</a>
+        }
+      </div>
     </section>
   </main>
 
   <footer class="landing__footer">
     <span>&copy; {{ year }} {{ appName }}</span>
     <span class="landing__footer-sep" aria-hidden="true">·</span>
-    <span>2D CAD in the browser</span>
+    <a routerLink="/features">Features</a>
     <span class="landing__footer-sep" aria-hidden="true">·</span>
     <a routerLink="/pricing">Pricing</a>
     <span class="landing__footer-sep" aria-hidden="true">·</span>
