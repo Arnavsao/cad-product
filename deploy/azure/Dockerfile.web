@@ -1,0 +1,30 @@
+# Web container for Azure Container Apps: the same Angular build as the root
+# Dockerfile, but nginx config is rendered at start so the API upstream (a
+# Container Apps FQDN, unknown at build time) is an env var.
+# Build context is the repo root:
+#   docker build -f deploy/azure/Dockerfile.web -t <registry>/cado-web:<tag> .
+
+FROM node:24-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY . .
+RUN npm run build
+
+FROM nginx:1.27-alpine
+# envsubst lives in gettext; not in the stock nginx alpine image.
+RUN apk add --no-cache gettext
+RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
+
+# Templates stay outside conf.d/: nginx globs conf.d/*.conf at start and would
+# fail parsing an unsubstituted ${API_ORIGIN}.
+COPY deploy/azure/nginx.azure.conf.template        /etc/nginx/templates/default.conf.template
+COPY deploy/azure/nginx.common.azure.conf.template /etc/nginx/templates/common.conf.template
+COPY deploy/azure/nginx.map.conf                   /etc/nginx/conf.d/00-map.conf
+COPY deploy/azure/docker-entrypoint.sh             /entrypoint.sh
+
+COPY --from=build /app/dist/aagento-cad/browser /usr/share/nginx/html
+
+EXPOSE 80
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1
+ENTRYPOINT ["/entrypoint.sh"]

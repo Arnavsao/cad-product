@@ -1,0 +1,14 @@
+# Container Apps variant of nginx.conf, rendered at start by
+# docker-entrypoint.sh so the API upstream can be an env var: each Container App
+# gets its FQDN at creation time, which is not knowable when the image is built.
+server {
+  listen 80;
+  server_name _;
+  root /usr/share/nginx/html;
+  index index.html;
+
+  # No ACME challenge block and no HTTP->HTTPS redirect: Container Apps ingress
+  # terminates TLS and provides the certificate. This server only ever sees
+  # plain HTTP, so a redirect here would loop.
+  include /etc/nginx/common.conf;
+}

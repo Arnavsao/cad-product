@@ -1,0 +1,133 @@
+# Deploy CADO to Azure Container Apps.
+#
+# Both images are built here and pushed to ghcr.io, then the two Container Apps
+# are updated to the new tag. Manual-only by default; uncomment `push` to
+# deploy on merge to main (ci.yml already gates correctness).
+#
+# One-time setup: deploy/azure/README.md
+name: Deploy
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+concurrency:
+  # Never two deploys at once. Not cancel-in-progress: an interrupted
+  # `az containerapp update` can leave a half-rolled revision.
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: cado-prod-rg
+  API_APP: cado-api
+  WEB_APP: cado-web
+
+jobs:
+  build:
+    name: Build images → ghcr.io
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api: ${{ steps.names.outputs.api }}
+      web: ${{ steps.names.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ghcr.io rejects uppercase path segments and github.repository keeps the
+      # owner's original case, so lowercase it rather than assuming.
+      - name: Compute image names
+        id: names
+        run: |
+          slug=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          echo "api=ghcr.io/${slug}-api" >> "$GITHUB_OUTPUT"
+          echo "web=ghcr.io/${slug}-web" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # linux/amd64 only — that is what Container Apps runs; a second arch would
+      # roughly double build time for nothing.
+      - name: Build and push API
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.names.outputs.api }}:${{ github.sha }}
+            ${{ steps.names.outputs.api }}:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      # Context is the repo root: the Dockerfile needs package.json, src/ and
+      # the nginx templates under deploy/azure/.
+      - name: Build and push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./deploy/azure/Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.names.outputs.web }}:${{ github.sha }}
+            ${{ steps.names.outputs.web }}:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    name: Update Container Apps
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # Azure OIDC
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Images only — env vars and secrets are owned by provision.sh, so a
+      # deploy can never silently rewrite configuration.
+      - name: Deploy API
+        run: |
+          az containerapp update -g "$RESOURCE_GROUP" -n "$API_APP" \
+            --image "${{ needs.build.outputs.api }}:${{ github.sha }}" --output none
+
+      - name: Deploy web
+        run: |
+          az containerapp update -g "$RESOURCE_GROUP" -n "$WEB_APP" \
+            --image "${{ needs.build.outputs.web }}:${{ github.sha }}" --output none
+
+      - name: Smoke test
+        run: |
+          fqdn=$(az containerapp show -g "$RESOURCE_GROUP" -n "$WEB_APP" \
+                   --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Deployed: https://${fqdn}"
+
+          # Generous budget: min-replicas is 0, so these are cold starts, and
+          # the API also runs `prisma migrate deploy` before it listens.
+          probe() {
+            for i in $(seq 1 40); do
+              curl -fsS --max-time 15 "$1" >/dev/null && { echo "✓ $2"; return 0; }
+              sleep 10
+            done
+            echo "::error::$2 never became healthy"; return 1
+          }
+          probe "https://${fqdn}/healthz"        "nginx healthy"
+          probe "https://${fqdn}/api/v1/healthz" "API healthy through proxy"
+
+          {
+            echo "### Deployed :rocket:"
+            echo "- URL: https://${fqdn}"
+            echo "- Tag: \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
