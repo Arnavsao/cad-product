@@ -144,6 +144,9 @@ run az provider register --namespace Microsoft.OperationalInsights --wait
 # ---------------------------------------------------------------------------
 
 # --- WEB app (nginx + Angular) ---------------------------------------------
+# The explicit HTTP scale rule matters: with --min-replicas 0 and no rule, KEDA
+# has no trigger to scale up on, so the app sits at zero replicas and ingress
+# answers 404 ("stopped or does not exist") for every request.
 say "Deploying $WEB_APP"
 if az containerapp show -g "$RESOURCE_GROUP" -n "$WEB_APP" >/dev/null 2>&1; then
   run az containerapp update -g "$RESOURCE_GROUP" -n "$WEB_APP" \
@@ -154,6 +157,8 @@ else
       --image "${GHCR_WEB_IMAGE}:${IMAGE_TAG}" \
       --target-port 80 --ingress external \
       --min-replicas 0 --max-replicas 2 \
+      --scale-rule-name http-requests --scale-rule-type http \
+      --scale-rule-http-concurrency 40 \
       --cpu 0.25 --memory 0.5Gi \
       --env-vars "API_ORIGIN=https://placeholder.invalid" \
       --output none
@@ -217,11 +222,21 @@ for p in PRO_MONTHLY PRO_ANNUAL TEAM_MONTHLY TEAM_ANNUAL; do
 done
 
 # --- API Container App ------------------------------------------------------
-# INTERNAL ingress: only the web app's nginx reaches it, over the environment's
-# private network. Nothing about the API is publicly routable except through
-# /api/ on the web origin, so the browser request stays same-origin and CORS
-# never enters the picture (CORS_ORIGIN is still set: the API validates it, and
-# it is what APP_BASE_URL builds email links from).
+# EXTERNAL ingress, deliberately, despite nginx being the only intended caller.
+#
+# Internal ingress requires a custom VNet. In a Consumption-only environment
+# (vnetConfiguration: null) the *.internal.* FQDN still gets issued but resolves
+# to the environment's PUBLIC static IP, so nginx's request arrives at public
+# ingress, which sees a Host for an internal-only app and answers its own 404.
+# Nothing can reach it — the address exists but routes nowhere.
+#
+# So the API is external and nginx proxies to it server-side. The browser still
+# only ever talks to the web origin, so requests stay same-origin and CORS is
+# not involved. The API is reachable directly by anyone who knows the URL, but
+# every route except GET /healthz requires a valid Supabase bearer token.
+#
+# To make it genuinely private, recreate the environment with
+# --infrastructure-subnet-resource-id and set --ingress internal here.
 #
 # --min-replicas 0 is the scale-to-zero the Consumption plan is for: an idle
 # API costs nothing. The trade-off is a cold start on the first request after
@@ -241,8 +256,10 @@ else
   run az containerapp create -g "$RESOURCE_GROUP" -n "$API_APP" \
       --environment "$ENV_NAME" \
       --image "${GHCR_API_IMAGE}:${IMAGE_TAG}" \
-      --target-port 3000 --ingress internal \
+      --target-port 3000 --ingress external \
       --min-replicas 0 --max-replicas 2 \
+      --scale-rule-name http-requests --scale-rule-type http \
+      --scale-rule-http-concurrency 20 \
       --cpu 0.5 --memory 1.0Gi \
       --secrets "${SECRET_ARGS[@]}" \
       --env-vars "${ENV_ARGS[@]}" \
@@ -272,7 +289,7 @@ cat <<SUMMARY
    Azure resources ready
 
    Web (public)     ${WEB_ORIGIN}
-   API (internal)   ${API_ORIGIN}
+   API (public)     ${API_ORIGIN}
    Resource group   ${RESOURCE_GROUP}    Region ${LOCATION}
 
    NEXT — add these GitHub repo secrets (Settings -> Secrets -> Actions):
@@ -288,7 +305,7 @@ cat <<SUMMARY
 
    Verify once deployed:
      curl -fsS ${WEB_ORIGIN}/healthz          # nginx itself
-     curl -fsS ${WEB_ORIGIN}/api/v1/healthz   # API through the nginx proxy
+     curl -fsS ${WEB_ORIGIN}/api-healthz      # API through the nginx proxy
 
    Logs:
      az containerapp logs show -g ${RESOURCE_GROUP} -n ${WEB_APP} --follow

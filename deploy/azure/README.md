@@ -46,7 +46,7 @@ enters the picture — the arrangement `docker-compose.prod.yml` already uses.
   └──────────┬───────────┘
              │  location ^~ /api/  →  proxy_pass ${API_ORIGIN}
              ▼
-  ┌──────────────────────┐  INTERNAL ingress :3000
+  ┌──────────────────────┐  external ingress :3000
   │ cado-api             │  NestJS + Prisma
   └──────────┬───────────┘
              │
@@ -55,8 +55,22 @@ enters the picture — the arrangement `docker-compose.prod.yml` already uses.
   Neon Postgres    Cloudflare R2
 ```
 
-Only `cado-web` is publicly reachable. The API has internal ingress: routable
-only from inside the environment, i.e. through nginx.
+Both apps have public ingress, but the browser only ever talks to `cado-web`:
+nginx proxies `/api/` server-side, so requests stay same-origin and CORS is not
+involved.
+
+**Why the API is not internal.** Internal ingress requires a custom VNet. In a
+Consumption-only environment (`vnetConfiguration: null`) the `*.internal.*`
+FQDN is still issued, but it resolves to the environment's **public** static IP
+— so nginx's request lands on public ingress, which sees a Host header for an
+internal-only app and answers its own 404 ("This Container App is stopped or
+does not exist"). The address exists and routes nowhere.
+
+The API being public means anyone who knows its URL can reach it, but every
+route except `GET /healthz` requires a valid Supabase bearer token. To make it
+genuinely private, recreate the environment with
+`--infrastructure-subnet-resource-id` and switch the API to
+`--ingress internal`.
 
 ## Why the nginx config is templated
 
@@ -155,8 +169,19 @@ Actions → **Deploy** → Run workflow. (Or uncomment the `push` trigger in
 `.github/workflows/deploy.yml` for deploy-on-merge.)
 
 The workflow builds both images, updates both apps, then polls `/healthz` and
-`/api/v1/healthz` until they answer. It only ever changes the image — env vars
+`/api-healthz` until they answer. It only ever changes the image — env vars
 and secrets belong to `provision.sh`, so a deploy cannot rewrite configuration.
+
+**Every app needs an explicit HTTP scale rule.** With `--min-replicas 0` and no
+scale rule, KEDA has no trigger to scale up on: the app sits at zero replicas
+and ingress answers 404 for every request. `provision.sh` sets one on both
+apps; if you create one by hand, do not omit it.
+
+**`/healthz` vs `/api-healthz`.** The API excludes `/healthz` from its `api/v1`
+global prefix (`app.setup.ts`), so it does not live under `/api/`. nginx
+forwards the full path, so `/api/v1/healthz` reaches the API as
+`/api/v1/healthz` and gets a genuine 404. `/api-healthz` is a dedicated nginx
+location that proxies to the API's bare `/healthz`.
 
 ## Cold starts
 
@@ -248,12 +273,17 @@ Third-party dashboards this script cannot reach:
 **`DENIED: requested access to the resource is denied` on create/update** —
 the ghcr.io package is private or not pushed yet. See step 4.
 
+**404 "This Container App is stopped or does not exist"** — either the app has
+no HTTP scale rule (see above) or you are hitting an `*.internal.*` FQDN in a
+VNet-less environment. Check `properties.template.scale.rules` is not null.
+
 **502 from the web app** — nginx cannot reach the API. Check `API_ORIGIN`:
 ```bash
 az containerapp show -g cado-prod-rg -n cado-web \
   --query "properties.template.containers[0].env[?name=='API_ORIGIN']"
 ```
-It must be the API's **internal** FQDN with `https://` and no trailing slash.
+It must be the API's FQDN with `https://` and no trailing slash. The
+entrypoint derives the Host header and TLS SNI from it.
 
 **API exits at boot** — usually a missing required env var. The Zod schema
 refuses to start on a bad value; the reason is in the logs:
