@@ -71,15 +71,11 @@
       .boot__tile { animation: none; opacity: .6; }
     }
   </style>
-  <script>
-    // Paint the persisted theme's background before first paint, so the page
-    // never flashes the wrong colour. Dark is the default when nothing is saved.
-    try {
-      var bg = localStorage.getItem('cad.theme.bg');
-      if (localStorage.getItem('theme') !== 'light') document.documentElement.classList.add('dark-theme-pending');
-      if (bg && /^#[0-9a-f]{3,8}$/i.test(bg)) document.documentElement.style.background = bg;
-    } catch (e) {}
-  </script>
+  <!-- Theme pre-paint. External (not inline) because production CSP is
+       `script-src 'self'` without 'unsafe-inline' — an inline script here is
+       blocked and the dark theme silently never applies. Deliberately NOT
+       `defer`/`async`: it must run before first paint. -->
+  <script src="theme-init.js"></script>
 </head>
 <body>
   <app-root>
@@ -93,11 +89,6 @@
       <span class="boot__label">CADO</span>
     </div>
   </app-root>
-  <script>
-    try {
-      if (localStorage.getItem('theme') !== 'light') document.body.classList.add('dark-theme');
-      document.documentElement.classList.remove('dark-theme-pending');
-    } catch (e) {}
-  </script>
+  <script src="theme-apply.js"></script>
 </body>
 </html>
