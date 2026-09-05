@@ -244,20 +244,61 @@ az containerapp revision restart -g cado-prod-rg -n cado-api \
 
 ## Custom domain
 
+**Live at https://cado.website (and www.), registered with GoDaddy.** Managed
+DigiCert certificates, auto-renewed by Azure. The `*.azurecontainerapps.io`
+hostnames still work and are what the deploy workflow smoke-tests.
+
+DNS records in GoDaddy (apex uses `A` because DNS forbids CNAME at a zone apex):
+
+| Type | Name | Value |
+|---|---|---|
+| `A` | `@` | `20.249.151.122` (environment static IP) |
+| `TXT` | `asuid` | environment `customDomainVerificationId` |
+| `CNAME` | `www` | `cado-web.<env>.koreacentral.azurecontainerapps.io` |
+| `TXT` | `asuid.www` | same verification id |
+
+To add another domain:
+
 ```bash
-az containerapp hostname add -g cado-prod-rg -n cado-web --hostname app.example.com
-az containerapp hostname bind -g cado-prod-rg -n cado-web --hostname app.example.com \
-  --environment cado-env --validation-method CNAME
+# The verification id that goes in the asuid TXT records:
+az containerapp env show -g cado-prod-rg -n cado-env \
+  --query properties.customDomainConfiguration.customDomainVerificationId -o tsv
+
+az containerapp hostname add -g cado-prod-rg -n cado-web --hostname example.com
+
+# Validation method differs by record type: an apex on an A record cannot use
+# CNAME validation (Azure rejects it with InvalidValidationMethod).
+az containerapp hostname bind -g cado-prod-rg -n cado-web --hostname example.com \
+  --environment cado-env --validation-method HTTP   # CNAME for a subdomain
 ```
+
+Binding takes several minutes — Azure validates ownership, issues the
+certificate, then enables SNI. Watch it with:
+
+```bash
+az containerapp show -g cado-prod-rg -n cado-web \
+  --query "properties.configuration.ingress.customDomains[].{name:name,binding:bindingType}" -o table
+```
+
+`bindingType: Disabled` means the hostname is verified but has no certificate
+yet; `SniEnabled` means it is serving HTTPS.
+
+**Watch for pasted whitespace in the TXT record.** A trailing tab in the
+verification id (visible as `\009` in `dig +short TXT asuid.<domain>`, and
+invisible in the GoDaddy UI) fails validation with no useful error. Always
+confirm with dig before binding.
 
 Container Apps issues and renews a managed certificate, so `DEPLOYMENT_TLS.md`
 (certbot, `nginx.ssl.conf`) does **not** apply — that covers the bare-VM path.
 
-After binding, update what depends on the origin:
+After binding, update what depends on the origin (CORS_ORIGIN takes a
+comma-separated list; APP_BASE_URL is the single canonical origin used to build
+links in outbound email):
 
 ```bash
 az containerapp update -g cado-prod-rg -n cado-api \
-  --set-env-vars CORS_ORIGIN=https://app.example.com APP_BASE_URL=https://app.example.com
+  --set-env-vars CORS_ORIGIN=https://cado.website,https://www.cado.website \
+                 APP_BASE_URL=https://cado.website
 ```
 
 ## Manual follow-ups
