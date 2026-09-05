@@ -133,6 +133,8 @@ describeIfDb('API foundation (e2e)', () => {
       // first share it receives actually reaches the person.
       emailOnShare: true,
       emailOnOrgActivity: true,
+      // UI language; schema default, validated against LOCALES on update.
+      locale: 'en',
     });
     expect(me.usage).toEqual({ bytesUsed: 0, drawingCount: 0 });
 
