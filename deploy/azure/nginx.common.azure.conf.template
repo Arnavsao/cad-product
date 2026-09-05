@@ -2,10 +2,11 @@
 # TLS-terminated (nginx.ssl.conf) variants. Kept in one file so the two never
 # drift — see DEPLOYMENT_TLS.md for when to use which.
 
-# Security headers
-add_header X-Content-Type-Options nosniff always;
-add_header X-Frame-Options SAMEORIGIN always;
-add_header Referrer-Policy strict-origin-when-cross-origin always;
+# Security headers. Kept in security-headers.conf and INCLUDED rather than
+# declared once here, because nginx drops every inherited add_header in a
+# block that declares one of its own — so a location setting Cache-Control
+# would silently lose CSP, X-Frame-Options and the rest.
+include /etc/nginx/security-headers.conf;
 
 # Content-Security-Policy. script-src/style-src stay same-origin-ish because
 # Angular's production build has no inline <script>, but Angular/CDK inject
@@ -22,7 +23,6 @@ add_header Referrer-Policy strict-origin-when-cross-origin always;
 # (e.g. a CNAME like accounts.yourapp.com), CSP will silently block the
 # `@clerk/ui` script and sign-in will not load. Add that exact host to both
 # script-src and frame-src below before going live with a custom domain.
-add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; frame-src https://*.clerk.accounts.dev https://*.clerk.com https://clerk.com" always;
 
 gzip on;
 gzip_vary on;
@@ -41,7 +41,29 @@ location = /sitemap.xml { try_files $uri =404; }
 # below from ever capturing an API path such as /api/v1/drawings/x.dxf.
 # ${API_ORIGIN} is substituted at container start by deploy/azure/docker-entrypoint.sh
 # with the API Container App's internal FQDN.
+# Liveness probe for the API, proxied to its bare /healthz. The API excludes
+# /healthz from its api/v1 global prefix (app.setup.ts), so it does not live
+# under /api/ and the block above — which forwards the full path — cannot reach
+# it. Exact-match so it never shadows the SPA route of the same name.
+location = /api-healthz {
+  include /etc/nginx/security-headers.conf;
+  resolver 168.63.129.16 valid=30s ipv6=off;
+  set $hc_origin ${API_ORIGIN};
+  set $hc_host   ${API_HOST};
+  proxy_pass $hc_origin/healthz;
+  proxy_http_version 1.1;
+  proxy_ssl_server_name on;
+  proxy_ssl_name   $hc_host;
+  proxy_set_header Host $hc_host;
+  proxy_read_timeout 60s;
+  add_header Cache-Control "no-store" always;
+}
+
 location ^~ /api/ {
+  # nginx discards ALL inherited add_header directives in any block that sets one
+  # of its own, so the server-level security headers must be repeated here or
+  # they never reach the browser. See the note at the top of this file.
+  include /etc/nginx/security-headers.conf;
   # Container Apps FQDNs resolve via public DNS and can change IP, so nginx must
   # re-resolve rather than caching the boot-time answer. 168.63.129.16 is Azure's
   # platform DNS, reachable from inside every Container App.
@@ -74,6 +96,10 @@ location ^~ /api/ {
 
 # Hashed build artefacts are immutable
 location ~* \.(?:js|css|woff2?|png|ico|svg)$ {
+  # nginx discards ALL inherited add_header directives in any block that sets one
+  # of its own, so the server-level security headers must be repeated here or
+  # they never reach the browser. See the note at the top of this file.
+  include /etc/nginx/security-headers.conf;
   expires 1y;
   add_header Cache-Control "public, immutable";
   try_files $uri =404;
@@ -81,6 +107,10 @@ location ~* \.(?:js|css|woff2?|png|ico|svg)$ {
 
 # Never cache the app shell so new releases are picked up immediately
 location = /index.html {
+  # nginx discards ALL inherited add_header directives in any block that sets one
+  # of its own, so the server-level security headers must be repeated here or
+  # they never reach the browser. See the note at the top of this file.
+  include /etc/nginx/security-headers.conf;
   add_header Cache-Control "no-cache, no-store, must-revalidate";
 }
 

@@ -123,8 +123,13 @@ jobs:
             done
             echo "::error::$2 never became healthy"; return 1
           }
-          probe "https://${fqdn}/healthz"        "nginx healthy"
-          probe "https://${fqdn}/api/v1/healthz" "API healthy through proxy"
+          probe "https://${fqdn}/healthz" "nginx healthy"
+
+          # /api-healthz is an nginx location that proxies to the API's bare
+          # /healthz. The API excludes that route from its api/v1 global prefix
+          # (app.setup.ts), so it is not under /api/ and the main proxy block —
+          # which forwards the full path — cannot reach it.
+          probe "https://${fqdn}/api-healthz" "API healthy through proxy"
 
           {
             echo "### Deployed :rocket:"
