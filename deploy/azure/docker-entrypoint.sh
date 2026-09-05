@@ -13,8 +13,15 @@ set -eu
 API_ORIGIN="${API_ORIGIN%/}"
 export API_ORIGIN
 
-envsubst '${API_ORIGIN}' < /etc/nginx/templates/common.conf.template  > /etc/nginx/common.conf
-envsubst '${API_ORIGIN}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
+# Bare hostname, for the Host header and TLS SNI. Container Apps ingress routes
+# by Host, so it must be the API app's own FQDN rather than this app's public
+# name — derived here so there is only one value to configure.
+API_HOST="${API_ORIGIN#*://}"
+API_HOST="${API_HOST%%/*}"
+export API_HOST
+
+envsubst '${API_ORIGIN} ${API_HOST}' < /etc/nginx/templates/common.conf.template  > /etc/nginx/common.conf
+envsubst '${API_ORIGIN} ${API_HOST}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
 
 nginx -t
 exec nginx -g 'daemon off;'

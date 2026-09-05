@@ -47,13 +47,19 @@ location ^~ /api/ {
   # platform DNS, reachable from inside every Container App.
   resolver 168.63.129.16 valid=30s ipv6=off;
   set $api_origin ${API_ORIGIN};
+  set $api_host   ${API_HOST};
   proxy_pass $api_origin;
 
   proxy_http_version 1.1;
-  # Upstream is HTTPS with a cert for its own FQDN: SNI and Host must match that
-  # name, not this app's public hostname, or the handshake fails.
+  # Container Apps ingress routes by Host: it must be the API app's own FQDN, or
+  # ingress cannot tell which app the request is for and answers its own 404
+  # ("This Container App is stopped or does not exist"). $proxy_host is not
+  # usable here — with a variable in proxy_pass it does not resolve to the
+  # upstream name — so the host is passed in explicitly alongside the origin.
+  # The same name is the TLS SNI, which the upstream certificate is issued for.
   proxy_ssl_server_name on;
-  proxy_set_header Host              $proxy_host;
+  proxy_ssl_name    $api_host;
+  proxy_set_header  Host             $api_host;
   proxy_set_header X-Forwarded-Host  $host;
   proxy_set_header X-Real-IP         $remote_addr;
   proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
