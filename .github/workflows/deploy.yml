@@ -1,16 +1,21 @@
 # Deploy CADO to Azure Container Apps.
 #
 # Both images are built here and pushed to ghcr.io, then the two Container Apps
-# are updated to the new tag. Manual-only by default; uncomment `push` to
-# deploy on merge to main (ci.yml already gates correctness).
+# are updated to the new tag.
+#
+# Runs automatically when the CI workflow finishes successfully on main — not
+# on push directly, so a commit whose tests fail is never deployed. Can also be
+# run by hand from the Actions tab (e.g. to redeploy the current main).
 #
 # One-time setup: deploy/azure/README.md
 name: Deploy
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 concurrency:
   # Never two deploys at once. Not cancel-in-progress: an interrupted
@@ -26,6 +31,9 @@ env:
 jobs:
   build:
     name: Build images → ghcr.io
+    # workflow_run fires on CI failure too; only proceed on success (manual
+    # runs have no workflow_run payload and always proceed).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read

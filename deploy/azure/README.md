@@ -165,8 +165,13 @@ configured with no registry credentials, so pulls fail until either:
 
 ## Deploying
 
-Actions → **Deploy** → Run workflow. (Or uncomment the `push` trigger in
-`.github/workflows/deploy.yml` for deploy-on-merge.)
+**Automatic:** every push to `main` runs CI (`ci.yml`: typecheck, i18n check,
+build, unit + e2e tests). When CI passes, the Deploy workflow starts on its own
+(`workflow_run` trigger); when CI fails, nothing is deployed. Expect roughly
+10 minutes from push to live.
+
+**Manual:** Actions → **Deploy** → Run workflow, to redeploy the current `main`
+without a new commit.
 
 The workflow builds both images, updates both apps, then polls `/healthz` and
 `/api-healthz` until they answer. It only ever changes the image — env vars
