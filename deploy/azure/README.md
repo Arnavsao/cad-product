@@ -314,6 +314,36 @@ Third-party dashboards this script cannot reach:
   `*.clerk.accounts.dev`. A custom Clerk domain must be added to `script-src`
   and `frame-src` or sign-in silently fails to load.
 
+## CSP: why production can look different from `ng serve`
+
+nginx sends `Content-Security-Policy: script-src 'self' …` with no
+`'unsafe-inline'`; `ng serve` sends no CSP at all. Anything that relies on
+inline script therefore works locally and is *silently* dropped in production
+— no build error, no runtime error, just a page that looks subtly wrong. Two
+things have already bitten:
+
+- **`inlineCritical` must stay `false`** in `angular.json`. With it on, the
+  main stylesheet is emitted as `<link media="print" onload="this.media='all'">`;
+  CSP blocks the `onload`, the sheet stays print-only, and only the inlined
+  "critical" subset applies. Symptom: buttons render as bare underlined links,
+  visually-hidden captions leak through.
+- **No inline `<script>` in `index.html`.** The theme pre-paint scripts live in
+  `public/theme-init.js` / `public/theme-apply.js` for this reason. Add new
+  boot-time code the same way, not inline.
+
+To reproduce production exactly on your machine, build and run the real image
+— `ng serve` cannot show CSP problems:
+
+```bash
+docker build -f deploy/azure/Dockerfile.web -t cado-web-local .
+docker run --rm -p 8099:80 -e API_ORIGIN=https://<api-fqdn> cado-web-local
+# then open http://localhost:8099 and check the console for "Refused to …"
+```
+
+Headless Chrome makes a quick regression check:
+`chrome --headless=new --screenshot=out.png http://localhost:8099/sign-in`
+should be pixel-identical to the same capture of `http://localhost:4200/sign-in`.
+
 ## Troubleshooting
 
 **`DENIED: requested access to the resource is denied` on create/update** —
