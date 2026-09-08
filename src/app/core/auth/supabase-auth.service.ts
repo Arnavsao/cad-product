@@ -14,6 +14,17 @@ export const AUTH_CALLBACK_URL = '/auth/callback';
 /** Our own account surface. */
 export const ACCOUNT_URL = '/dashboard/settings/account';
 
+/**
+ * Supabase Storage bucket holding uploaded profile pictures.
+ *
+ * Must exist and be PUBLIC-read: the URL is stored in `user_metadata` (and so
+ * rides in the access token) and is rendered by a plain `<img>`, so a signed URL
+ * would expire while still referenced. Write access is scoped per user by RLS
+ * policies on `storage.objects` keyed off the first path segment — see the
+ * deployment notes. A missing bucket surfaces as "Bucket not found" on upload.
+ */
+export const AVATAR_BUCKET = 'avatars';
+
 /** OAuth providers wired into the sign-in / sign-up pages. */
 export type OAuthProvider = 'google' | 'github' | 'azure';
 
@@ -246,6 +257,119 @@ export class SupabaseAuthService {
     }
     const { data } = await client.auth.refreshSession();
     this.sync(data.session ?? null);
+  }
+
+  /**
+   * Stores `image` as the user's profile picture and returns its public URL.
+   *
+   * The URL is written to `user_metadata.avatar_url` and the session refreshed,
+   * for the same reason as {@link updateName}: our API mirrors `users.image_url`
+   * from the ACCESS TOKEN on every authenticated request, so a value that never
+   * reaches the token is overwritten on the next call.
+   *
+   * The object key carries a timestamp instead of being a fixed `avatar.webp`.
+   * A stable key plus `cacheControl` would leave the `<img src>` unchanged after
+   * a re-upload, so the browser would keep showing the previous picture. The old
+   * object is deleted on a best-effort basis so the folder does not accumulate.
+   */
+  async uploadAvatar(image: Blob, contentType: string, extension = 'webp'): Promise<string | null> {
+    const client = await this.require();
+    if (!client) {
+      return null;
+    }
+    const userId = this.user()?.id;
+    if (!userId) {
+      throw new Error('You are not signed in.');
+    }
+
+    // Folder-per-user: the storage RLS policies key off the first path segment.
+    const key = `${userId}/${Date.now()}.${extension}`;
+    const previous = this.storedAvatarPath();
+
+    const { error: uploadError } = await client.storage
+      .from(AVATAR_BUCKET)
+      .upload(key, image, { contentType, upsert: true, cacheControl: '3600' });
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const {
+      data: { publicUrl },
+    } = client.storage.from(AVATAR_BUCKET).getPublicUrl(key);
+
+    const { error } = await client.auth.updateUser({ data: { avatar_url: publicUrl } });
+    if (error) {
+      // The metadata write failed, so nothing references the object we just
+      // stored — drop it rather than leaving an orphan behind.
+      await this.removeStoredAvatar(key);
+      throw error;
+    }
+    const { data } = await client.auth.refreshSession();
+    this.sync(data.session ?? null);
+
+    // After the metadata points at the new object, so a failure here is a
+    // harmless orphan rather than a broken picture.
+    if (previous && previous !== key) {
+      await this.removeStoredAvatar(previous);
+    }
+    return publicUrl;
+  }
+
+  /**
+   * Clears the uploaded profile picture.
+   *
+   * Only `avatar_url` is cleared. For an account that signed in with Google or
+   * GitHub the provider also wrote `picture`, which {@link userAvatarUrl} falls
+   * back to — so removal reverts such a user to their provider photo rather
+   * than to initials. That is deliberate; the UI says so.
+   */
+  async removeAvatar(): Promise<void> {
+    const client = await this.require();
+    if (!client) {
+      return;
+    }
+    const stored = this.storedAvatarPath();
+
+    const { error } = await client.auth.updateUser({ data: { avatar_url: null } });
+    if (error) {
+      throw error;
+    }
+    const { data } = await client.auth.refreshSession();
+    this.sync(data.session ?? null);
+
+    if (stored) {
+      await this.removeStoredAvatar(stored);
+    }
+  }
+
+  /**
+   * `{userId}/{file}` for the current `avatar_url` when it is an object we
+   * uploaded, else null (a provider URL points at Google/GitHub, not our bucket).
+   */
+  private storedAvatarPath(): string | null {
+    const url = pickString(this.user()?.user_metadata?.['avatar_url']);
+    if (!url) {
+      return null;
+    }
+    const marker = `/storage/v1/object/public/${AVATAR_BUCKET}/`;
+    const at = url.indexOf(marker);
+    if (at === -1) {
+      return null;
+    }
+    // Strip any transform/cache query the URL may carry.
+    const path = url.slice(at + marker.length).split('?')[0];
+    return decodeURIComponent(path) || null;
+  }
+
+  /** Best-effort object delete: never fails the action that triggered it. */
+  private async removeStoredAvatar(path: string): Promise<void> {
+    try {
+      const client = await this.require();
+      await client?.storage.from(AVATAR_BUCKET).remove([path]);
+    } catch (e) {
+      // An orphaned object is invisible to the user; a thrown error would not be.
+      console.warn('[CAD] could not delete the previous avatar', e);
+    }
   }
 
   /**

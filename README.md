@@ -37,6 +37,13 @@ secret); put the project URL and anon key in `src/environments/environment.ts`. 
 want. For local API work without a Supabase project at all, `npm --prefix server run mint-token`
 issues a token the guard accepts.
 
+Profile pictures need one more thing in the same project: a **public** Storage bucket named
+`avatars`, plus the row-level policies in [`docs/supabase-avatars-bucket.sql`](docs/supabase-avatars-bucket.sql)
+(Storage → New bucket, then paste the SQL into the SQL editor). Public-read is required — the
+object URL is stored in `user_metadata.avatar_url`, so a signed URL would expire while still
+referenced — while writes stay scoped to each user's own folder. Without the bucket the rest of
+the app is unaffected and uploading a photo reports "Bucket not found".
+
 | Script                 | What it does                                                          |
 | ---------------------- | --------------------------------------------------------------------- |
 | `npm run setup`        | Install both packages, start Postgres + MinIO, run migrations         |
