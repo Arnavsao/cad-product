@@ -333,6 +333,8 @@ export class ExportService {
     assignHandles(file.entities);
 
     let dxf = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1032\n`;
+    // Global linetype scale — without it every dash pattern re-imports at 1.0.
+    dxf += `9\n$LTSCALE\n40\n${file.ltScale > 0 ? file.ltScale : 1}\n`;
     if (file.metadata) {
       if (file.metadata.units) dxf += `9\n$INSUNITS\n70\n${file.metadata.units}\n`;
     }
@@ -376,9 +378,21 @@ export class ExportService {
       dxf += `0\nENDTAB\n`;
     }
 
-    dxf += `0\nTABLE\n2\nLTYPE\n70\n2\n`;
-    dxf += `0\nLTYPE\n2\nCONTINUOUS\n70\n0\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n`;
-    dxf += `0\nLTYPE\n2\nDASHED\n70\n0\n3\nDashed __ __ __ __ __ __ __ __ __ __ __ __ __ _\n72\n65\n73\n2\n40\n0.5\n49\n0.25\n49\n-0.25\n`;
+    // Write the drawing's own LTYPE table so imported patterns (metric DASHED,
+    // CENTERX2, ACAD_ISO…) survive a save; the two defaults fill any gaps.
+    const ltypes = new Map<string, { description?: string; pattern: number[] }>();
+    ltypes.set('CONTINUOUS', { description: 'Solid line', pattern: [] });
+    ltypes.set('DASHED', { description: 'Dashed __ __ __ __ __ __ __ __ __ __ __ __ __ _', pattern: [0.25, -0.25] });
+    for (const [name, def] of file.lineTypes ?? []) {
+      if (/^(bylayer|byblock)$/i.test(name)) continue;
+      ltypes.set(name.toUpperCase(), { description: def.description, pattern: def.pattern ?? [] });
+    }
+    dxf += `0\nTABLE\n2\nLTYPE\n70\n${ltypes.size}\n`;
+    for (const [name, def] of ltypes) {
+      const total = def.pattern.reduce((s, v) => s + Math.abs(v), 0);
+      dxf += `0\nLTYPE\n2\n${name}\n70\n0\n3\n${def.description ?? ''}\n72\n65\n73\n${def.pattern.length}\n40\n${total}\n`;
+      for (const v of def.pattern) dxf += `49\n${v}\n`;
+    }
     dxf += `0\nENDTAB\n`;
 
     let userBlocksCount = 0;
