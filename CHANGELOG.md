@@ -6,6 +6,44 @@ DXF import fidelity. An imported drawing now renders as AutoCAD renders it: corr
 values, decoded text, per-style fonts and real lineweights.
 
 ### Fixed
+* **Default-colour entities looked grey on HiDPI screens.** The three editor canvases were sized
+  in CSS pixels with no device-pixel-ratio scaling, so on a Retina display the browser upscaled
+  the bitmap and a 1 px white (or black) line blurred into a light-grey smear on every dark
+  theme — the theme colour mapper was correct, the pixels were not. The backing stores are now
+  sized in device pixels with the contexts pre-scaled, and the static-layer cache blits at CSS
+  size, so lines render crisp in the mapped colour; drawing code keeps working in CSS pixels
+  via `vm.canvasWidth`/`vm.canvasHeight`. Follows browser zoom and display moves.
+* **Layout tabs never showed the model.** Three faults stacked up:
+  * The sheet mapping flipped paper Y a second time (`w2s` already flips for the screen), so
+    paper (0,0) landed at the *top* of the sheet, every viewport rectangle came out with a
+    negative height and the viewport draw returned before painting an entity. Only the frames
+    and any selection highlight (drawn with the main view at paper-mm coordinates) were
+    visible — the "drawing under the sheet" effect. Paper mm are now plain world units, +Y up,
+    as in DXF paper space; MVIEW, title blocks and hit-testing all share the corrected mapping.
+  * Viewports imported from DXF were kept only as `VIEWPORT` entities that draw a bare border,
+    and their presence suppressed the default viewport. They are now adopted into the layout's
+    viewports on first activation (camera = view centre + view height, skipping the layout's own
+    paper-space view `69=1` and switched-off `68<=0` records) and mirrored back on zoom/pan so the
+    DXF writer, which also referenced fields the entity never had, round-trips them.
+  * Entity colours were mapped against the editor theme, so the default white (ACI 7) stayed
+    white on the white paper of a dark-themed editor. The paper-space renderer now paints with
+    the colour mapper's surface forced to light — white/black defaults display as black on the
+    sheet in every theme, explicit colours are untouched — the same swap AutoCAD does.
+  Selection is now confined to the active space (model entities on the Model tab, paper
+  entities on a layout), and switching between spaces clears the selection.
+* **Tools did not work on layout tabs.** Every tool, osnap, grip and hit-test reads the view
+  model's `w2s`/`s2w`, which knew nothing about viewports, so inside a viewport (MSPACE) clicks
+  landed at paper coordinates and nothing could be picked, drawn or snapped. The view model now
+  composes the active viewport's camera onto the paper zoom while in MSPACE: `scale`, `panX`,
+  `panY`, `w2s` and `s2w` are the through-the-viewport view, and writes to them move the
+  viewport camera instead of the sheet — so PAN, ZOOM, wheel zoom and every tool work through
+  the viewport unchanged, and previews/grips are clipped to it. The paper sheet itself keeps
+  using the base transform. Osnap only targets entities of the space being edited, and new
+  entities are stamped `inPaperSpace` from the editing space (PSPACE → paper; Model tab and
+  MSPACE → model) by the add/paste commands, so drawing a title block on the sheet stays on
+  the sheet. Viewports are objects in PSPACE, as in AutoCAD: click the frame to select, drag
+  to move, drag a grip to resize (scale preserved), Delete erases, Escape deselects; an
+  adopted DXF viewport edits its `VIEWPORT` entity in place so export round-trips.
 * **Dimension values were wrong by the drawing's plot scale.** Every DIMENSION in a scaled
   drawing carries a `DIMLFAC` override in XDATA (`1001 ACAD` / `1000 DSTYLE` / `1070 144`),
   and `dxf-parser` collapses XDATA to `{applicationName, customStrings}` — dropping the values.
@@ -64,6 +102,60 @@ values, decoded text, per-style fonts and real lineweights.
   `^I` caret-tabs in MTEXT are decoded too.
 * Font map: `romans.shx` (Roman *Simplex*) is a stroke sans, not a serif; AutoCAD's `romantic.ttf`
   is a roman serif, not a script face.
+* **Hatch patterns the registry did not know rendered as nothing** — `GRAVEL` was literally
+  `lines: []`, and `HOUND`/`ANSI36` fell back to ANSI31. Every non-solid HATCH carries its own
+  pattern definition (groups 78/53/43–46/79/49); the import now feeds it to the existing
+  `customPatternLines` path, so any pattern renders from the file rather than from a lookup table.
+  AutoCAD stores those lines already scaled and rotated, and the renderer re-applies scale/angle, so
+  they are normalised on the way in.
+* **Dashed linetypes rendered as dots.** `DocumentService` exposes no `lineTypes`, so the renderer
+  never saw the file's LTYPE table (metric `DASHED` = 12.7/−6.35) and fell back to the tiny imperial
+  built-in; `$LTSCALE` (0.2 here) was never read at all. Both are now taken from the file, and the
+  exporter writes the real LTYPE table and `$LTSCALE` back out.
+* **Leader lines took the entity colour instead of `DIMCLRD`.** Two leaders carry an explicit blue
+  entity colour that AutoCAD draws red, because the style says BYLAYER (256). DIMCLRD/DIMCLRE/DIMCLRT
+  are now scanned (176/177/178), DSTYLE overrides are read on LEADERs too, and a non-BYBLOCK DIMCLRD
+  wins.
+* Arrowheads were drawn at a 2:1 aspect; AutoCAD's closed-filled arrow is DIMASZ long by DIMASZ/3
+  wide (3:1).
+* **Signature stamps were missing.** OLE2FRAME payloads are OLE compound blobs, but the pictures
+  drawings actually embed carry a plain DIB behind a `BM` header; `DxfOle2FrameHandler` locates and
+  validates it and the import places it as an `ImageEntity`. The original record stays in the raw
+  list so a save re-emits it verbatim and the next open re-derives the picture.
+* MTEXT `\Q<deg>;` (obliquing — the italic look of SHX signature text), `\W<f>;` (width factor) and
+  `\pxqc;`-style paragraph alignment are honoured; the canvas shear also had the wrong sign for a
+  y-down context and back-slanted every oblique text.
+* **Curved hatch edges came apart on any transform.** The frozen-hatch move/rotate/scale/mirror
+  helpers moved each edge's endpoints but not its centre, radii or angles. Since the import centres
+  every drawing, each ARC/ELLIPSE_ARC edge ended up with endpoints in world space and a centre still
+  in file space — the loop swept across the sheet and its bbox grew to sheet size. One shared
+  `_transformFrozenEdge` now carries the full curve geometry through all four transforms.
+* **Stray geometry appeared off the sheet after import.** Three separate causes, none of them in
+  the drawing itself:
+  * *The extrusion normal was ignored.* Planar entities (INSERT, CIRCLE, ARC, polylines, TEXT,
+    SOLID) store their points in their own plane; AutoCAD's MIRROR leaves a mirrored entity on the
+    plane `(0, 0, -1)` with its coordinates still in that frame, so an insert stored at x = −404 sits
+    at x = +404. Read as WCS, four `GL MARK` inserts (the ground-level hatching under the GL
+    triangles) landed 400–700 units left of the sheets. New `ocs.ts` implements the DXF Arbitrary
+    Axis Algorithm; the importer maps positions through it and, for the mirrored plane, negates the
+    X scale, rotation, arc/ellipse sweep and polyline bulges. ELLIPSE and TEXT normals are read from
+    the raw tags because `dxf-parser` drops them.
+  * *SOLIDs moved twice.* The SOLID branch built its boundary edges from shared point objects (an
+    edge's end was the next edge's start), so the import's centring shift moved every corner twice
+    and each SOLID arrowhead ended up a sheet-width away. Edges now own their points, the translate
+    helper de-duplicates shared points defensively, and SOLIDs get a frozen `boundarySpec` — without
+    one, rotate/scale/mirror were silent no-ops on them. Their corners are also walked in AutoCAD's
+    bow-tie order (1→2→4→3) instead of as a self-intersecting quadrilateral.
+  * *Group 60 (invisible) was overwritten with `visible = true`.* Now honoured.
+  Paper-space entities are also excluded from the extents that drive the centring shift.
+
+### Known divergence from AutoCAD Web
+* This file's embedded hatch pattern lines are internally inconsistent: ANGLE/ANSI32/ANSI36 store
+  final-scale values as the DXF reference specifies, while GRAVEL and ANSI31 store values 10–100×
+  smaller than `pattern × scale`. CADO renders what the file says (GRAVEL at its stated 27-unit
+  spacing is nearly empty in a 3-unit band); AutoCAD Web shows those same bands densely filled, so it
+  is evidently regenerating predefined patterns rather than drawing the stored lines. No single rule
+  reproduces both viewers from this data.
 
 ### Notes on design
 * **Group codes are context-sensitive; read them per entity type.** Group 41 is a width factor
