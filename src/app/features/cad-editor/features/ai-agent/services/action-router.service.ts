@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { CommandStackService } from '../../../core/services/command-stack.service';
+import { ViewModelService } from '../../../core/services/view-model.service';
 import { CompoundCmd } from '../../../core/models/command.model';
 import { AiToolRegistryService } from './ai-tool-registry.service';
 import { ValidationPipelineService } from './validation-pipeline.service';
@@ -27,6 +28,7 @@ export class ActionRouterService {
   private registry = inject(AiToolRegistryService);
   private pipeline = inject(ValidationPipelineService);
   private cmdStack = inject(CommandStackService);
+  private vm = inject(ViewModelService);
 
   /**
    * Validate a batch of actions without executing anything.
@@ -157,6 +159,10 @@ export class ActionRouterService {
       const compound = allCmds.length === 1 ? allCmds[0] : new CompoundCmd(allCmds);
       this.cmdStack.push(compound);
     }
+
+    // Belt and braces: whatever the tools did, make the very next frame
+    // re-render the content layer so the user sees the result immediately.
+    if (results.some(r => r.status === 'applied')) this.vm.markContentDirty();
 
     return results;
   }

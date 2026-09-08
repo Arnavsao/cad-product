@@ -17,7 +17,7 @@ function zoomToBBox(ctx: AiToolContext, bbox: IBBox): void {
   const cy = bbox.y + bbox.h / 2;
   vm.panX = vm.canvasWidth / 2 - cx * vm.scale;
   vm.panY = vm.canvasHeight / 2 + cy * vm.scale;
-  vm.markDirty();
+  vm.markViewDirty();
   vm.markGridDirty();
 }
 

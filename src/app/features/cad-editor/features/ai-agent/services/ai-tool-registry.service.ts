@@ -114,8 +114,11 @@ export class AiToolRegistryService {
       viewDetection,
       layoutReport: this.layoutReportSvc,
       hooks: {
-        markDirty: () => vm.markDirty(),
-        refreshProperties: () => {},
+        // Content epoch, not just the canvas flag: the cached content layer,
+        // spatial index and hatch regen are all keyed on vm.version(), so a
+        // plain markDirty() left the old colours on screen until the next pan.
+        markDirty: () => vm.markContentDirty(),
+        refreshProperties: () => doc.bump(),
       },
       resolveTarget: (sel: TargetSelector) => resolveTarget(sel, doc),
     };

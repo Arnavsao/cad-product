@@ -44,7 +44,7 @@ export function makeQuerySelectEntitiesTool(): AiTool<SelectParams> {
             const remaining = ctx.doc.getSelectedEntities().filter(e => !removeSet.has(e.id));
             ctx.doc.setSelection(remaining, { notify: false });
           }
-          ctx.vm.markDirty();
+          ctx.vm.markContentDirty();
         },
         undo() { /* selection changes are not undoable */ },
       }];
