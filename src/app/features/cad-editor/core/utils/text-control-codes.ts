@@ -41,6 +41,10 @@ export interface IDecodedMtext extends IDecodedText {
   font: string | null;
   /** Paragraph alignment from `\pxq<l|c|r|j>;`. */
   alignment: 'left' | 'center' | 'right' | 'justify' | null;
+  /** Oblique angle in degrees from a leading `\Q<deg>;` — the italic look of SHX text. */
+  obliqueAngle: number | null;
+  /** Width factor from a leading `\W<f>;`. */
+  widthFactor: number | null;
 }
 
 /** Unicode superscripts, for flattening a stacked fraction with no denominator. */
@@ -155,6 +159,8 @@ export function decodeMtext(raw: string): IDecodedMtext {
     heightFactor: null,
     font: null,
     alignment: null,
+    obliqueAngle: null,
+    widthFactor: null,
   };
   if (!raw) return out;
 
@@ -248,6 +254,18 @@ function applyMtextCode(out: IDecodedMtext, code: string, body: string, leading:
         const v = Number(rel[1]);
         if (Number.isFinite(v) && v > 0) out.heightFactor = v;
       }
+      break;
+    }
+    case 'Q': {
+      if (!leading) break;
+      const v = Number(body.trim());
+      if (Number.isFinite(v)) out.obliqueAngle = v;
+      break;
+    }
+    case 'W': {
+      if (!leading) break;
+      const v = Number(body.trim());
+      if (Number.isFinite(v) && v > 0) out.widthFactor = v;
       break;
     }
     case 'f':

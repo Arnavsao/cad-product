@@ -204,9 +204,14 @@ export class Entity {
       return;
     }
 
+    // The LTYPE table lives on the file. DocumentService exposes `activeFile`
+    // but no `lineTypes` of its own, so the editor used to miss the table and
+    // fall back to the built-in definitions — a metric DASHED (12.7, -6.35)
+    // rendered with the tiny imperial pattern, i.e. as dots.
+    const lineTypes = doc?.lineTypes ?? doc?.activeFile?.lineTypes;
     let basePattern: number[] | null = null;
-    if (doc?.lineTypes) {
-      (doc.lineTypes as Map<string, { pattern: number[] }>).forEach((v, k) => {
+    if (lineTypes) {
+      (lineTypes as Map<string, { pattern: number[] }>).forEach((v, k) => {
         if (k.toUpperCase() === ltName) {
           basePattern = v.pattern;
         }
@@ -221,7 +226,10 @@ export class Entity {
       return;
     }
 
-    const globalLtScale = (typeof window !== 'undefined' && (window as any).LTSCALE) || 1.0;
+    // $LTSCALE from the drawing header; AutoCAD's dash length is
+    // pattern × LTSCALE × entity scale (group 48).
+    const globalLtScale = doc?.activeFile?.ltScale ?? doc?.ltScale
+      ?? ((typeof window !== 'undefined' && (window as any).LTSCALE) || 1.0);
     const entityLtScale = Math.max(0.001, this.lineTypeScale || 1.0);
     const scaleFactor = globalLtScale * entityLtScale * (vm?.scale ?? 1);
 

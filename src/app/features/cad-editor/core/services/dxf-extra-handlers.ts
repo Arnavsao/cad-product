@@ -162,3 +162,65 @@ export class DxfAcadTableHandler {
     return entity;
   }
 }
+
+/**
+ * OLE2FRAME — an embedded OLE object, in practice a pasted picture (signature
+ * stamps, a consultant's logo).
+ *
+ * The payload in group 310 is an OLE compound blob, not an image file, so it
+ * cannot be handed to the browser as is. But the embedded presentation is a
+ * plain Windows DIB, and a `BM` file header sits in front of it; locating that
+ * header and validating its size field yields a standalone BMP the browser
+ * decodes natively. Corners come from groups 10/20 (upper-left) and 11/21
+ * (lower-right).
+ */
+export class DxfOle2FrameHandler {
+  readonly ForEntityName = 'OLE2FRAME';
+
+  parseEntity(scanner: IDxfScanner, curr: IDxfGroup): any {
+    const entity: any = { type: curr.value };
+    let hex = '';
+    for (const g of drain(scanner)) {
+      if (applyCommon(entity, g)) continue;
+      switch (g.code) {
+        case 10: entity.upperLeft = { x: Number(g.value), y: 0 }; break;
+        case 20: if (entity.upperLeft) entity.upperLeft.y = Number(g.value); break;
+        case 11: entity.lowerRight = { x: Number(g.value), y: 0 }; break;
+        case 21: if (entity.lowerRight) entity.lowerRight.y = Number(g.value); break;
+        case 70: entity.oleVersion = Number(g.value); break;
+        case 71: entity.oleType = Number(g.value); break;
+        case 310: hex += String(g.value).trim(); break;
+        default: break;
+      }
+    }
+    const bmp = extractBmp(hex);
+    if (bmp) entity.bmpBase64 = bmp;
+    return entity;
+  }
+}
+
+/** Finds a plausible BMP file inside an OLE blob and returns it base64-encoded. */
+function extractBmp(hex: string): string | null {
+  if (hex.length < 60) return null;
+  const bytes = new Uint8Array(hex.length >> 1);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+
+  for (let i = 0; i + 14 < bytes.length; i++) {
+    if (bytes[i] !== 0x42 || bytes[i + 1] !== 0x4d) continue;            // 'BM'
+    const size = bytes[i + 2] | (bytes[i + 3] << 8) | (bytes[i + 4] << 16) | (bytes[i + 5] << 24);
+    const offBits = bytes[i + 10] | (bytes[i + 11] << 8) | (bytes[i + 12] << 16) | (bytes[i + 13] << 24);
+    // A real header: sane total size that fits the blob, zero reserved words,
+    // pixel data offset past the two headers.
+    // 14-byte file header + 12-byte BITMAPCOREHEADER is the smallest legal BMP.
+    if (size < 26 || size > bytes.length - i) continue;
+    if (bytes[i + 6] || bytes[i + 7] || bytes[i + 8] || bytes[i + 9]) continue;
+    if (offBits < 26 || offBits >= size) continue;
+    const slice = bytes.subarray(i, i + size);
+    let bin = '';
+    for (let k = 0; k < slice.length; k += 0x8000) {
+      bin += String.fromCharCode.apply(null, Array.from(slice.subarray(k, k + 0x8000)));
+    }
+    return btoa(bin);
+  }
+  return null;
+}

@@ -26,6 +26,7 @@ const TABLES_FIXTURE = dxf(
   [271, 0],      // DIMDEC
   [278, 46],     // DIMDSEP '.'
   [77, 1],       // DIMTAD
+  [176, 256],    // DIMCLRD BYLAYER
   [340, '80'],   // DIMTXSTY -> the "Ecsl 150" style above
   [0, 'ENDTAB'],
 
@@ -69,6 +70,10 @@ describe('scanDxfTables', () => {
     expect(tables.dimStyles.get('ECSL_150')!.unitPrecision).toBe(0);
   });
 
+  it('reads DIMCLRD, which decides a leader line colour over the entity colour', () => {
+    expect(tables.dimStyles.get('ECSL_150')!.dimLineColorAci).toBe(256);
+  });
+
   it('resolves DIMTXSTY from its handle to a style name', () => {
     expect(tables.dimStyles.get('ECSL_150')!.textStyleName).toBe('Ecsl 150');
   });
@@ -101,6 +106,8 @@ describe('scanDimStyleOverrides', () => {
     [1002, '}'],
     [0, 'DIMENSION'], [5, '1A41'], [8, 'ECSL_DIM'], [2, '*D24'],
     // No XDATA at all.
+    [0, 'LEADER'], [5, 'L1'], [8, 'Dimension'], [62, 5], [3, 'ECSL_100'],
+    [1001, 'ACAD'], [1000, 'DSTYLE'], [1002, '{'], [1070, 176], [1070, 1], [1002, '}'],
     [0, 'LINE'], [5, 'ABC'], [8, '0'],
     [0, 'ENDSEC'],
   );
@@ -123,6 +130,10 @@ describe('scanDimStyleOverrides', () => {
 
   it('reports nothing for a dimension with no overrides', () => {
     expect(overrides.has('1A41')).toBe(false);
+  });
+
+  it('reads LEADER overrides too, including DIMCLRD', () => {
+    expect(overrides.get('L1')!.dimLineColorAci).toBe(1);
   });
 
   it('ignores non-DIMENSION entities', () => {

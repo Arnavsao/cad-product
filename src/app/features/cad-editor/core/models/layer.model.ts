@@ -64,6 +64,8 @@ export class DxfFile {
   layers: Map<string, Layer> = new Map();
   blocks: Map<string, IBlockDef> = new Map();
   lineTypes: Map<string, ILineTypeDef> = new Map();
+  /** $LTSCALE — global linetype scale from the header. Dash length = pattern × ltScale × entity scale. */
+  ltScale = 1;
   /** Dimension styles available in this drawing. Keyed by style name. */
   dimStyles: Map<string, DimensionStyle> = createDefaultDimStyles();
   /** Text styles from the DXF STYLE table. Keyed by style name. */

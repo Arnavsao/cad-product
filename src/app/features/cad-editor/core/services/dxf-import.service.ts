@@ -34,8 +34,11 @@ import { buildFrozenSpecFromFrozenLoops, dxfEdgeLoopToFrozen, frozenLoopToPolygo
 import type { IFrozenEdge } from '../models/hatch-boundary.model';
 import type { IPoint } from '../models/entity.model';
 import { translateEntitiesInPlace } from '../../tools/geometry-utils';
+import { isFlippedNormal, isWcsNormal, ocsToWcs } from '../utils/ocs';
+import type { IVec3 } from '../utils/ocs';
 import { DxfHatchHandler } from './dxf-hatch-handler';
 import { attDefFromDxf, attribFromDxf } from '../models/block-attribute.model';
+import { ImageEntity } from '../models/image-entity.model';
 
 import { validateAc1032Header } from '../utils/dxf-header-validator';
 import { scanRawDxfObjects, scanDxfTables, scanDimStyleOverrides } from '../utils/dxf-scanner';
@@ -142,6 +145,8 @@ export class DxfImportService {
 
       const dxfFile = new DxfFile(filename);
       dxfFile.metadata = headerValidation.metadata;
+      const ltScale = Number(headerValidation.metadata?.ltScale);
+      if (Number.isFinite(ltScale) && ltScale > 0) dxfFile.ltScale = ltScale;
 
       for (const [name, styleData] of parsedDimStyles.entries()) {
         const existing = dxfFile.dimStyles.get(name) ?? new (dxfFile.dimStyles.get('Standard')!.constructor as any)(name);
@@ -272,6 +277,15 @@ export class DxfImportService {
             if (tag8) lead.layer = String(tag8.value);
             const tag62 = (ro.originalTags as any[]).find((t: any) => t.code === 62);
             if (tag62) lead.colorNumber = Number(tag62.value);
+            // A leader's line colour is DIMCLRD, not the entity colour — unless
+            // DIMCLRD is BYBLOCK (0). This drawing has leaders with an explicit
+            // blue entity colour that AutoCAD nevertheless draws red, because the
+            // style says BYLAYER (256) and the layer is red.
+            const tag3 = (ro.originalTags as any[]).find((t: any) => t.code === 3);
+            const leaderStyle = tag3 ? dxfFile.dimStyles.get(String(tag3.value).trim()) : undefined;
+            const dimClrd = dimOverrides.get(handle)?.dimLineColorAci
+              ?? (leaderStyle as any)?.dimLineColorAci;
+            if (typeof dimClrd === 'number' && dimClrd !== 0) lead.colorNumber = dimClrd;
             dxfFile.entities.push(lead);
             loadedCount++;
           }
@@ -346,7 +360,9 @@ export class DxfImportService {
       e.layer = ensureLayer(ent.layerRef);
       e.color = ent.layerRef || null; // direct hex → rendered in exact color
       e.lineType = mapLt(ent.lineType);
-      e.visible = true;
+      // Group 60 = 1 marks an entity invisible; dxf-parser surfaces it as
+      // `visible: false`. AutoCAD never draws these.
+      e.visible = ent.visible !== false;
       if (ent.viewKey) {
         (e as any).viewKey = ent.viewKey;
       }
@@ -623,24 +639,44 @@ export class DxfImportService {
           e = new LineEntity(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[1].x, ent.vertices[1].y);
         }
         break;
-      case 'CIRCLE':
-        if (ent.center) e = new CircleEntity(ent.center.x, ent.center.y, ent.radius);
+      case 'CIRCLE': {
+        // CIRCLE, ARC, polylines, TEXT, INSERT and SOLID store their points in
+        // the entity's own plane (OCS). A mirrored entity carries the normal
+        // (0, 0, -1) with its coordinates still in that mirrored frame, so read
+        // as WCS it lands far off the sheet. See `ocs.ts`.
+        if (ent.center) {
+          const c = ocsToWcs(ent.center, this._extrusionOf(ent, rawObjMap));
+          e = new CircleEntity(c.x, c.y, ent.radius);
+        }
         break;
+      }
       case 'ARC': {
-        const sa = ent.startAngle !== undefined ? (ent.startAngle * 180) / Math.PI : 0;
-        const ea = ent.endAngle !== undefined ? (ent.endAngle * 180) / Math.PI : 360;
-        if (ent.center) e = new ArcEntity(ent.center.x, ent.center.y, ent.radius, sa, ea);
+        let sa = ent.startAngle !== undefined ? (ent.startAngle * 180) / Math.PI : 0;
+        let ea = ent.endAngle !== undefined ? (ent.endAngle * 180) / Math.PI : 360;
+        const normal = this._extrusionOf(ent, rawObjMap);
+        if (isFlippedNormal(normal)) {
+          // Angles run counter-clockwise about the normal; mirrored in X they
+          // swap ends: the CCW sweep sa→ea becomes 180-ea → 180-sa.
+          [sa, ea] = [180 - ea, 180 - sa];
+        }
+        if (ent.center) {
+          const c = ocsToWcs(ent.center, normal);
+          e = new ArcEntity(c.x, c.y, ent.radius, sa, ea);
+        }
         break;
       }
       case 'LWPOLYLINE':
       case 'POLYLINE': {
         const raw: any[] = ent.vertices ?? [];
-        const pts = raw.map((v: any) => ({ x: v.x, y: v.y }));
+        const plNormal = this._extrusionOf(ent, rawObjMap);
+        const plFlipped = isFlippedNormal(plNormal);
+        const pts = raw.map((v: any) => ocsToWcs(v, plNormal));
         if (pts.length) {
           const pl = new PolylineEntity(pts, !!ent.shape);
           // Group 42 — arc bulge on the vertex that starts the segment. Dropping
           // it flattened every curved polyline to chords.
-          const bulges = raw.map((v: any) => Number(v.bulge ?? 0) || 0);
+          // A mirrored plane reverses every arc's direction, so bulges negate.
+          const bulges = raw.map((v: any) => (Number(v.bulge ?? 0) || 0) * (plFlipped ? -1 : 1));
           if (bulges.some((b) => b !== 0)) pl.bulges = bulges;
           // Groups 40/41 per vertex (or 43 constant) — segment widths. A
           // tapered 0 → w → 0 run is how AutoCAD draws a filled arrowhead, so
@@ -715,13 +751,21 @@ export class DxfImportService {
 
         let x = ent.startPoint?.x ?? ent.position?.x ?? 0;
         let y = ent.startPoint?.y ?? ent.position?.y ?? 0;
+        let ep = ent.endPoint;
+        // TEXT (unlike MTEXT) stores both points in its own plane. A mirrored
+        // plane also mirrors the baseline direction.
+        const textNormal = ent.type !== 'MTEXT' ? this._extrusionOf(ent, rawObjMap) : null;
+        if (textNormal && !isWcsNormal(textNormal)) {
+          ({ x, y } = ocsToWcs({ x, y }, textNormal));
+          if (ep && Number.isFinite(ep.x) && Number.isFinite(ep.y)) ep = ocsToWcs(ep, textNormal);
+          if (isFlippedNormal(textNormal)) rot = -rot;
+        }
         // Justified TEXT is anchored at group 11, not group 10: for centred or
         // right-justified text group 10 is merely where the first character
         // lands. Using it shifted every centred label left by half its width.
         // Aligned (3) and Fit (5) run between the two points, so they anchor at
         // the midpoint and take their rotation from the pair.
         if (ent.type !== 'MTEXT') {
-          const ep = ent.endPoint;
           const h = Number(options.halign ?? 0), v = Number(options.valign ?? 0);
           if (ep && Number.isFinite(ep.x) && Number.isFinite(ep.y) && (h !== 0 || v !== 0)) {
             if (h === 3 || h === 5) {
@@ -764,6 +808,26 @@ export class DxfImportService {
           (e as TextEntity).autoWrap = true;
         }
 
+        // ── Paragraph alignment (\pxqc; etc.) ──────────────────────────────
+        // The attachment point fixes where the box sits; \pxq<l|c|r> says how
+        // lines align *inside* it. With one uniform justify per entity the two
+        // collapse into a single anchor: slide the anchor to the box edge the
+        // paragraph aligns to and adopt that alignment as the justify. A signature
+        // cell attached top-left with centred lines then renders centred, not
+        // hanging off the cell's left edge.
+        if (mtext?.alignment && mtext.alignment !== 'justify') {
+          const te = e as TextEntity;
+          const want = ({ left: 'L', center: 'C', right: 'R' } as const)[mtext.alignment];
+          const have = te.justify[1] as 'L' | 'C' | 'R';
+          if (want && want !== have && te.mtextWidth > 0) {
+            const edge = (h: 'L' | 'C' | 'R') => (h === 'L' ? 0 : h === 'C' ? te.mtextWidth / 2 : te.mtextWidth);
+            const d = edge(want) - edge(have);
+            te.x += d * Math.cos(rot);
+            te.y += d * Math.sin(rot);
+            te.justify = (te.justify[0] + want) as typeof te.justify;
+          }
+        }
+
         // ── Width factor (group 41) and oblique angle (group 51) ─────────────
         // dxf-parser exposes group 41 as `xScale`, never as `widthFactor`, and
         // does not read group 51 at all — hence the raw-tag fallbacks.
@@ -779,10 +843,17 @@ export class DxfImportService {
             (e as TextEntity).widthFactor = rawWidthFactor;
             hasEntityWidthFactor = true;
           }
+        } else if (mtext?.widthFactor) {
+          // MTEXT has no width-factor group; a leading \W code is the only source.
+          (e as TextEntity).widthFactor = mtext.widthFactor;
+          hasEntityWidthFactor = true;
         }
 
+        // MTEXT carries obliquing only as a leading \Q code — the italic look of
+        // SHX signature text — so it stands in for group 51 there.
         const rawOblique = ent.obliqueAngle
-          ?? Number(this._rawTagValue(rawObjMap, ent.handle, 51) ?? NaN);
+          ?? (ent.type === 'MTEXT' ? (mtext?.obliqueAngle ?? NaN)
+            : Number(this._rawTagValue(rawObjMap, ent.handle, 51) ?? NaN));
         let hasEntityOblique = false;
         if (Number.isFinite(rawOblique) && rawOblique !== 0) {
           (e as TextEntity).obliqueAngle = rawOblique * Math.PI / 180;
@@ -817,7 +888,20 @@ export class DxfImportService {
         const rx = ent.majorAxisEndPoint ? Math.hypot(ent.majorAxisEndPoint.x, ent.majorAxisEndPoint.y) : 10;
         const ry = rx * (ent.axisRatio ?? 1);
         const rot = ent.majorAxisEndPoint ? Math.atan2(ent.majorAxisEndPoint.y, ent.majorAxisEndPoint.x) : 0;
-        if (ent.center) e = new EllipseEntity(ent.center.x, ent.center.y, rx, ry, rot, ent.startAngle ?? 0, ent.endAngle ?? Math.PI * 2);
+        const TAU = Math.PI * 2;
+        let a0 = ent.startAngle ?? 0;
+        let a1 = ent.endAngle ?? TAU;
+        // ELLIPSE points are WCS, but its parameters run counter-clockwise about
+        // the normal. Under the mirrored normal (0, 0, -1) the arc a0→a1 is the
+        // WCS arc -a1→-a0; a full ellipse is unaffected. dxf-parser drops group
+        // 230 for ellipses, so it is read from the raw tags.
+        const fullSweep = Math.abs((a1 - a0) - TAU) < 1e-9;
+        if (!fullSweep && isFlippedNormal(this._extrusionOf(ent, rawObjMap))) {
+          const norm = (v: number) => ((v % TAU) + TAU) % TAU;
+          [a0, a1] = [norm(-a1), norm(-a0)];
+          if (a1 <= a0) a1 += TAU;
+        }
+        if (ent.center) e = new EllipseEntity(ent.center.x, ent.center.y, rx, ry, rot, a0, a1);
         break;
       }
       case 'SPLINE':
@@ -827,14 +911,33 @@ export class DxfImportService {
       case 'SOLID':
       case 'TRACE': {
         if (ent.type === 'SOLID' || ent.type === 'TRACE') {
-          const pts = ent.points;
-          if (pts?.length >= 3) {
-            const edges = [];
-            for (let i = 0; i < pts.length; i++) {
-              edges.push({ type: 'LINE', start: pts[i], end: pts[(i + 1) % pts.length] });
-            }
-            e = new HatchEntity([edges]);
-            (e as HatchEntity).solid = true;
+          const normal = this._extrusionOf(ent, rawObjMap);
+          let pts: IPoint[] = ((ent.points ?? []) as any[])
+            .filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y))
+            .map((p) => ocsToWcs(p, normal));
+          // SOLID lists its corners in bow-tie order — AutoCAD fills
+          // 1→2→4→3, not 1→2→3→4 — and a triangle repeats the third corner
+          // as the fourth. Walking the stored order made every quadrilateral a
+          // self-intersecting figure-eight.
+          if (pts.length === 4) {
+            const [p1, p2, p3, p4] = pts;
+            const triangle = Math.hypot(p3.x - p4.x, p3.y - p4.y) < 1e-9;
+            pts = triangle ? [p1, p2, p3] : [p1, p2, p4, p3];
+          }
+          if (pts.length >= 3) {
+            // Each edge owns its endpoints. Sharing one point object between
+            // consecutive edges made every in-place transform move it twice, so
+            // the import's centring shift pushed these arrowheads off the sheet.
+            const edges = pts.map((p, i) => {
+              const q = pts[(i + 1) % pts.length];
+              return { type: 'LINE', start: { x: p.x, y: p.y }, end: { x: q.x, y: q.y } };
+            });
+            const solid = new HatchEntity([edges]);
+            solid.solid = true;
+            // Without a frozen spec the hatch transforms are no-ops: rotate,
+            // scale and mirror only ever touch `boundarySpec`.
+            attachFrozenSpec(solid, [edges]);
+            e = solid;
           }
         } else if (ent.boundaries) {
           const normalizedBoundaries = ent.boundaries.map(normalizeHatchBoundary);
@@ -849,23 +952,8 @@ export class DxfImportService {
           // Phase-4 dependency tracking all work on imported hatches.
           // dxf-parser v1.1.2 does not expose group-330 source-entity handles
           // within boundary paths, so imported hatches are always non-associative.
-          if (e instanceof HatchEntity && normalizedBoundaries.length > 0) {
-            // Preserve true curve edges (arcs / ellipses) instead of flattening
-            // the boundary to a straight-segment polygon, so curved hatch
-            // boundaries render as smooth curves.
-            const outerFrozen = dxfEdgeLoopToFrozen(normalizedBoundaries[0] ?? []);
-            if (outerFrozen.length >= 1) {
-              const islandFrozen = normalizedBoundaries.slice(1)
-                .map(dxfEdgeLoopToFrozen)
-                .filter((f: IFrozenEdge[]) => f.length >= 1);
-              const flat = frozenLoopToPolygon(outerFrozen);
-              if (flat.length >= 3) {
-                const seedPt = ent.dxfHatch?.seedPoints?.[0] ?? polygonCentroid(flat);
-                (e as HatchEntity).boundarySpec = buildFrozenSpecFromFrozenLoops(
-                  outerFrozen, islandFrozen, [], seedPt,
-                );
-              }
-            }
+          if (e instanceof HatchEntity) {
+            attachFrozenSpec(e, normalizedBoundaries, ent.dxfHatch?.seedPoints?.[0]);
           }
           
           if (e instanceof HatchEntity) {
@@ -904,10 +992,21 @@ export class DxfImportService {
         break;
       }
       case 'INSERT': {
-        const sx = ent.xScale ?? 1;
+        let sx = ent.xScale ?? 1;
         const sy = ent.yScale ?? 1;
+        let rotation = ent.rotation || 0;
         if (ent.position) {
-          const ins = new InsertEntity(ent.name, ent.position.x, ent.position.y, sx, sy, ent.rotation || 0);
+          // The insertion point, rotation and scales are all in the block
+          // reference's own plane. For the mirrored plane (0, 0, -1) that plane
+          // maps to WCS as x → -x, which negates the X scale and the rotation:
+          // M·R(θ)·S = R(-θ)·diag(-sx, sy)·M.
+          const normal = this._extrusionOf(ent, rawObjMap);
+          const pos = ocsToWcs(ent.position, normal);
+          if (isFlippedNormal(normal)) {
+            sx = -sx;
+            rotation = -rotation;
+          }
+          const ins = new InsertEntity(ent.name, pos.x, pos.y, sx, sy, rotation);
           ins._blockDef = dxfFile.blocks.get(ent.name) ?? null;
           if (ent.attribs) {
             for (const a of ent.attribs) ins.attribs.push(attribFromDxf(a));
@@ -1067,7 +1166,7 @@ export class DxfImportService {
               arcPoint,
               jogPoint
             );
-            dim['arrowAspect'] = 2;
+            dim['arrowAspect'] = 3;
             if (ent.middleOfText) dim.textPoint = ent.middleOfText;
             if (typeof ent.text === 'string' && ent.text.length) dim.textOverride = ent.text;
             const styleName = ent.styleName ?? ent.dimensionStyleName ?? ent.dimStyleName;
@@ -1084,7 +1183,8 @@ export class DxfImportService {
           const dimLinePt =
             defPt && Number.isFinite(defPt.x) && Number.isFinite(defPt.y) ? defPt : undefined;
           const dim = new DimensionEntity(p1, p2, dimLinePt);
-          dim['arrowAspect'] = 2;
+          // AutoCAD's closed-filled arrowhead is DIMASZ long and DIMASZ/3 wide.
+          dim['arrowAspect'] = 3;
           if (typeof ent.text === 'string' && ent.text.length) dim.textOverride = ent.text;
 
           // Preserve DXF dimension style name. dxf-parser's DIMENSION handler
@@ -1156,6 +1256,23 @@ export class DxfImportService {
           if (ent.viewTarget) {
             (e as ViewportEntity).viewTarget = { x: ent.viewTarget.x, y: ent.viewTarget.y, z: ent.viewTarget.z };
           }
+          if (typeof ent.viewportId === 'number') (e as ViewportEntity).dxfViewportId = ent.viewportId;
+          if (typeof ent.status === 'number') (e as ViewportEntity).dxfStatus = ent.status;
+        }
+        break;
+      }
+      case 'OLE2FRAME': {
+        // The embedded object is an OLE compound blob, but the ones drawings
+        // actually carry (pasted signatures, logos) contain a plain DIB, which
+        // the handler extracts as a BMP. Placed by its two corner points.
+        if (ent.bmpBase64 && ent.upperLeft && ent.lowerRight) {
+          const x0 = Math.min(ent.upperLeft.x, ent.lowerRight.x);
+          const x1 = Math.max(ent.upperLeft.x, ent.lowerRight.x);
+          const y0 = Math.min(ent.upperLeft.y, ent.lowerRight.y);
+          const y1 = Math.max(ent.upperLeft.y, ent.lowerRight.y);
+          if (x1 - x0 > 1e-9 && y1 - y0 > 1e-9) {
+            e = new ImageEntity(`data:image/bmp;base64,${ent.bmpBase64}`, x0, y0, x1 - x0, y1 - y0);
+          }
         }
         break;
       }
@@ -1190,7 +1307,10 @@ export class DxfImportService {
         (e as any).handle = ent.handle;
         if (rawObjMap.has(ent.handle)) {
           e.rawDxfObject = rawObjMap.get(ent.handle);
-          rawObjMap.delete(ent.handle);
+          // An OLE2FRAME becomes a display-only ImageEntity that the DXF writer
+          // has no record type for; leaving the original in the raw list lets
+          // it be re-emitted verbatim on save and re-derived on the next open.
+          if (ent.type !== 'OLE2FRAME') rawObjMap.delete(ent.handle);
         }
       }
       if (typeof ent.ownerHandle === 'string' && ent.ownerHandle.length) {
@@ -1199,8 +1319,40 @@ export class DxfImportService {
       if (ent.inPaperSpace) {
         e.inPaperSpace = true;
       }
+      // Group 60 = 1 marks an entity invisible; dxf-parser surfaces it as
+      // `visible: false`. AutoCAD never draws these.
+      if (ent.visible === false) {
+        e.visible = false;
+      }
     }
     return e;
+  }
+
+  /**
+   * The entity's extrusion normal (groups 210/220/230), or `null` when the
+   * file omits it (which means +Z). dxf-parser exposes it under two different
+   * shapes depending on the handler, and not at all for ELLIPSE or TEXT, so
+   * the raw tags are the last resort.
+   */
+  private _extrusionOf(ent: any, rawObjMap: Map<string, RawDxfObject>): IVec3 | null {
+    const d = ent?.extrusionDirection;
+    if (d && Number.isFinite(Number(d.z))) {
+      return { x: Number(d.x) || 0, y: Number(d.y) || 0, z: Number(d.z) };
+    }
+    if (Number.isFinite(Number(ent?.extrusionDirectionZ))) {
+      return {
+        x: Number(ent.extrusionDirectionX) || 0,
+        y: Number(ent.extrusionDirectionY) || 0,
+        z: Number(ent.extrusionDirectionZ),
+      };
+    }
+    const z = this._rawTagValue(rawObjMap, ent?.handle, 230);
+    if (z === undefined || !Number.isFinite(Number(z))) return null;
+    return {
+      x: Number(this._rawTagValue(rawObjMap, ent.handle, 210) ?? 0) || 0,
+      y: Number(this._rawTagValue(rawObjMap, ent.handle, 220) ?? 0) || 0,
+      z: Number(z),
+    };
   }
 
   /**
@@ -1274,7 +1426,7 @@ export class DxfImportService {
       ?? 2.5;
 
     const lead = new LeaderEntity(pts, '', height);
-    lead['arrowAspect'] = 2;
+    lead['arrowAspect'] = 3;
     if (isMLeader) lead.type = 'MLEADER';
 
     // Arrow size: DXF LEADER has NO per-entity arrow size override.
@@ -1359,6 +1511,9 @@ function extentsOf(entities: Entity[]): { minX: number; minY: number; maxX: numb
   const items: Array<{ minX: number; minY: number; maxX: number; maxY: number; cx: number; cy: number }> = [];
 
   for (const e of entities) {
+    // Paper-space entities (a layout's VIEWPORT) live on the sheet, not in the
+    // model; letting them pull the centring shift moves the model off-centre.
+    if (e.inPaperSpace || !e.visible) continue;
     const bb = e.bbox?.();
     if (!bb) continue;
     if (!Number.isFinite(bb.x) || !Number.isFinite(bb.y) || !Number.isFinite(bb.w) || !Number.isFinite(bb.h)) continue;
@@ -1540,6 +1695,29 @@ function cloneDxfHatchData(value: IDxfHatchData): IDxfHatchData {
 /** Map preserved DXF-only fields into the editor without throwing away source data. */
 function applyDxfHatchData(hatch: HatchEntity, source: IDxfHatchData): void {
   hatch.dxfHatch = cloneDxfHatchData(source);
+
+  // Every non-solid HATCH carries its own pattern definition (groups 78/53/43-46/
+  // 79/49) — GRAVEL, HOUND, ANSI36 and any office custom pattern render from it,
+  // so the built-in registry is only a fallback. The renderer expects lines in
+  // *unscaled, unrotated* form and re-applies scale/angle itself; AutoCAD writes
+  // them already scaled and rotated, so undo both here.
+  const defs = source.pattern?.definitionLines;
+  // Read scale/angle from the source: the entity's own fields are assigned
+  // a few lines below this, not before it.
+  const srcScale = source.pattern?.scale, srcAngle = source.pattern?.angle ?? 0;
+  if (!source.pattern?.solidFill && !hatch.isSolid && Array.isArray(defs) && defs.length) {
+    const scale = srcScale && srcScale > 0 ? srcScale : 1;
+    const angRad = (srcAngle * Math.PI) / 180;
+    const cos = Math.cos(-angRad), sin = Math.sin(-angRad);
+    hatch.customPatternLines = defs.map((l) => ({
+      angle: l.angle - srcAngle,
+      x0: (l.x0 * cos - l.y0 * sin) / scale,
+      y0: (l.x0 * sin + l.y0 * cos) / scale,
+      dx: l.dx / scale,
+      dy: l.dy / scale,
+      dashArray: l.dashArray.map((d) => d / scale),
+    }));
+  }
   hatch.pattern = source.pattern.name;
   hatch.scale = source.pattern.scale;
   hatch.angle = source.pattern.angle;
@@ -1566,6 +1744,29 @@ function applyDxfHatchData(hatch: HatchEntity, source: IDxfHatchData): void {
 }
 
 /** Average of all polygon vertices â€” used as the import seed point. */
+/**
+ * Gives an imported hatch the frozen `boundarySpec` the editor works on.
+ *
+ * True curve edges (arcs / ellipses) are preserved rather than flattened to a
+ * polygon so curved boundaries render smoothly; grips, transforms and the
+ * dependency tracker all read this spec. dxf-parser does not expose the
+ * group-330 source handles inside boundary paths, so imported hatches are
+ * always non-associative.
+ */
+function attachFrozenSpec(hatch: HatchEntity, boundaries: any[][], seedPt?: IPoint): void {
+  if (!boundaries.length) return;
+  const outerFrozen = dxfEdgeLoopToFrozen(boundaries[0] ?? []);
+  if (outerFrozen.length < 1) return;
+  const islandFrozen = boundaries.slice(1)
+    .map(dxfEdgeLoopToFrozen)
+    .filter((f: IFrozenEdge[]) => f.length >= 1);
+  const flat = frozenLoopToPolygon(outerFrozen);
+  if (flat.length < 3) return;
+  hatch.boundarySpec = buildFrozenSpecFromFrozenLoops(
+    outerFrozen, islandFrozen, [], seedPt ?? polygonCentroid(flat),
+  );
+}
+
 function polygonCentroid(pts: IPoint[]): IPoint {
   return {
     x: pts.reduce((s, p) => s + p.x, 0) / pts.length,

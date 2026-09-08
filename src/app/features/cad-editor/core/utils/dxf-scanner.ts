@@ -138,6 +138,12 @@ export interface IDxfDimStyleData {
   textMovement?: number;
   /** DIMTXSTY, resolved from the group-340 handle against the STYLE table. */
   textStyleName?: string;
+  /** DIMCLRD — dimension/leader line colour as ACI (0 BYBLOCK, 256 BYLAYER). */
+  dimLineColorAci?: number;
+  /** DIMCLRE — extension line colour as ACI. */
+  extLineColorAci?: number;
+  /** DIMCLRT — dimension text colour as ACI. */
+  textColorAci?: number;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -179,6 +185,9 @@ function applyDimVar(style: IDxfDimStyleData, code: number, value: string): void
     case 147: style.textOffset = num; break;      // DIMGAP
     case 77:  style.textAbove = num; break;       // DIMTAD
     case 279: style.textMovement = num; break;    // DIMTMOVE
+    case 176: style.dimLineColorAci = num; break; // DIMCLRD
+    case 177: style.extLineColorAci = num; break; // DIMCLRE
+    case 178: style.textColorAci = num; break;    // DIMCLRT
     // ── Primary units ───────────────────────────────────────────────────
     case 144: style.linearFactor = num; break;    // DIMLFAC
     case 271: style.unitPrecision = num; break;   // DIMDEC
@@ -286,8 +295,8 @@ export function scanDxfTables(fileText: string): {
     if (table === 'DIMSTYLE') {
       if (code === 0 && value === 'DIMSTYLE') {
         flush();
-        // AutoCAD's arrowheads are noticeably slimmer than this app's 3:1 default.
-        dimStyle = { arrowAspect: 2 };
+        // AutoCAD's closed-filled arrowhead is DIMASZ long and DIMASZ/3 wide.
+        dimStyle = { arrowAspect: 3 };
       } else if (dimStyle) {
         if (code === 2) dimStyle.name = value;
         // Group 70 on a table entry is the entry's own flags, not DIMTOL — skip it.
@@ -392,7 +401,8 @@ export function scanDimStyleOverrides(
   const out = new Map<string, IDxfDimStyleData>();
 
   for (const obj of rawObjects) {
-    if (obj.entityType !== 'DIMENSION' || !obj.handle) continue;
+    // LEADERs carry the same DSTYLE block (DIMSCALE, DIMGAP, DIMCLRD…).
+    if ((obj.entityType !== 'DIMENSION' && obj.entityType !== 'LEADER') || !obj.handle) continue;
 
     const tags = obj.originalTags as DxfTag[];
     let inAcadXData = false;

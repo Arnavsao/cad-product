@@ -6,6 +6,7 @@ import { DxfHatchHandler } from '../services/dxf-hatch-handler';
 import {
   DxfAcadTableHandler,
   DxfAttribHandler,
+  DxfOle2FrameHandler,
   DxfViewportHandler,
 } from '../services/dxf-extra-handlers';
 
@@ -44,6 +45,7 @@ addEventListener('message', ({ data }) => {
     parser.registerEntityHandler(DxfAttribHandler);
     parser.registerEntityHandler(DxfViewportHandler);
     parser.registerEntityHandler(DxfAcadTableHandler);
+    parser.registerEntityHandler(DxfOle2FrameHandler);
     const dxf = parser.parseSync(fileText);
     
     postMessage({ success: true, dxf, headerValidation, rawObjects, filename });

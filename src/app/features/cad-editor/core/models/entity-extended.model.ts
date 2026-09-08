@@ -207,7 +207,9 @@ export class TextEntity extends Entity {
     if (this.rotation) ctx.rotate(-this.rotation);
 
     if (this.widthFactor !== 1 || this.obliqueAngle !== 0) {
-      const skew = this.obliqueAngle !== 0 ? Math.tan(this.obliqueAngle) : 0;
+      // Canvas y points down, so a forward (rightward) slant needs a negative
+      // horizontal shear: glyph tops sit at negative y and must move +x.
+      const skew = this.obliqueAngle !== 0 ? -Math.tan(this.obliqueAngle) : 0;
       ctx.transform(this.widthFactor, 0, skew, 1, 0, 0);
     }
 
@@ -2967,6 +2969,10 @@ export class ViewportEntity extends Entity {
   viewCenter: IPoint;
   viewHeight: number;
   viewTarget?: { x: number; y: number; z: number };
+  /** DXF group 69. `1` is the layout's own paper-space view, never drawn as a window. */
+  dxfViewportId?: number;
+  /** DXF group 68: `<= 0` = off, `> 0` = on (value is the stacking order). */
+  dxfStatus?: number;
 
   constructor(cx: number, cy: number, w: number, h: number, viewCenter: IPoint = { x: 0, y: 0 }, viewHeight = 100) {
     super('VIEWPORT');
@@ -3096,7 +3102,8 @@ export class MLeaderEntity extends DimensionEntity {
       ctx.lineTo(sEnd.x, sEnd.y);
 
       // Color from style
-      ctx.strokeStyle = s.dimLineColor === 'ByBlock' ? (byBlockColor || '#fff') : (s.dimLineColor || '#fff');
+      const defaultLineColor = this.resolvedDisplayColor(doc, byBlockColor);
+      ctx.strokeStyle = s.dimLineColor === 'ByBlock' ? (byBlockColor || defaultLineColor) : (s.dimLineColor || defaultLineColor);
       ctx.lineWidth = Math.max(1, s.dimLineWeight);
       ctx.stroke();
 
@@ -3140,7 +3147,8 @@ export class MLeaderEntity extends DimensionEntity {
       ctx.textBaseline = 'middle';
       ctx.textAlign = this.attachmentSide === 'right' ? 'left' : 'right';
 
-      ctx.fillStyle = s.textColor === 'ByBlock' ? (byBlockColor || '#fff') : (s.textColor || '#fff');
+      const defaultTextColor = this.resolvedDisplayColor(doc, byBlockColor);
+      ctx.fillStyle = s.textColor === 'ByBlock' ? (byBlockColor || defaultTextColor) : (s.textColor || defaultTextColor);
 
       const lines = splitTextLines(this.content);
       const lineDy = hPx * 1.2;

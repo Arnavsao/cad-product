@@ -185,13 +185,65 @@ function isAssociativeHatch(ent: any): boolean {
   return ent.associative === true;
 }
 
+/**
+ * Applies a point transform to one frozen hatch edge, including the geometry a
+ * curved edge carries beyond its endpoints.
+ *
+ * ARC and ELLIPSE_ARC edges store a centre, radii and angles. Moving only
+ * `p0`/`p1` left the centre behind in the old coordinate system — after the
+ * import's centring step every curved hatch edge had its endpoints in world
+ * space and its centre in file space, so the loop swept across the sheet and
+ * its bbox grew to sheet size.
+ *
+ * @param xf   the point transform already applied to endpoints
+ * @param opts angle delta for rotations, uniform factor for scales, and the
+ *             mirror line for reflections (which also flips the sweep direction)
+ */
+function _transformFrozenEdge(
+  edge: any,
+  xf: (x: number, y: number) => IPoint,
+  opts: { rotate?: number; scale?: number; mirror?: [number, number, number, number] } = {},
+): void {
+  const p0 = xf(edge.p0.x, edge.p0.y);
+  const p1 = xf(edge.p1.x, edge.p1.y);
+  edge.p0.x = p0.x; edge.p0.y = p0.y;
+  edge.p1.x = p1.x; edge.p1.y = p1.y;
+  if (!edge.center) return;
+
+  const c = xf(edge.center.x, edge.center.y);
+  edge.center.x = c.x; edge.center.y = c.y;
+
+  if (opts.scale != null) {
+    const f = Math.abs(opts.scale);
+    if (typeof edge.r === 'number') edge.r *= f;
+    if (typeof edge.rx === 'number') edge.rx *= f;
+    if (typeof edge.ry === 'number') edge.ry *= f;
+  }
+  if (opts.rotate != null) {
+    if (edge.kind === 'ELLIPSE_ARC') edge.rot = (edge.rot ?? 0) + opts.rotate;
+    else { edge.a0 = (edge.a0 ?? 0) + opts.rotate; edge.a1 = (edge.a1 ?? 0) + opts.rotate; }
+  }
+  if (opts.mirror) {
+    // Reflecting about a line at angle m sends a direction at angle t to 2m - t
+    // and reverses the sense of rotation.
+    const [x1, y1, x2, y2] = opts.mirror;
+    const m = Math.atan2(y2 - y1, x2 - x1);
+    if (edge.kind === 'ELLIPSE_ARC') {
+      edge.rot = 2 * m - (edge.rot ?? 0);
+      edge.a0 = -(edge.a0 ?? 0); edge.a1 = -(edge.a1 ?? 0);
+    } else {
+      edge.a0 = 2 * m - (edge.a0 ?? 0); edge.a1 = 2 * m - (edge.a1 ?? 0);
+    }
+    edge.ccw = edge.ccw === false ? true : false;
+  }
+}
+
 /** Translate all frozen edge endpoints + seedPoint + legacy boundary vertices. */
 export function moveFrozenHatch(ent: any, dx: number, dy: number): void {
   if (ent.boundarySpec?.loops) {
     for (const loop of ent.boundarySpec.loops) {
       for (const edge of loop.frozen ?? []) {
-        edge.p0.x += dx; edge.p0.y += dy;
-        edge.p1.x += dx; edge.p1.y += dy;
+        _transformFrozenEdge(edge, (x, y) => ({ x: x + dx, y: y + dy }));
       }
     }
     if (ent.boundarySpec.seedPoint) {
@@ -207,10 +259,7 @@ function rotateFrozenHatch(ent: any, cx: number, cy: number, rad: number): void 
   if (ent.boundarySpec?.loops) {
     for (const loop of ent.boundarySpec.loops) {
       for (const edge of loop.frozen ?? []) {
-        const p0 = rotatePoint(edge.p0.x, edge.p0.y, cx, cy, rad);
-        const p1 = rotatePoint(edge.p1.x, edge.p1.y, cx, cy, rad);
-        edge.p0.x = p0.x; edge.p0.y = p0.y;
-        edge.p1.x = p1.x; edge.p1.y = p1.y;
+        _transformFrozenEdge(edge, (x, y) => rotatePoint(x, y, cx, cy, rad), { rotate: rad });
       }
     }
     if (ent.boundarySpec.seedPoint) {
@@ -227,10 +276,7 @@ function scaleFrozenHatch(ent: any, cx: number, cy: number, factor: number): voi
   if (ent.boundarySpec?.loops) {
     for (const loop of ent.boundarySpec.loops) {
       for (const edge of loop.frozen ?? []) {
-        const p0 = scalePoint(edge.p0.x, edge.p0.y, cx, cy, factor);
-        const p1 = scalePoint(edge.p1.x, edge.p1.y, cx, cy, factor);
-        edge.p0.x = p0.x; edge.p0.y = p0.y;
-        edge.p1.x = p1.x; edge.p1.y = p1.y;
+        _transformFrozenEdge(edge, (x, y) => scalePoint(x, y, cx, cy, factor), { scale: factor });
       }
     }
     if (ent.boundarySpec.seedPoint) {
@@ -247,10 +293,7 @@ function mirrorFrozenHatch(ent: any, x1: number, y1: number, x2: number, y2: num
   if (ent.boundarySpec?.loops) {
     for (const loop of ent.boundarySpec.loops) {
       for (const edge of loop.frozen ?? []) {
-        const p0 = mirrorPoint(edge.p0.x, edge.p0.y, x1, y1, x2, y2);
-        const p1 = mirrorPoint(edge.p1.x, edge.p1.y, x1, y1, x2, y2);
-        edge.p0.x = p0.x; edge.p0.y = p0.y;
-        edge.p1.x = p1.x; edge.p1.y = p1.y;
+        _transformFrozenEdge(edge, (x, y) => mirrorPoint(x, y, x1, y1, x2, y2), { mirror: [x1, y1, x2, y2] });
       }
     }
     if (ent.boundarySpec.seedPoint) {
@@ -851,8 +894,7 @@ function _translateHatchAll(ent: any, dx: number, dy: number): void {
   if (ent.boundarySpec?.loops) {
     for (const loop of ent.boundarySpec.loops) {
       for (const edge of loop.frozen ?? []) {
-        edge.p0.x += dx; edge.p0.y += dy;
-        edge.p1.x += dx; edge.p1.y += dy;
+        _transformFrozenEdge(edge, (x, y) => ({ x: x + dx, y: y + dy }));
       }
     }
     if (ent.boundarySpec.seedPoint) {
@@ -861,15 +903,21 @@ function _translateHatchAll(ent: any, dx: number, dy: number): void {
     }
   }
   if (Array.isArray(ent.boundaries)) {
+    // Consecutive edges may share a point object (an edge's end is the next
+    // edge's start); move each object once or the loop shifts twice.
+    const moved = new Set<object>();
+    const shift = (p: any) => {
+      if (!p || moved.has(p)) return;
+      moved.add(p);
+      p.x += dx; p.y += dy;
+    };
     for (const loop of ent.boundaries) {
       if (!Array.isArray(loop)) continue;
       for (const edge of loop) {
-        if (edge?.start) { edge.start.x += dx; edge.start.y += dy; }
-        if (edge?.end) { edge.end.x += dx; edge.end.y += dy; }
-        if (edge?.center) { edge.center.x += dx; edge.center.y += dy; }
-        if (Array.isArray(edge?.vertices)) {
-          for (const v of edge.vertices) { v.x += dx; v.y += dy; }
-        }
+        shift(edge?.start);
+        shift(edge?.end);
+        shift(edge?.center);
+        if (Array.isArray(edge?.vertices)) for (const v of edge.vertices) shift(v);
       }
     }
   }

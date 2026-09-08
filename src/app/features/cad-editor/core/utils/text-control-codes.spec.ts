@@ -82,6 +82,15 @@ describe('decodeMtext (backslash codes)', () => {
     expect(decodeMtext('plain \\fArial|b1;bold').font).toBeNull();
   });
 
+  it('reads a leading oblique angle and width factor', () => {
+    const r = decodeMtext('\\pxqc;{\\Fromans|c0;\\Q15;\\W0.9;(MANISH KUMAR)}');
+    expect(r.text).toBe('(MANISH KUMAR)');
+    expect(r.obliqueAngle).toBe(15);
+    expect(r.widthFactor).toBe(0.9);
+    expect(r.font).toBe('romans');
+    expect(r.alignment).toBe('center');
+  });
+
   it('flattens stacked text', () => {
     expect(decodeMtext('m\\S2^ ;').text).toBe('m²');
     expect(decodeMtext('\\S1/2;').text).toBe('1/2');
