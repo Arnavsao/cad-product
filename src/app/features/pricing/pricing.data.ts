@@ -143,7 +143,7 @@ export const FAQS: readonly Faq[] = [
   },
   {
     q: 'Can I use my existing DWG and DXF files?',
-    a: 'DXF import and export are supported on every tier, including Free. DWG import is available and converts on upload.',
+    a: 'DXF import and export are supported on every tier, including Free. DWG files can be uploaded, stored and downloaded, but the editor cannot open them yet — save as DXF from your desktop CAD first.',
   },
   {
     q: 'Is there a student discount?',
