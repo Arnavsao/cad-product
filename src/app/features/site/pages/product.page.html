@@ -1,0 +1,155 @@
+<div class="pd">
+  <!-- Hero -->
+  <section class="pd__hero site-container">
+    <site-heading
+      [level]="1"
+      eyebrow="How it works"
+      title="One drawing. Two spaces. Nothing to install."
+      lede="This is a tour of the editor: what each part of the screen does, how model space and paper space relate, what runs in your browser and what runs on ours, and what actually happens when you press Save."
+      align="center"
+    />
+    <site-cta class="site-cta--center pd__cta" primaryLabel="Open the editor free" secondaryLabel="Read the docs" secondaryLink="/docs" />
+  </section>
+
+  <!-- Anatomy -->
+  <section class="site-section site-container" aria-labelledby="anat-title">
+    <site-heading eyebrow="Anatomy" title="The screen, part by part." lede="This is a real screenshot of the editor with a railway bridge general arrangement open. Pick a part on the left, or a marker on the picture." id="anat-title" />
+    <div class="anat">
+      <ol class="anat__list" siteReveal="left">
+        @for (part of parts; track part.id) {
+          <li>
+            <button type="button" class="anat__part" [class.anat__part--on]="activePart() === part.id" [attr.aria-pressed]="activePart() === part.id" (click)="selectPart(part.id)">
+              <span class="anat__icon"><ui-icon [name]="part.icon" [size]="15" /></span>
+              <span class="anat__text">
+                <span class="anat__label">{{ part.label }}</span>
+                @if (activePart() === part.id) { <span class="anat__detail">{{ part.detail }}</span> }
+              </span>
+            </button>
+          </li>
+        }
+      </ol>
+      <div class="anat__shot" siteReveal="right">
+        <site-screen
+          src="/site/editor-model.webp"
+          alt="The CADO editor with a railway bridge general-arrangement DXF open: ribbons above, panels rail on the left, the drawing on the canvas, command line and status bar below."
+          title="RTM-S&C-GAD-BR-NO.384-DHD-IND.dxf — Model"
+          ratio="16 / 10"
+          [eager]="true"
+          [hotspots]="parts"
+          [(active)]="activePart"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Model vs paper -->
+  <section class="site-section site-band" aria-labelledby="space-title">
+    <div class="site-container">
+      <site-heading eyebrow="Model space and paper space" title="Draw once at full size. Print it as many ways as you need." lede="The same distinction AutoCAD makes, kept on purpose: geometry lives in the model, sheets frame it." id="space-title" />
+      <div class="spaces">
+        <ol class="spaces__steps">
+          @for (step of spaces; track step.id; let i = $index) {
+            <li #spaceEl class="spaces__step" [class.spaces__step--on]="i === activeSpace()" [attr.data-index]="i" siteReveal>
+              <p class="spaces__index">{{ step.index }}</p>
+              <h3 class="spaces__title">{{ step.title }}</h3>
+              <p class="spaces__body">{{ step.body }}</p>
+              <div class="spaces__mobile">
+                <site-screen [src]="step.src" [alt]="step.alt" [title]="step.frame" ratio="16 / 10" />
+              </div>
+            </li>
+          }
+        </ol>
+        <div class="spaces__sticky">
+          <div class="spaces__dots" role="tablist" aria-label="Steps">
+            @for (step of spaces; track step.id; let i = $index) {
+              <button type="button" role="tab" class="spaces__dot" [class.spaces__dot--on]="i === activeSpace()" [attr.aria-selected]="i === activeSpace()" [attr.aria-label]="step.title" (click)="goToSpace(i)"></button>
+            }
+          </div>
+          @for (step of spaces; track step.id; let i = $index) {
+            <div class="spaces__frame" [class.spaces__frame--on]="i === activeSpace()" [attr.aria-hidden]="i !== activeSpace()">
+              <site-screen [src]="step.src" [alt]="step.alt" [title]="step.frame" ratio="16 / 10" />
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="site-section site-container" aria-labelledby="arch-title">
+    <site-heading eyebrow="What runs where" title="The drafting happens on your machine. The server keeps the files." lede="Parsing, rendering, snapping, hatching and plotting are all client-side. The API exists for identity, file management and durability, so a large drawing never needs a large upload to draw a line." align="center" id="arch-title" />
+    <div class="arch" siteReveal revealStagger=".arch__box, .arch__link">
+      <div class="arch__box arch__box--wide">
+        <p class="arch__kicker">Your browser</p>
+        <h3 class="arch__h">The editor</h3>
+        <ul class="arch__ul">
+          <li>DXF parser in a Web Worker</li>
+          <li>Canvas renderer, spatial index, snaps</li>
+          <li>Hatch, dimensions, blocks, layouts</li>
+          <li>PDF, SVG, PNG and DXF writers</li>
+          <li>Autosave, recovery snapshot, offline queue</li>
+          <li>AI assistant and its local audit log</li>
+        </ul>
+      </div>
+      <div class="arch__link" aria-hidden="true"><span>HTTPS · /api/v1</span></div>
+      <div class="arch__box">
+        <p class="arch__kicker">Our API</p>
+        <h3 class="arch__h">Identity, metadata, versions</h3>
+        <ul class="arch__ul">
+          <li>Accounts and organizations</li>
+          <li>Folders, trash, share links</li>
+          <li>Versioned saves with conflict checks</li>
+          <li>Feedback and notifications</li>
+        </ul>
+      </div>
+      <div class="arch__link" aria-hidden="true"><span>signed URLs</span></div>
+      <div class="arch__box">
+        <p class="arch__kicker">Object storage</p>
+        <h3 class="arch__h">The drawings themselves</h3>
+        <ul class="arch__ul">
+          <li>One object per saved version</li>
+          <li>Thumbnails for the dashboard</li>
+          <li>S3-compatible; yours to export</li>
+        </ul>
+      </div>
+    </div>
+    <p class="arch__foot">Sign-in is handled by Supabase Auth; the AI assistant talks to the model you configure directly from the browser. Read the <a class="site-link" routerLink="/about" fragment="ab-build">architecture notes</a>.</p>
+  </section>
+
+  <!-- Save -->
+  <section class="site-section site-band" aria-labelledby="save-title">
+    <div class="site-container save">
+      <div class="save__copy" siteReveal="left">
+        <site-heading eyebrow="A save, end to end" title="What Ctrl+S actually does." lede="Saving is concurrency-safe by construction. Two people can never write the same version, and the loser of a race is told, not overwritten." id="save-title" />
+        <a uiButton variant="secondary" routerLink="/docs" fragment="cloud">Versions, folders and sharing <ui-icon name="chevron-right" [size]="14" /></a>
+      </div>
+      <ol class="save__steps" siteReveal revealStagger="li">
+        @for (step of saveSteps; track step.title) {
+          <li class="save__step">
+            <span class="save__chip" [attr.data-kind]="step.kind">{{ step.chip }}</span>
+            <span class="save__title">{{ step.title }}</span>
+            <span class="save__body">{{ step.body }}</span>
+          </li>
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- Fidelity -->
+  <section class="site-section site-container fid" aria-labelledby="fid-title">
+    <div class="fid__shot" siteReveal="left">
+      <site-screen src="/site/editor-detail.webp" alt="Detail of the imported drawing: half top plan and half bottom plan of a slab with dimension strings, weep holes and the title block." title="RTM-S&C-GAD-BR-NO.384-DHD-IND.dxf — Model, 1:20" ratio="16 / 10" caption="An issued general arrangement, as imported. No cleanup was done for this screenshot." />
+    </div>
+    <div class="fid__copy" siteReveal="right">
+      <site-heading eyebrow="DXF fidelity" title="If AutoCAD shows it one way and CADO another, that is our bug." lede="The importer is checked against AutoCAD on real issued drawings, not against a spec sheet. These are the things that used to go wrong and no longer do." id="fid-title" />
+      <dl class="fid__dl">
+        @for (f of fidelity; track f.title) {
+          <div><dt>{{ f.title }}</dt><dd>{{ f.body }}</dd></div>
+        }
+      </dl>
+      <a class="site-link fid__more" routerLink="/docs" fragment="dxf">DXF compatibility notes <ui-icon name="chevron-right" [size]="14" /></a>
+    </div>
+  </section>
+
+  <site-closing title="See it with your own drawing." sub="Create an account, drop a DXF on the dashboard, and compare it with the original. That comparison is the product." secondaryLabel="Compare plans" secondaryLink="/pricing" />
+</div>

@@ -1,0 +1,218 @@
+<!-- Hero -->
+<section class="ab__hero site-section site-section--tight">
+  <div class="site-container">
+    <site-heading
+      [level]="1"
+      eyebrow="About"
+      title="CAD that respects the drawing."
+      lede="CADO is a browser-based 2D CAD editor with cloud drawings behind it, built to open a DXF exactly as AutoCAD renders it and to hand it back the same way. No installer, no licence server, no format of our own between you and your work."
+    />
+  </div>
+</section>
+
+<!-- Principles -->
+<section class="ab__principles site-section site-section--tight" aria-labelledby="ab-principles">
+  <div class="site-container">
+    <site-heading id="ab-principles" eyebrow="What we hold ourselves to" title="Four rules the code is checked against." lede="Each one is a decision that has already cost us something. They are listed here so you can hold us to them." />
+
+    <ol class="ab__rules">
+      @for (p of principles; track p.title; let i = $index) {
+        <li class="ab__rule" [class.ab__rule--flip]="i % 2 === 1" siteReveal>
+          <div class="ab__rule-text">
+            <span class="ab__rule-n" aria-hidden="true">0{{ i + 1 }}</span>
+            <h3 class="ab__rule-title">{{ p.title }}</h3>
+            <p class="site-body">{{ p.body }}</p>
+          </div>
+
+          <div class="ab__rule-art" aria-hidden="true">
+            @switch (i) {
+              @case (0) {
+                <!-- A DXF file and a browser window, drawing the same line. -->
+                <svg class="ab__svg" viewBox="0 0 320 200" focusable="false">
+                  <path class="ab__ink" d="M34 30h64l22 22v112H34z" />
+                  <path class="ab__ink" d="M98 30v22h22" />
+                  <text class="ab__label" x="52" y="118">DXF</text>
+                  <path class="ab__ink ab__ink--thin" d="M48 70h44M48 84h30M48 98h38" />
+                  <path class="ab__ink ab__ink--accent" d="M138 100h44m-8-6 8 6-8 6" />
+                  <rect class="ab__ink" x="196" y="30" width="96" height="134" rx="6" />
+                  <path class="ab__ink ab__ink--thin" d="M196 50h96" />
+                  <circle class="ab__dot" cx="206" cy="40" r="2.2" />
+                  <circle class="ab__dot" cx="214" cy="40" r="2.2" />
+                  <circle class="ab__dot" cx="222" cy="40" r="2.2" />
+                  <path class="ab__ink ab__ink--thin ab__ink--grid" d="M212 66v84M228 66v84M244 66v84M260 66v84M276 66v84M204 82h80M204 98h80M204 114h80M204 130h80M204 146h80" />
+                  <path class="ab__ink ab__ink--strong" d="M212 138l32-56 32 56z" />
+                  <path class="ab__ink ab__ink--accent ab__ink--thin" d="M206 152h64" />
+                  <path class="ab__ink ab__ink--accent ab__ink--thin" d="M212 148v8M276 148v8" />
+                  <path class="ab__ink ab__ink--strong" d="M52 138l14-24 14 24z" />
+                </svg>
+              }
+              @case (1) {
+                <!-- An open folder with no lock, and a DXF leaving it. -->
+                <svg class="ab__svg" viewBox="0 0 320 200" focusable="false">
+                  <path class="ab__ink" d="M44 60h64l14 14h100a10 10 0 0 1 10 10v70a10 10 0 0 1-10 10H44a10 10 0 0 1-10-10V70a10 10 0 0 1 10-10z" />
+                  <path class="ab__ink ab__ink--thin" d="M34 96h198" />
+                  <path class="ab__ink ab__ink--accent" d="M150 130h58m-8-6 8 6-8 6" />
+                  <path class="ab__ink ab__ink--accent" d="M226 108h40l14 14v50h-54z" />
+                  <path class="ab__ink ab__ink--accent ab__ink--thin" d="M266 108v14h14" />
+                  <text class="ab__label ab__label--accent" x="236" y="160">DXF</text>
+                  <!-- Where a padlock would be, a crossed-out one. -->
+                  <path class="ab__ink ab__ink--thin ab__ink--dim" d="M72 122h28v22H72zM78 122v-7a8 8 0 0 1 16 0v7" />
+                  <path class="ab__ink ab__ink--thin ab__ink--dim" d="M66 150l40-40" />
+                </svg>
+              }
+              @case (2) {
+                <!-- A browser tab whose page is a drawing grid with a crosshair. -->
+                <svg class="ab__svg" viewBox="0 0 320 200" focusable="false">
+                  <rect class="ab__ink" x="30" y="24" width="260" height="152" rx="8" />
+                  <path class="ab__ink ab__ink--thin" d="M30 50h260" />
+                  <circle class="ab__dot" cx="44" cy="37" r="2.5" />
+                  <circle class="ab__dot" cx="54" cy="37" r="2.5" />
+                  <circle class="ab__dot" cx="64" cy="37" r="2.5" />
+                  <rect class="ab__ink ab__ink--thin ab__ink--dim" x="80" y="31" width="150" height="12" rx="6" />
+                  <path class="ab__ink ab__ink--thin ab__ink--grid" d="M62 50v126M94 50v126M126 50v126M158 50v126M190 50v126M222 50v126M254 50v126M30 74h260M30 98h260M30 122h260M30 146h260" />
+                  <path class="ab__ink ab__ink--strong" d="M94 146V98h64v48zM158 122h64" />
+                  <path class="ab__ink ab__ink--accent ab__ink--thin" d="M222 100v44M200 122h44" />
+                  <rect class="ab__ink ab__ink--accent ab__ink--thin" x="216" y="116" width="12" height="12" />
+                  <text class="ab__label ab__label--small" x="196" y="166">_LINE</text>
+                </svg>
+              }
+              @default {
+                <!-- A checklist of proposed actions with an undo arrow. -->
+                <svg class="ab__svg" viewBox="0 0 320 200" focusable="false">
+                  <rect class="ab__ink" x="40" y="26" width="200" height="148" rx="8" />
+                  <path class="ab__ink ab__ink--thin ab__ink--accent" d="M60 62l6 6 12-12" />
+                  <path class="ab__ink ab__ink--thin" d="M90 60h120" />
+                  <path class="ab__ink ab__ink--thin ab__ink--accent" d="M60 98l6 6 12-12" />
+                  <path class="ab__ink ab__ink--thin" d="M90 96h96" />
+                  <rect class="ab__ink ab__ink--thin ab__ink--dim" x="58" y="126" width="16" height="16" rx="3" />
+                  <path class="ab__ink ab__ink--thin" d="M90 132h110" />
+                  <text class="ab__label ab__label--small" x="60" y="164">review</text>
+                  <path class="ab__ink ab__ink--accent" d="M292 130a34 34 0 0 0-34-34h-18" />
+                  <path class="ab__ink ab__ink--accent" d="M250 86l-10 10 10 10" />
+                  <path class="ab__ink ab__ink--thin ab__ink--dim" d="M292 130v30" />
+                </svg>
+              }
+            }
+          </div>
+        </li>
+      }
+    </ol>
+  </div>
+</section>
+
+<!-- How it is built -->
+<section class="ab__build site-band site-section" aria-labelledby="ab-build">
+  <div class="site-container">
+    <site-heading
+      id="ab-build"
+      eyebrow="How it is built"
+      title="The drawing lives in your tab. The server keeps the receipts."
+      lede="Everything that touches geometry runs in the browser. The API exists so a drawing can be found again, shared and restored; it never parses a DXF or draws a line."
+      align="center"
+    />
+
+    <ol class="ab__arch" siteReveal revealStagger=".ab__arch-block">
+      @for (block of architecture; track block.id; let last = $last) {
+        <li class="ab__arch-block site-panel">
+          <div class="ab__arch-head">
+            <span class="ab__arch-icon"><ui-icon [name]="block.icon" [size]="18" /></span>
+            <div>
+              <h3 class="ab__arch-title">{{ block.title }}</h3>
+              <p class="ab__arch-tech">{{ block.tech }}</p>
+            </div>
+          </div>
+          <ul class="ab__arch-list">
+            @for (item of block.does; track item) {
+              <li>{{ item }}</li>
+            }
+          </ul>
+        </li>
+        @if (!last) {
+          <li class="ab__arch-arrow" aria-hidden="true"><ui-icon name="chevron-right" [size]="20" /></li>
+        }
+      }
+    </ol>
+
+    <p class="ab__build-note" siteReveal="fade">
+      A save reserves the next version number in Postgres before the file is written, so two people saving at once can never
+      target the same object. The loser is offered Overwrite, Save as copy or Reload. Nothing is merged behind your back.
+    </p>
+  </div>
+</section>
+
+<!-- Timeline -->
+<section class="ab__timeline site-section" aria-labelledby="ab-timeline">
+  <div class="site-container ab__timeline-grid">
+    <div class="ab__timeline-intro">
+      <site-heading id="ab-timeline" eyebrow="Timeline" title="Where it has been, where it is going." lede="Dates are release dates. The current version is {{ currentVersion }}; the release notes have the detail." />
+      <a class="site-link ab__timeline-link" routerLink="/whats-new">Read the release notes</a>
+    </div>
+
+    <ol class="ab__tl" siteReveal revealStagger="li">
+      @for (m of timeline; track m.title) {
+        <li class="ab__tl-item" [class.ab__tl-item--now]="m.status === 'now'" [class.ab__tl-item--planned]="m.status === 'planned'">
+          <span class="ab__tl-dot" aria-hidden="true"></span>
+          <div class="ab__tl-meta">
+            @if (dateFormat(m); as fmt) {
+              <time class="ab__tl-date" [attr.datetime]="m.date">{{ m.date | date: fmt }}</time>
+            } @else {
+              <span class="ab__tl-date">{{ m.date }}</span>
+            }
+            <span
+              class="site-pill"
+              [class.site-pill--success]="m.status === 'shipped'"
+              [class.site-pill--muted]="m.status === 'planned'"
+            >{{ statusLabel(m.status) }}</span>
+          </div>
+          <h3 class="ab__tl-title">{{ m.title }}</h3>
+          <p class="ab__tl-body">{{ m.body }}</p>
+        </li>
+      }
+    </ol>
+  </div>
+</section>
+
+<!-- Candour -->
+<section class="ab__candour site-section site-section--tight" aria-labelledby="ab-candour">
+  <div class="site-container site-container--narrow">
+    <site-heading id="ab-candour" eyebrow="Candour" title="What we will not gloss over." lede="Four things a sales page would leave out. You will find each of them within ten minutes of use, so they are better read here first." />
+    <ul class="ab__plain" siteReveal revealStagger="li">
+      @for (c of candour; track c.title) {
+        <li class="ab__plain-item">
+          <ui-icon name="alert" [size]="16" aria-hidden="true" />
+          <div>
+            <h3 class="ab__plain-title">{{ c.title }}</h3>
+            <p class="ab__plain-body">{{ c.body }}</p>
+          </div>
+        </li>
+      }
+    </ul>
+  </div>
+</section>
+
+<!-- Links -->
+<nav class="ab__links site-section site-section--tight" aria-label="Elsewhere on the site">
+  <div class="site-container">
+    <ul class="ab__links-row" siteReveal revealStagger="li">
+      @for (l of links; track l.link) {
+        <li>
+          <a class="ab__links-card site-panel" [routerLink]="l.link">
+            <span class="ab__links-icon"><ui-icon [name]="l.icon" [size]="18" /></span>
+            <span class="ab__links-text">
+              <span class="ab__links-label">{{ l.label }}</span>
+              <span class="ab__links-hint">{{ l.hint }}</span>
+            </span>
+            <ui-icon class="ab__links-chev" name="chevron-right" [size]="16" aria-hidden="true" />
+          </a>
+        </li>
+      }
+    </ul>
+  </div>
+</nav>
+
+<site-closing
+  title="Judge it by a drawing, not by this page."
+  sub="Open a DXF you know well and compare it with the sheet you issued. If anything differs, tell us; that is the kind of bug we fix first."
+  secondaryLabel="Read the docs"
+  secondaryLink="/docs"
+/>

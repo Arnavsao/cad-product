@@ -1,0 +1,283 @@
+:host {
+  display: block;
+  min-height: 100%;
+}
+
+.site {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  /* The backdrop's pool of light sits under the hero on the home page and
+   * follows the reader down everywhere else. */
+  --ui-grid-origin: 50% 6%;
+  --ui-grid-reach: 92% 46%;
+
+  &--home {
+    --ui-grid-origin: 50% 12%;
+    --ui-grid-reach: 78% 62%;
+  }
+
+  &__skip {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 20;
+    padding: 8px 12px;
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-accent);
+    color: var(--ui-on-accent);
+    font-size: var(--ui-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    transform: translateY(-200%);
+    transition: transform var(--ui-dur) var(--ui-ease-out);
+
+    &:focus { transform: none; }
+  }
+
+  &__main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    padding-top: var(--site-header-h);
+    outline: none;
+  }
+}
+
+/* ── Header ────────────────────────────────────────────────────── */
+
+.site__header {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 10;
+  transition: background var(--ui-dur) var(--ui-ease-out), border-color var(--ui-dur) var(--ui-ease-out), box-shadow var(--ui-dur) var(--ui-ease-out);
+  border-bottom: 1px solid transparent;
+
+  &--scrolled {
+    background: color-mix(in srgb, var(--ui-bg) 78%, transparent);
+    border-bottom-color: var(--ui-border);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  }
+}
+
+.site__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  height: var(--site-header-h);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ui-text-strong);
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  view-transition-name: cado-brand;
+
+  &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 4px; border-radius: var(--ui-radius-sm); }
+
+  &__mark {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-accent);
+    color: var(--ui-on-accent);
+  }
+  &__name { font-size: var(--ui-text-base); }
+}
+
+.site__nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.site__nav-link {
+  position: relative;
+  padding: 7px 11px;
+  border-radius: var(--ui-radius-md);
+  font-size: var(--ui-text-md);
+  font-weight: 500;
+  color: var(--ui-text-dim);
+  text-decoration: none;
+  transition: color var(--ui-dur) var(--ui-ease-out), background var(--ui-dur) var(--ui-ease-out);
+
+  &:hover { color: var(--ui-text-strong); background: var(--ui-hover); }
+  &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+
+  &--on {
+    color: var(--ui-text-strong);
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 11px;
+      right: 11px;
+      bottom: 3px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--ui-accent);
+    }
+  }
+}
+
+.site__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  min-height: 30px;
+}
+
+.site__burger { display: none; }
+
+/* ── Mobile drawer ─────────────────────────────────────────────── */
+
+.site__drawer {
+  position: fixed;
+  inset: var(--site-header-h) 0 0 0;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-6);
+  padding: var(--ui-space-6) var(--site-gutter) var(--ui-space-10);
+  background: var(--ui-bg);
+  border-top: 1px solid var(--ui-border);
+  overflow-y: auto;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity var(--ui-dur) var(--ui-ease-out), transform var(--ui-dur) var(--ui-ease-out), visibility 0s linear var(--ui-dur);
+
+  &--open {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition-delay: 0s;
+  }
+}
+
+.site__drawer-nav { display: grid; }
+
+.site__drawer-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 4px;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: var(--ui-text-lg);
+  font-weight: 500;
+  color: var(--ui-text);
+  text-decoration: none;
+
+  ui-icon { color: var(--ui-text-dim); }
+  &--on { color: var(--ui-accent); }
+  &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; border-radius: var(--ui-radius-sm); }
+}
+
+.site__drawer-actions {
+  display: grid;
+  gap: var(--ui-space-3);
+
+  .ui-btn { justify-content: center; height: 44px; }
+}
+
+/* ── Footer ────────────────────────────────────────────────────── */
+
+.site__footer {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid var(--ui-border);
+  background: color-mix(in srgb, var(--ui-surface) 55%, transparent);
+  font-size: var(--ui-text-sm);
+  color: var(--ui-text-dim);
+}
+
+.site__footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  gap: var(--ui-space-8);
+  padding-block: clamp(36px, 5vw, 56px);
+}
+
+.site__footer-brand .brand { margin-bottom: 14px; }
+
+.site__footer-tagline {
+  max-width: 34ch;
+  margin: 0;
+  line-height: 1.55;
+  color: var(--ui-text);
+}
+
+.site__footer-langs {
+  max-width: 38ch;
+  margin: 12px 0 0;
+  line-height: 1.5;
+}
+
+.site__footer-col {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+
+  a {
+    color: var(--ui-text-dim);
+    text-decoration: none;
+    width: fit-content;
+    transition: color var(--ui-dur-fast);
+
+    &:hover { color: var(--ui-text-strong); }
+    &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; border-radius: var(--ui-radius-sm); }
+  }
+}
+
+.site__footer-h {
+  margin: 0 0 4px;
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ui-text);
+}
+
+.site__footer-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--ui-space-2) var(--ui-space-6);
+  padding-block: 18px;
+  border-top: 1px solid var(--ui-border);
+}
+
+/* ── Breakpoints ───────────────────────────────────────────────── */
+
+@media (max-width: 1020px) {
+  .site__nav-link { padding: 7px 8px; font-size: var(--ui-text-sm); }
+}
+
+@media (max-width: 900px) {
+  .site__nav { display: none; }
+  .site__burger { display: inline-flex; }
+  .site__actions .ui-btn:not(.site__burger) { display: none; }
+  .site__actions ui-skeleton { display: none; }
+  .site__footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .site__footer-brand { grid-column: 1 / -1; }
+}
+
+@media (max-width: 520px) {
+  .site__footer-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site__drawer, .site__header, .site__skip { transition: none; }
+}

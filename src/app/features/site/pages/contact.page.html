@@ -1,0 +1,204 @@
+<div class="ct site-container">
+  <!-- ── Split hero: copy left, form right ─────────────────────── -->
+  <section class="ct__hero" aria-labelledby="ct-title">
+    <div class="ct__copy">
+      <site-heading
+        [level]="1"
+        eyebrow="Contact"
+        title="Talk to the people who build it."
+        lede="One form, read by the team that writes the editor. No ticket numbers, no chatbot in front of it."
+        id="ct-title"
+      />
+
+      <dl class="ct__blocks" siteReveal revealStagger=".ct__block" revealDelay="120">
+        <div class="ct__block">
+          <dt>
+            <ui-icon name="message" [size]="16" />
+            Support
+          </dt>
+          <dd>
+            Use the form here, signed in or not. If you are signed in, the dashboard's
+            <a class="site-link" routerLink="/dashboard/feedback">feedback page</a> does the same thing and attaches your
+            page and app version automatically, which is what makes a bug reproducible. Both go to the same inbox.
+          </dd>
+        </div>
+        <div class="ct__block">
+          <dt>
+            <ui-icon name="users" [size]="16" />
+            Teams and education
+          </dt>
+          <dd>
+            Team plans can be invoiced annually instead of paid by card; pick “Invoicing” and tell us the seats and the
+            billing entity. Students: set your role to Student in your personal info, then get in touch with your
+            institution and we will apply the discount.
+          </dd>
+        </div>
+        <div class="ct__block">
+          <dt>
+            <ui-icon name="shield" [size]="16" />
+            Security and privacy
+          </dt>
+          <dd>
+            Your drawings stay in your account and on your device. A summary of a drawing reaches an AI provider only
+            when you configure one yourself in the assistant's settings; the built-in parser and a local Ollama server
+            send nothing anywhere. Details in the <a class="site-link" routerLink="/privacy">Privacy Policy</a>. To
+            report a vulnerability, use the form and start with the word “Security”.
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="ct__panel site-panel">
+      @if (sent()) {
+        <div class="ct__done" role="status">
+          <span class="ct__done-mark" aria-hidden="true"><ui-icon name="check" [size]="22" /></span>
+          <h2 class="ct__done-title">That came through.</h2>
+          <p class="ct__done-p">
+            What happens next: we read every message, usually within a working day.
+            @if (sentTo(); as to) {
+              A reply goes to <strong>{{ to }}</strong>.
+            } @else if (signedIn()) {
+              A reply goes to the email address on your account.
+            } @else {
+              You did not leave an address, so we cannot reply; the message still reaches the team.
+            }
+          </p>
+          <div class="ct__done-actions">
+            <button type="button" uiButton variant="secondary" (click)="again()">Send another</button>
+            <a uiButton variant="ghost" routerLink="/docs">Read the docs</a>
+          </div>
+        </div>
+      } @else {
+        <form class="ct__form" (submit)="submit($event)" novalidate>
+          <h2 class="ct__form-title">Send a message</h2>
+
+          <div class="ct__field">
+            <span class="ct__label" id="ct-topic">What is it about?</span>
+            <div class="ct__topics" role="radiogroup" aria-labelledby="ct-topic" (keydown)="onTopicKey($event)">
+              @for (t of topics; track t.id) {
+                <button
+                  type="button"
+                  class="ct__topic"
+                  role="radio"
+                  [attr.data-topic]="t.id"
+                  [class.ct__topic--on]="topicId() === t.id"
+                  [attr.aria-checked]="topicId() === t.id"
+                  [tabindex]="topicId() === t.id ? 0 : -1"
+                  (click)="pickTopic(t.id)"
+                >
+                  <ui-icon [name]="t.icon" [size]="16" />
+                  <span class="ct__topic-text">
+                    <span class="ct__topic-label">{{ t.label }}</span>
+                    <span class="ct__topic-hint">{{ t.hint }}</span>
+                  </span>
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="ct__field">
+            <label class="ct__label" for="ct-email">
+              Email
+              @if (emailRequired()) {
+                <span class="ct__req">required</span>
+              } @else {
+                <span class="ct__opt">optional, we have the one on your account</span>
+              }
+            </label>
+            <input
+              uiInput
+              id="ct-email"
+              type="email"
+              name="email"
+              autocomplete="email"
+              inputmode="email"
+              spellcheck="false"
+              placeholder="you@studio.example"
+              [required]="emailRequired()"
+              [invalid]="showEmailError()"
+              [attr.aria-describedby]="showEmailError() ? 'ct-email-err' : null"
+              [value]="email()"
+              (input)="onEmail($event)"
+              (blur)="onEmailBlur()"
+            />
+            @if (showEmailError()) {
+              <p class="ct__hint ct__hint--bad" id="ct-email-err">
+                @if (emailTrimmed()) { That does not look like an email address. } @else { We need an address to reply to. }
+              </p>
+            }
+          </div>
+
+          <div class="ct__field">
+            <label class="ct__label" for="ct-message">Message</label>
+            <textarea
+              uiInput
+              id="ct-message"
+              name="message"
+              class="ct__message"
+              rows="7"
+              [attr.maxlength]="messageMax()"
+              [invalid]="showMessageError()"
+              [attr.aria-describedby]="showMessageError() ? 'ct-message-err' : 'ct-message-hint'"
+              [placeholder]="topic().placeholder"
+              [value]="message()"
+              (input)="onMessage($event)"
+            ></textarea>
+            <div class="ct__meta">
+              @if (showMessageError()) {
+                <span class="ct__hint ct__hint--bad" id="ct-message-err">A few more words, please.</span>
+              } @else {
+                <span class="ct__hint" id="ct-message-hint">
+                  @if (topic().prefix) {
+                    Sent tagged <span class="site-mono">{{ topic().prefix.trim() }}</span> so it reaches the right person.
+                  } @else {
+                    Steps to reproduce, or a link to the drawing, are worth more than anything else.
+                  }
+                </span>
+              }
+              <span class="ct__count" [class.ct__count--near]="remaining() < 200" aria-live="polite">{{ remaining() }}</span>
+            </div>
+          </div>
+
+          @if (error(); as message) {
+            <div class="ct__error" role="alert">
+              <ui-icon name="alert" [size]="18" />
+              <div>
+                <p class="ct__error-title">That did not send.</p>
+                <p class="ct__error-msg">{{ message }}</p>
+              </div>
+            </div>
+          }
+
+          <div class="ct__actions">
+            <button type="submit" uiButton variant="primary" size="lg" [disabled]="!canSubmit()" [loading]="sending()">
+              Send message
+            </button>
+            <span class="ct__fine">Goes to the product team, not a public forum.</span>
+          </div>
+        </form>
+      }
+    </div>
+  </section>
+
+  <!-- ── FAQ ───────────────────────────────────────────────────── -->
+  <section class="ct__faq site-section--tight" aria-labelledby="ct-faq-title">
+    <div class="ct__faq-grid">
+      <div>
+        <p class="site-eyebrow">Before you write</p>
+        <h2 class="site-h2" id="ct-faq-title">The questions we get most.</h2>
+        <p class="site-body">
+          The rest are on the <a class="site-link" routerLink="/pricing">pricing page</a>, and the
+          <a class="site-link" routerLink="/docs">documentation</a> covers how the editor behaves.
+        </p>
+      </div>
+      <site-accordion [items]="faqs" [single]="true" [initiallyOpen]="['faq-0']" />
+    </div>
+  </section>
+</div>
+
+<site-closing
+  title="Or skip the form and open a drawing."
+  sub="Most questions answer themselves once the editor is in front of you. It is free, and there is nothing to install."
+  secondaryLabel="Read the docs"
+  secondaryLink="/docs"
+/>

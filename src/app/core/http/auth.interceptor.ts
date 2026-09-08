@@ -11,10 +11,14 @@ export function isBackendRequest(url: string): boolean {
   return !!base && url.startsWith(base);
 }
 
+const PUBLIC_SITE_PATHS = ['/product', '/features', '/use-cases', '/pricing', '/docs', '/about', '/contact', '/whats-new', '/terms', '/privacy'];
+
 /** Routes that must never bounce to /sign-in on a 401 (they are reachable signed out). */
 function isPublicUrl(url: string): boolean {
   const path = url.split('?')[0].split('#')[0];
-  return path === '/' || path === '' || path.startsWith('/sign-in') || path.startsWith('/sign-up');
+  if (path === '/' || path === '' || path.startsWith('/sign-in') || path.startsWith('/sign-up')) return true;
+  // The public site (see the site-shell children in app.routes.ts).
+  return PUBLIC_SITE_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
 /**

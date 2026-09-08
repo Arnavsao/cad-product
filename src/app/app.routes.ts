@@ -27,11 +27,99 @@ export const editorMatcher: UrlMatcher = (segments: UrlSegment[]): UrlMatchResul
 };
 
 export const routes: Routes = [
+  // The public site: every marketing/reference page is a child of one shell
+  // (header, footer, smooth scroll), so the chrome is mounted once and the
+  // brand mark can morph across view transitions. All of these are read while
+  // deciding whether to sign up, so none sit behind the auth guard.
   {
     path: '',
-    pathMatch: 'full',
-    title: 'CADO',
-    loadComponent: () => import('./features/landing/landing.page').then((m) => m.LandingPage),
+    loadComponent: () => import('./features/site/site-shell.component').then((m) => m.SiteShellComponent),
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        title: 'CADO — Browser-native 2D CAD',
+        data: {
+          description:
+            'CADO is a full 2D CAD editor that runs in the browser: DXF import and export, layouts and plotting, blocks, associative dimensions, cloud drawings and an AI drafting assistant.',
+        },
+        loadComponent: () => import('./features/landing/landing.page').then((m) => m.LandingPage),
+      },
+      {
+        path: 'product',
+        title: 'How CADO works · CADO',
+        data: {
+          description:
+            'Inside the CADO editor: model space and paper space, the drafting engine in your browser, versioned cloud saves, and how a DXF moves through it.',
+        },
+        loadComponent: () => import('./features/site/pages/product.page').then((m) => m.ProductPage),
+      },
+      {
+        path: 'features',
+        title: 'Features · CADO',
+        data: {
+          description:
+            'Every drafting command in CADO with its AutoCAD alias: draw, annotate, modify, blocks, layouts, plotting, DXF round-trip and the AI assistant.',
+        },
+        loadComponent: () => import('./features/features/features.page').then((m) => m.FeaturesPage),
+      },
+      {
+        path: 'use-cases',
+        title: 'Use cases · CADO',
+        data: {
+          description:
+            'How architects, engineers, students, studios and product teams use CADO — browser CAD for site plans, GA drawings, coursework and embedded drafting.',
+        },
+        loadComponent: () => import('./features/site/pages/use-cases.page').then((m) => m.UseCasesPage),
+      },
+      {
+        path: 'pricing',
+        title: 'Plans & pricing · CADO',
+        data: {
+          description: 'CADO pricing: a free plan with the full drafting toolset and DXF export, Pro for people who draw every week, Team for studios.',
+        },
+        loadComponent: () => import('./features/pricing/pricing.page').then((m) => m.PricingPage),
+      },
+      {
+        path: 'docs',
+        title: 'Documentation · CADO',
+        data: {
+          description:
+            'CADO documentation: getting started, the command reference with aliases, keyboard shortcuts, DXF compatibility, layouts and plotting, the AI assistant, sharing and embedding.',
+        },
+        loadComponent: () => import('./features/site/pages/docs.page').then((m) => m.DocsPage),
+      },
+      {
+        path: 'about',
+        title: 'About · CADO',
+        data: { description: 'Why CADO exists, what it holds itself to, and where it is going.' },
+        loadComponent: () => import('./features/site/pages/about.page').then((m) => m.AboutPage),
+      },
+      {
+        path: 'contact',
+        title: 'Contact · CADO',
+        data: { description: 'Talk to the CADO team: questions, team plans, invoicing, bug reports and feature ideas.' },
+        loadComponent: () => import('./features/site/pages/contact.page').then((m) => m.ContactPage),
+      },
+      {
+        path: 'whats-new',
+        title: "What's New · CADO",
+        data: { description: 'Release notes for CADO, newest first.' },
+        loadComponent: () => import('./features/about/whats-new.page').then((m) => m.WhatsNewPage),
+      },
+      {
+        path: 'terms',
+        title: 'Terms of Service · CADO',
+        data: { doc: 'terms' },
+        loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
+      },
+      {
+        path: 'privacy',
+        title: 'Privacy Policy · CADO',
+        data: { doc: 'privacy' },
+        loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
+      },
+    ],
   },
   {
     path: 'sign-in',
@@ -126,34 +214,6 @@ export const routes: Routes = [
     canDeactivate: [unsavedChangesGuard],
     data: { preload: true },
     loadComponent: () => import('./features/cad-editor/cad-editor').then((m) => m.CadEditorComponent),
-  },
-  // Public on purpose: all of these are read while deciding whether to sign up.
-  {
-    path: 'features',
-    title: 'Features · CADO',
-    loadComponent: () => import('./features/features/features.page').then((m) => m.FeaturesPage),
-  },
-  {
-    path: 'pricing',
-    title: 'Plans & pricing · CADO',
-    loadComponent: () => import('./features/pricing/pricing.page').then((m) => m.PricingPage),
-  },
-  {
-    path: 'whats-new',
-    title: "What's New · CADO",
-    loadComponent: () => import('./features/about/whats-new.page').then((m) => m.WhatsNewPage),
-  },
-  {
-    path: 'terms',
-    title: 'Terms of Service · CADO',
-    data: { doc: 'terms' },
-    loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
-  },
-  {
-    path: 'privacy',
-    title: 'Privacy Policy · CADO',
-    data: { doc: 'privacy' },
-    loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
   },
   // Legacy path used by the bridge application.
   { path: 'cad-editor', redirectTo: 'editor' },

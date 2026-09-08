@@ -1,0 +1,757 @@
+<div class="docs site-container">
+  <header class="docs__hero">
+    <site-heading
+      [level]="1"
+      eyebrow="Documentation"
+      title="Everything the editor does, in the order you will need it."
+      lede="From the first sign-in to embedding the editor in your own product. Each section is written from the code, not from a plan; if something here is wrong, the editor is wrong too."
+    />
+    <p class="docs__note">
+      <ui-icon name="list" [size]="14" />
+      Twelve sections on one page. The sidebar follows you, every heading has a link, and the command table filters as you type.
+    </p>
+  </header>
+
+  <div class="docs__layout">
+    <!-- ── Sidebar / chip row ─────────────────────────────────── -->
+    <aside class="docs__aside">
+      <nav class="docs__nav" aria-label="On this page" #nav>
+        <ol class="docs__nav-list">
+          @for (s of sections; track s.id) {
+            <li>
+              <a
+                class="docs__nav-link"
+                [class.docs__nav-link--on]="active() === s.id"
+                [href]="'#' + s.id"
+                [attr.data-section]="s.id"
+                [attr.aria-current]="active() === s.id ? 'location' : null"
+                (click)="go($event, s.id)"
+              >{{ s.label }}</a>
+            </li>
+          }
+        </ol>
+      </nav>
+    </aside>
+
+    <div class="docs__content">
+      <!-- ── Getting started ────────────────────────────────────── -->
+      <section class="docs__section" id="getting-started" #docSection aria-labelledby="h-getting-started">
+        <p class="site-eyebrow">01</p>
+        <h2 class="docs__h2" id="h-getting-started">Getting started</h2>
+        <p class="site-body">Five steps from nothing to a plotted sheet. Nothing to install; the editor is a page.</p>
+
+        <div class="docs__split">
+          <ol class="docs__steps">
+            @for (step of startSteps; track step.title; let i = $index) {
+              <li class="docs__step">
+                <span class="docs__step-n" aria-hidden="true">{{ i + 1 }}</span>
+                <div>
+                  <h3 class="docs__h3">{{ step.title }}</h3>
+                  <p class="docs__p">{{ step.body }}</p>
+                  @if (step.keys.length) {
+                    <p class="docs__chips">
+                      @for (k of step.keys; track k) { <kbd class="site-kbd">{{ k }}</kbd> }
+                    </p>
+                  }
+                </div>
+              </li>
+            }
+          </ol>
+          <div class="docs__split-figure">
+            <site-screen
+              src="/site/editor-model.webp"
+              alt="The CADO editor with a bridge general-arrangement DXF open on the Model tab: toolbar at the top, command line and status bar at the bottom, layers and properties panels on the right."
+              title="Bridge_GA.dxf — Model"
+              caption="Toolbar, canvas, command line, status bar. The layout AutoCAD users expect."
+            />
+            <aside class="docs__aside-note">
+              <strong>Embedded mode</strong> is a deployment option, not a setting. A host application that runs CADO
+              with authentication disabled gets an editor with no sign-in; end users never toggle it. See
+              <a class="site-link" href="#embedding" (click)="go($event, 'embedding')">Embedding the editor</a>.
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Command reference ──────────────────────────────────── -->
+      <section class="docs__section" id="commands" #docSection aria-labelledby="h-commands">
+        <p class="site-eyebrow">02</p>
+        <h2 class="docs__h2" id="h-commands">Command reference</h2>
+        <p class="site-body">
+          Every command the toolbar shows, with the aliases the command line accepts. Type the alias, press Enter or
+          Space, answer the prompts. {{ totalCommands }} entries in {{ groupCount }} groups.
+        </p>
+
+        <div class="docs__filter" role="search">
+          <label class="docs__filter-label" for="docs-cmd-filter">Filter commands</label>
+          <div class="docs__filter-row">
+            <ui-icon class="docs__filter-icon" name="search" [size]="16" />
+            <input
+              uiInput
+              id="docs-cmd-filter"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Name, alias or what it does, e.g. fillet, TR, viewport"
+              [value]="query()"
+              (input)="onQuery($event)"
+            />
+            @if (query()) {
+              <button type="button" class="docs__filter-clear" (click)="clearQuery()" aria-label="Clear filter">
+                <ui-icon name="close" [size]="14" />
+              </button>
+            }
+          </div>
+          <p class="docs__filter-count" role="status" aria-live="polite">
+            @if (query()) {
+              {{ matchCount() }} of {{ totalCommands }} commands match “{{ query() }}”
+            } @else {
+              Showing all {{ totalCommands }} commands
+            }
+          </p>
+        </div>
+
+        @if (filteredGroups().length === 0) {
+          <div class="docs__empty">
+            <ui-icon name="search" [size]="20" />
+            <p>No command matches “{{ query() }}”. Try the AutoCAD alias, or a word from what the command does.</p>
+            <button type="button" class="site-link docs__empty-reset" (click)="clearQuery()">Show all commands</button>
+          </div>
+        }
+
+        @for (group of filteredGroups(); track group.id) {
+          <div class="docs__group">
+            <h3 class="docs__h3 docs__group-title">
+              <ui-icon [name]="group.icon" [size]="16" />
+              {{ group.label }}
+              <span class="docs__group-count">{{ group.commands.length }}</span>
+            </h3>
+            <div class="docs__table-wrap">
+              <table class="docs__table">
+                <thead>
+                  <tr>
+                    <th scope="col">Command</th>
+                    <th scope="col">Aliases</th>
+                    <th scope="col">What it does</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (c of group.commands; track c.name) {
+                    <tr>
+                      <th scope="row">{{ c.name }}</th>
+                      <td>
+                        <span class="docs__chips">
+                          @for (a of c.aliases; track a) { <kbd class="site-kbd">{{ a }}</kbd> }
+                        </span>
+                      </td>
+                      <td>{{ c.what }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- ── Keyboard shortcuts ─────────────────────────────────── -->
+      <section class="docs__section" id="shortcuts" #docSection aria-labelledby="h-shortcuts">
+        <p class="site-eyebrow">03</p>
+        <h2 class="docs__h2" id="h-shortcuts">Keyboard shortcuts</h2>
+        <p class="site-body">
+          The bindings below are the ones the editor actually handles. <kbd class="site-kbd">Ctrl</kbd> is
+          <kbd class="site-kbd">⌘</kbd> on a Mac.
+        </p>
+
+        <div class="docs__grid-2">
+          @for (group of shortcutGroups; track group.id) {
+            <div class="docs__card">
+              <h3 class="docs__h3">{{ group.label }}</h3>
+              @if (group.note) { <p class="docs__p docs__p--sm">{{ group.note }}</p> }
+              <div class="docs__table-wrap docs__table-wrap--flush">
+                <table class="docs__table docs__table--keys">
+                  <tbody>
+                    @for (item of group.items; track item.what) {
+                      <tr>
+                        <th scope="row">
+                          <span class="docs__chips">
+                            @for (k of item.keys; track k) { <kbd class="site-kbd">{{ k }}</kbd> }
+                          </span>
+                        </th>
+                        <td>{{ item.what }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- ── Snapping and input ─────────────────────────────────── -->
+      <section class="docs__section" id="snapping" #docSection aria-labelledby="h-snapping">
+        <p class="site-eyebrow">04</p>
+        <h2 class="docs__h2" id="h-snapping">Snapping and input</h2>
+        <p class="site-body">
+          Geometry is exact or it is wrong. Fourteen object snaps, two tracking modes and dynamic input keep every
+          point on something.
+        </p>
+
+        <h3 class="docs__h3">Object snaps</h3>
+        <p class="docs__p">
+          Toggle them all with <kbd class="site-kbd">F3</kbd>, or turn individual modes on and off from the status
+          bar; the set you choose is remembered. A marker names the snap under the cursor before you click.
+        </p>
+        <ul class="docs__snaps" aria-label="Object snap modes" siteReveal revealStagger="li">
+          @for (snap of objectSnaps; track snap) {
+            <li class="docs__snap">{{ snap }}</li>
+          }
+        </ul>
+
+        <h3 class="docs__h3">Tracking and dynamic input</h3>
+        <dl class="docs__aids">
+          @for (aid of aids; track aid.name) {
+            <div class="docs__aid">
+              <dt><span>{{ aid.name }}</span> <kbd class="site-kbd">{{ aid.key }}</kbd></dt>
+              <dd>{{ aid.body }}</dd>
+            </div>
+          }
+        </dl>
+      </section>
+
+      <!-- ── Layers and blocks ──────────────────────────────────── -->
+      <section class="docs__section" id="layers-blocks" #docSection aria-labelledby="h-layers-blocks">
+        <p class="site-eyebrow">05</p>
+        <h2 class="docs__h2" id="h-layers-blocks">Layers and blocks</h2>
+
+        <div class="docs__split docs__split--reverse">
+          <div>
+            <h3 class="docs__h3">Layers</h3>
+            <p class="docs__p">
+              Open the panel with <kbd class="site-kbd">LA</kbd>. Each layer carries a colour, a linetype and a
+              lineweight that entities inherit ByLayer, and four states you toggle per row. Layer 0 and Defpoints are
+              protected and cannot be deleted; everything comes in from DXF and goes back out unchanged.
+            </p>
+            <dl class="docs__states">
+              @for (state of layerStates; track state.name) {
+                <div class="docs__state">
+                  <dt>{{ state.name }}</dt>
+                  <dd>{{ state.body }}</dd>
+                </div>
+              }
+            </dl>
+            <p class="docs__p docs__p--sm">
+              There is no isolate button in the panel; ask the assistant instead:
+              <span class="site-mono">isolate layer WALLS</span> hides every other layer in one undoable step.
+            </p>
+          </div>
+          <div class="docs__split-figure">
+            <site-screen
+              src="/site/editor-layers.webp"
+              alt="The Layers panel open on the right of the editor, listing layers with on/off, freeze, lock and plot toggles, colour swatches, linetype and lineweight."
+              title="Layers"
+              caption="On, freeze, lock, plot, colour, linetype, lineweight. Per layer, per drawing."
+            />
+          </div>
+        </div>
+
+        <h3 class="docs__h3">Blocks, attributes and the library</h3>
+        <div class="docs__grid-3">
+          <div class="docs__card">
+            <p class="docs__chips"><kbd class="site-kbd">B</kbd> <kbd class="site-kbd">I</kbd> <kbd class="site-kbd">BLOCKS</kbd></p>
+            <h4 class="docs__h4">Define and place</h4>
+            <p class="docs__p docs__p--sm">
+              <span class="site-mono">B</span> turns a selection and a base point into a definition;
+              <span class="site-mono">I</span> inserts it with scale and rotation. The Blocks palette lists every
+              definition in the drawing to drag in. Paste as block (<kbd class="site-kbd">Ctrl+Alt+V</kbd>) defines
+              and places in one step.
+            </p>
+          </div>
+          <div class="docs__card">
+            <p class="docs__chips"><kbd class="site-kbd">BEDIT</kbd> <kbd class="site-kbd">BCLOSE</kbd> <kbd class="site-kbd">X</kbd></p>
+            <h4 class="docs__h4">Edit the definition</h4>
+            <p class="docs__p docs__p--sm">
+              The block editor opens one definition in isolation; save with <span class="site-mono">BCLOSE</span> or
+              answer the prompt on <kbd class="site-kbd">Esc</kbd>, and every instance follows.
+              <span class="site-mono">X</span> explodes an instance into plain entities when you need to.
+            </p>
+          </div>
+          <div class="docs__card">
+            <p class="docs__chips"><kbd class="site-kbd">LIB</kbd> <kbd class="site-kbd">SYM</kbd> <kbd class="site-kbd">FIND</kbd></p>
+            <h4 class="docs__h4">Attributes, library, find</h4>
+            <p class="docs__p docs__p--sm">
+              Blocks carry attributes: imported ATTDEF and ATTRIB values are kept, shown and editable, and
+              <span class="site-mono">FIND</span> searches and replaces across text, MText, attribute values and
+              table cells. The library holds symbols you reuse across drawings.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Layouts and plotting ───────────────────────────────── -->
+      <section class="docs__section" id="layouts" #docSection aria-labelledby="h-layouts">
+        <p class="site-eyebrow">06</p>
+        <h2 class="docs__h2" id="h-layouts">Layouts and plotting</h2>
+        <p class="site-body">
+          Model space is where you draw at full size. A layout is a sheet of paper with viewports that frame the model
+          at a scale; that is what gets plotted.
+        </p>
+
+        <div class="docs__split">
+          <div>
+            <h3 class="docs__h3">Model space and paper space</h3>
+            <p class="docs__p">
+              <span class="site-mono">LAYOUT</span> adds, renames and reorders layout tabs.
+              <span class="site-mono">MVIEW</span> draws a viewport on the sheet and asks for its scale; viewports are
+              objects, so you move them, drag a grip to resize them (scale preserved) and Delete them like anything
+              else. Type <span class="site-mono">MSPACE</span> to pan, zoom and edit the model through the first
+              viewport; <span class="site-mono">PSPACE</span> returns to the sheet, where title blocks and
+              notes live. Every tool works in both spaces, and osnap only picks the space you are editing.
+            </p>
+            <h3 class="docs__h3">Page setup</h3>
+            <p class="docs__p">
+              <span class="site-mono">PAGESETUP</span> sets paper, orientation, plot offset, plot style and scale for
+              the layout, and the same fields appear in the Plot dialog for a one-off. Lineweights can scale with the
+              plot scale or stay absolute.
+            </p>
+          </div>
+          <div class="docs__split-figure">
+            <site-screen
+              src="/site/editor-layout.webp"
+              alt="A paper-space layout tab in CADO: a white sheet with a viewport showing the bridge drawing at a fixed scale."
+              title="Bridge_GA.dxf — Layout1"
+              caption="A layout tab: the sheet, one viewport, the model at 1:50."
+            />
+          </div>
+        </div>
+
+        <div class="docs__grid-2 docs__grid-2--top">
+          <div>
+            <h3 class="docs__h3">Paper sizes</h3>
+            <div class="docs__table-wrap">
+              <table class="docs__table">
+                <thead><tr><th scope="col">Family</th><th scope="col">Sizes</th></tr></thead>
+                <tbody>
+                  @for (fam of paperFamilies; track fam.label) {
+                    <tr>
+                      <th scope="row">{{ fam.label }}</th>
+                      <td>{{ fam.sizes.join(' · ') }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3 class="docs__h3">Scales</h3>
+            <p class="docs__p docs__p--sm">Fit to page, a preset, or a custom ratio typed in.</p>
+            <p class="docs__chips">
+              @for (s of scales.metric; track s) { <kbd class="site-kbd">{{ s }}</kbd> }
+            </p>
+            <p class="docs__chips">
+              @for (s of scales.imperial; track s) { <kbd class="site-kbd">{{ s }}</kbd> }
+            </p>
+            <h3 class="docs__h3">Plot styles</h3>
+            <dl class="docs__states">
+              @for (ps of plotStyles; track ps.name) {
+                <div class="docs__state">
+                  <dt>{{ ps.name }}</dt>
+                  <dd>{{ ps.body }}</dd>
+                </div>
+              }
+            </dl>
+          </div>
+        </div>
+
+        <h3 class="docs__h3">Output</h3>
+        <div class="docs__split">
+          <dl class="docs__states">
+            @for (o of plotOutputs; track o.format) {
+              <div class="docs__state">
+                <dt>{{ o.format }}</dt>
+                <dd>{{ o.body }}</dd>
+              </div>
+            }
+          </dl>
+          <div class="docs__split-figure">
+            <site-screen
+              src="/site/editor-plot.webp"
+              alt="The Plot dialog: format, paper size, orientation, plot area, scale and plot style fields with a preview of the sheet."
+              title="Plot"
+              caption="Window, extents, display or layout; PDF, SVG, PNG or JPG."
+            />
+          </div>
+        </div>
+      </section>
+
+      <!-- ── DXF compatibility ──────────────────────────────────── -->
+      <section class="docs__section" id="dxf" #docSection aria-labelledby="h-dxf">
+        <p class="site-eyebrow">07</p>
+        <h2 class="docs__h2" id="h-dxf">DXF compatibility</h2>
+        <p class="site-body">
+          Drawings are stored as DXF, so import and export are not converters bolted on the side; they are the file
+          format. The bar is AutoCAD parity: a drawing opens as it was issued, and saves back out with what it came
+          with. Imports run in a Web Worker so a large file never freezes the tab.
+        </p>
+
+        <div class="docs__grid-2 docs__grid-2--top">
+          <div>
+            <h3 class="docs__h3"><span class="site-pill site-pill--success">Round-trips</span></h3>
+            <dl class="docs__states">
+              @for (row of dxfRoundtrip; track row.area) {
+                <div class="docs__state">
+                  <dt>{{ row.area }}</dt>
+                  <dd>{{ row.body }}</dd>
+                </div>
+              }
+            </dl>
+          </div>
+          <div>
+            <h3 class="docs__h3"><span class="site-pill site-pill--warning">Known limits</span></h3>
+            <dl class="docs__states">
+              @for (row of dxfLimits; track row.area) {
+                <div class="docs__state">
+                  <dt>{{ row.area }}</dt>
+                  <dd>{{ row.body }}</dd>
+                </div>
+              }
+            </dl>
+            <aside class="docs__aside-note">
+              <strong>How parity is checked.</strong> AutoCAD bakes each dimension's rendered geometry and final text
+              into an anonymous <span class="site-mono">*D</span> block. CADO's import is compared against those
+              blocks on a real bridge general-arrangement drawing: 384 of 384 dimensions match, and still match after
+              an export and re-import.
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── AI assistant ───────────────────────────────────────── -->
+      <section class="docs__section" id="ai" #docSection aria-labelledby="h-ai">
+        <p class="site-eyebrow">08</p>
+        <h2 class="docs__h2" id="h-ai">AI assistant</h2>
+        <p class="site-body">
+          Type what you want in plain language and the assistant turns it into ordinary editor commands. It proposes,
+          you decide, and everything it does is one Undo away.
+        </p>
+
+        <div class="docs__split">
+          <div>
+            <h3 class="docs__h3">Choosing a model</h3>
+            <p class="docs__p">
+              Open the assistant panel and its settings (<span class="site-mono">⚙</span>). Three kinds of backend
+              are offered; the built-in parser needs no setup and is where most people stay.
+            </p>
+            <div class="docs__table-wrap">
+              <table class="docs__table">
+                <thead>
+                  <tr><th scope="col">Backend</th><th scope="col">Runs</th><th scope="col">Setup</th></tr>
+                </thead>
+                <tbody>
+                  @for (b of aiBackends; track b.name) {
+                    <tr>
+                      <th scope="row">{{ b.name }}</th>
+                      <td class="docs__nowrap">{{ b.where }}</td>
+                      <td>{{ b.body }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="docs__split-figure">
+            <site-screen
+              src="/site/editor-ai.webp"
+              alt="The AI assistant panel docked in the editor, with a conversation, a proposed action and its risk label, and the settings gear."
+              title="Assistant"
+              caption="A proposal with its affected count and risk class, before it runs."
+            />
+          </div>
+        </div>
+
+        <h3 class="docs__h3">What it can do</h3>
+        <div class="docs__caps">
+          @for (cap of aiCapabilities; track cap.group) {
+            <div class="docs__cap">
+              <h4 class="docs__h4">{{ cap.group }}</h4>
+              <ul class="docs__list">
+                @for (item of cap.items; track item) { <li>{{ item }}</li> }
+              </ul>
+            </div>
+          }
+        </div>
+
+        <h3 class="docs__h3">Try these</h3>
+        <p class="docs__p docs__p--sm">
+          The built-in parser reads a colour as a filter, <span class="site-mono">on layer X</span> as a scope,
+          <span class="site-mono">to layer X</span> as a destination, and “selected”, “these” or “them” as the current
+          selection. When nothing is named and something is selected, the selection is the target.
+        </p>
+        <ul class="docs__prompts" aria-label="Example prompts">
+          @for (p of aiExamples; track p) {
+            <li class="docs__prompt"><span class="docs__prompt-mark" aria-hidden="true">›</span>{{ p }}</li>
+          }
+        </ul>
+
+        <h3 class="docs__h3">How an action is checked</h3>
+        <ol class="docs__pipeline" aria-label="Safety pipeline">
+          <li><strong>Validate.</strong> The request compiles to named tools; unknown actions, empty targets and missing permissions are rejected before anything runs.</li>
+          <li><strong>Classify.</strong> Each tool declares a risk class and the batch takes the highest.</li>
+          <li><strong>Confirm.</strong> Destructive batches wait for a yes; review batches show what they will touch.</li>
+          <li><strong>Commit as one step.</strong> The whole batch is a single command on the undo stack. <kbd class="site-kbd">Ctrl+Z</kbd> removes it entirely.</li>
+          <li><strong>Log locally.</strong> Every resolved turn goes to an append-only audit log in this browser's IndexedDB. It never leaves your device.</li>
+        </ol>
+        <dl class="docs__risk">
+          @for (r of aiRisk; track r.cls) {
+            <div class="docs__risk-row">
+              <dt><span class="site-pill" [class.site-pill--success]="r.tone === 'success'" [class.site-pill--warning]="r.tone === 'warning'" [class.docs__pill--danger]="r.tone === 'danger'">{{ r.cls }}</span></dt>
+              <dd>{{ r.body }}</dd>
+            </div>
+          }
+        </dl>
+
+        <aside class="docs__aside-note">
+          <strong>Privacy.</strong> With the built-in parser or a local Ollama server, nothing about your drawing leaves
+          your machine or network. With OpenRouter, a summary of the drawing (layers, entity counts and types, the
+          current selection, never the raw file) and your prompts are sent to that provider, and only after you have
+          picked the model and acknowledged the notice. Details in the
+          <a class="site-link" routerLink="/privacy">privacy policy</a>.
+        </aside>
+      </section>
+
+      <!-- ── Accounts and cloud ─────────────────────────────────── -->
+      <section class="docs__section" id="cloud" #docSection aria-labelledby="h-cloud">
+        <p class="site-eyebrow">09</p>
+        <h2 class="docs__h2" id="h-cloud">Accounts and cloud</h2>
+        <p class="site-body">
+          An account gives you a place for drawings, a version for every save, and a way to hand a drawing to someone
+          else without emailing a file.
+        </p>
+
+        <h3 class="docs__h3">The life of a save</h3>
+        <ol class="docs__timeline">
+          <li class="docs__tl">
+            <span class="docs__tl-when">Every {{ autosaveSeconds }} s</span>
+            <div>
+              <h4 class="docs__h4">Recovery snapshot</h4>
+              <p class="docs__p docs__p--sm">
+                If anything changed, the drawing is serialised to the browser's IndexedDB. This is crash insurance, not
+                a cloud save: it does not create a version and does not touch the server.
+              </p>
+            </div>
+          </li>
+          <li class="docs__tl">
+            <span class="docs__tl-when"><kbd class="site-kbd">Ctrl+S</kbd></span>
+            <div>
+              <h4 class="docs__h4">Cloud save, one version</h4>
+              <p class="docs__p docs__p--sm">
+                Saves are explicit. Each one writes the DXF to your account and mints a new version; the dashboard's
+                version history lists them all and restores any of them. Files up to 50 MB.
+              </p>
+            </div>
+          </li>
+          <li class="docs__tl">
+            <span class="docs__tl-when">Offline</span>
+            <div>
+              <h4 class="docs__h4">Queued in the browser</h4>
+              <p class="docs__p docs__p--sm">
+                If the network fails, the save lands in the local cache marked pending and the header says so. Press
+                <kbd class="site-kbd">Ctrl+S</kbd> again when you are back online; replay is deliberately manual so a
+                stale copy is never pushed over someone else's work.
+              </p>
+            </div>
+          </li>
+          <li class="docs__tl">
+            <span class="docs__tl-when">Conflict</span>
+            <div>
+              <h4 class="docs__h4">Someone saved first</h4>
+              <p class="docs__p docs__p--sm">
+                Every save carries the version it started from. If the server has a newer one, it refuses rather than
+                overwriting, and you choose:
+              </p>
+              <dl class="docs__states docs__states--tight">
+                @for (a of conflictAnswers; track a.label) {
+                  <div class="docs__state">
+                    <dt>{{ a.label }}</dt>
+                    <dd>{{ a.body }}</dd>
+                  </div>
+                }
+              </dl>
+            </div>
+          </li>
+        </ol>
+
+        <div class="docs__grid-2 docs__grid-2--top">
+          <div>
+            <h3 class="docs__h3">Folders, trash, sharing</h3>
+            <p class="docs__p">
+              My Drawings holds folders you can nest and move; deleting sends a drawing to Trash, where it can be
+              restored or the trash emptied. A view-only drawing still opens in a working editor; when you save, the
+              result goes to a copy of your own.
+            </p>
+            <p class="docs__p">
+              Share a drawing directly with an email address or a whole organization, or make a link. Links are
+              <span class="site-mono">view</span> or <span class="site-mono">edit</span>, expire after 7, 30 or 90 days
+              or never, can be revoked, and can be emailed to up to ten people with a note straight from the dialog.
+              Recipients open the drawing in their browser.
+            </p>
+          </div>
+          <div>
+            <h3 class="docs__h3">Organizations and roles</h3>
+            <div class="docs__table-wrap">
+              <table class="docs__table">
+                <tbody>
+                  @for (r of orgRoles; track r.role) {
+                    <tr>
+                      <th scope="row">{{ r.role }}</th>
+                      <td>{{ r.body }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Languages ──────────────────────────────────────────── -->
+      <section class="docs__section" id="languages" #docSection aria-labelledby="h-languages">
+        <p class="site-eyebrow">10</p>
+        <h2 class="docs__h2" id="h-languages">Languages</h2>
+        <p class="site-body">
+          The interface, command prompts included, ships in the fourteen languages AutoCAD ships in, so a drafter finds
+          both their language and their terminology. Command aliases stay as they are in every language.
+        </p>
+        <ul class="docs__snaps" aria-label="Interface languages">
+          @for (lang of languages; track lang) { <li class="docs__snap">{{ lang }}</li> }
+        </ul>
+        <div class="docs__grid-2 docs__grid-2--top">
+          <div>
+            <h3 class="docs__h3">How the language is chosen</h3>
+            <ol class="docs__list docs__list--num">
+              <li>The language this browser last chose, if any.</li>
+              <li>Otherwise the browser's own language preferences, widened (de-AT becomes Deutsch).</li>
+              <li>Otherwise English.</li>
+              <li>Signing in applies the language stored on your account on top, so it follows you across devices.</li>
+            </ol>
+            <p class="docs__p docs__p--sm">
+              Change it under <a class="site-link" routerLink="/dashboard/settings">Settings → Language</a>. The
+              option names are in each language's own script on purpose.
+            </p>
+          </div>
+          <aside class="docs__aside-note">
+            <strong>Translation status.</strong> English is the source. The other thirteen files are drafted following
+            AutoCAD's established terminology per language and have not yet been reviewed by native-speaking drafters.
+            Any string still missing from a language falls back to English rather than showing a key name. If a term
+            reads wrong in your language, <a class="site-link" routerLink="/contact">tell us</a>.
+          </aside>
+        </div>
+      </section>
+
+      <!-- ── Embedding ──────────────────────────────────────────── -->
+      <section class="docs__section" id="embedding" #docSection aria-labelledby="h-embedding">
+        <p class="site-eyebrow">11</p>
+        <h2 class="docs__h2" id="h-embedding">Embedding the editor</h2>
+        <p class="site-body">
+          The editor is a standalone Angular component with a small API. There are three ways to put it in front of
+          your users.
+        </p>
+
+        <div class="docs__embed">
+          <article class="docs__embed-item">
+            <h3 class="docs__h3">1. Run it separately and link to it</h3>
+            <p class="docs__p">
+              Deploy CADO on its own origin and link to a stored drawing with <span class="site-mono">/editor/&lt;drawingId&gt;</span>,
+              or to a blank one with <span class="site-mono">/editor</span>. Nothing to integrate; this is what most
+              teams should do first.
+            </p>
+          </article>
+
+          <article class="docs__embed-item">
+            <h3 class="docs__h3">2. Embed the component</h3>
+            <p class="docs__p">
+              <span class="site-mono">CadEditorComponent</span> takes a drawing id or DXF text and emits the DXF back
+              when the user exports or leaves.
+            </p>
+            <pre class="docs__code"><code>{{ snippets.api }}</code></pre>
+            <pre class="docs__code"><code>{{ snippets.template }}</code></pre>
+            <p class="docs__p">
+              <strong>Embedded mode.</strong> Leave the Supabase URL and anon key empty in the environment file. Route
+              guards pass through, the account menu renders nothing, and a 401 from the API no longer redirects to a
+              sign-in page: your application owns identity. Link users straight at <span class="site-mono">/editor</span>;
+              the dashboard is not meant for this mode. If your app mints its own tokens, override the token source:
+            </p>
+            <pre class="docs__code"><code>{{ snippets.token }}</code></pre>
+            <p class="docs__p docs__p--sm">
+              <span class="site-mono">getToken()</span> may return a string, null, or a promise of either. Your
+              provider owns expiry; in embedded mode the editor will not navigate on a 401.
+            </p>
+          </article>
+
+          <article class="docs__embed-item">
+            <h3 class="docs__h3">3. Hand a drawing over between pages</h3>
+            <p class="docs__p">
+              <span class="site-mono">DrawingTransferService</span> is an inbox that survives a page refresh. Set the
+              payload, navigate to the editor, and it opens the drawing on start-up. Storage keys are prefixed
+              <span class="site-mono">cad.transfer.*</span>.
+            </p>
+            <pre class="docs__code"><code>{{ snippets.transfer }}</code></pre>
+            <p class="docs__p docs__p--sm">
+              Accepted payloads: DXF text (AC1032 headers are validated; older files still parse) and the JSON entity
+              payloads produced by the cad-core exporters.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ── FAQ and support ────────────────────────────────────── -->
+      <section class="docs__section docs__section--last" id="faq-support" #docSection aria-labelledby="h-faq-support">
+        <p class="site-eyebrow">12</p>
+        <h2 class="docs__h2" id="h-faq-support">FAQ and support</h2>
+        <p class="site-body">Two ways to reach the people who build the editor, and one place the answers already are.</p>
+        <ul class="docs__support">
+          <li>
+            <ui-icon name="message" [size]="18" />
+            <div>
+              <h3 class="docs__h4">Ask a question or report a bug</h3>
+              <p class="docs__p docs__p--sm">
+                The <a class="site-link" routerLink="/contact">contact form</a> works signed out. Signed in, the
+                dashboard's <a class="site-link" routerLink="/dashboard/feedback">feedback page</a> attaches your app
+                version and page automatically, which is what makes a bug reproducible.
+              </p>
+            </div>
+          </li>
+          <li>
+            <ui-icon name="help" [size]="18" />
+            <div>
+              <h3 class="docs__h4">Plans, billing, education</h3>
+              <p class="docs__p docs__p--sm">
+                The <a class="site-link" routerLink="/pricing">pricing page</a> answers the common questions: what
+                happens if you stop paying, switching plans, invoicing for teams, student discounts.
+              </p>
+            </div>
+          </li>
+          <li>
+            <ui-icon name="shield" [size]="18" />
+            <div>
+              <h3 class="docs__h4">Privacy and terms</h3>
+              <p class="docs__p docs__p--sm">
+                What is collected, what an AI provider receives, and how to delete an account:
+                <a class="site-link" routerLink="/privacy">Privacy Policy</a> and
+                <a class="site-link" routerLink="/terms">Terms of Service</a>.
+              </p>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+
+<site-closing
+  title="Open a DXF and check the manual against it."
+  sub="The Free plan has the whole toolset and DXF export. If the editor and this page disagree, tell us which one is wrong."
+  secondaryLabel="Contact us"
+  secondaryLink="/contact"
+/>
