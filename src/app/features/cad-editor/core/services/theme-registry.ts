@@ -320,9 +320,16 @@ export const CAD_THEMES: readonly ICadTheme[] = SEEDS.map((s) => ({
 
 /** Theme applied when nothing is stored, per ground. */
 export const DEFAULT_THEME_ID: Record<CadThemeKind, string> = {
-  dark: 'cad-dark',
+  dark: 'monokai',
   light: 'cad-light',
 };
+
+/**
+ * The dark default before Monokai. Only referenced by the one-time localStorage
+ * migration in ThemeService, which moves users still sitting on it onto the new
+ * default; nothing else should depend on a superseded default.
+ */
+export const PREVIOUS_DEFAULT_DARK_THEME_ID = 'cad-dark';
 
 /** Look a theme up by id; `undefined` when the id is unknown (e.g. removed). */
 export function findTheme(id: string | null | undefined): ICadTheme | undefined {

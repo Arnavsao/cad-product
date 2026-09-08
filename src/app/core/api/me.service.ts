@@ -25,7 +25,7 @@ export const DEFAULT_BILLING: BillingStateDto = {
 /** Preferences assumed before `/me` has answered (and for embedded mode). */
 export const DEFAULT_PREFERENCES: PreferencesDto = {
   units: 'mm',
-  theme: 'cad-dark',
+  theme: 'monokai',
   // Not the resolved browser language: this default only applies before `/me`
   // answers, and LanguageService has already picked the right language from
   // localStorage or the browser by then. Putting anything else here would make

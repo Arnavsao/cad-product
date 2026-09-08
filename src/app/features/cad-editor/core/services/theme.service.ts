@@ -6,6 +6,7 @@ import {
   DEFAULT_THEME_ID,
   ICadCanvasPalette,
   ICadTheme,
+  PREVIOUS_DEFAULT_DARK_THEME_ID,
   findTheme,
 } from './theme-registry';
 
@@ -28,6 +29,8 @@ const PREFERRED_KEY: Record<CadThemeKind, string> = {
 /** Resolved background of the active theme, so the pre-paint script in
  *  index.html can match it and avoid a flash of the wrong colour. */
 const BG_KEY = 'cad.theme.bg';
+/** Marker for the one-time move off the previous dark default (see `migrate`). */
+const MIGRATION_KEY = 'cad.theme.migrated.monokai';
 
 const FALLBACK: ICadTheme = findTheme(DEFAULT_THEME_ID.dark) ?? CAD_THEMES[0];
 
@@ -53,6 +56,45 @@ function readStorage(key: string): string | null {
     return localStorage.getItem(key);
   } catch {
     return null;
+  }
+}
+
+function writeStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* SSR or storage-disabled environments — ignore. */
+  }
+}
+
+/**
+ * One-time move off the superseded dark default.
+ *
+ * The active theme is persisted on every `applyToDocument`, so a returning user
+ * who never opened the picker still has the OLD default written to storage —
+ * which wins over `DEFAULT_THEME_ID` and would keep them on it forever. This
+ * rewrites only the keys still holding that exact id, then drops a marker so it
+ * never runs twice and never overrides a later deliberate choice.
+ *
+ * Accepted trade-off: a stored value cannot distinguish "chose CAD Dark" from
+ * "was given CAD Dark", so someone who deliberately picked the old default is
+ * moved once. Re-picking it sticks, because the marker is already set.
+ */
+function migrateDarkDefault(): void {
+  if (readStorage(MIGRATION_KEY)) return;
+  // Written first: if any step below throws (quota, disabled storage), the
+  // migration is still not retried on the next boot — one attempt is the point.
+  writeStorage(MIGRATION_KEY, '1');
+
+  const next = findTheme(DEFAULT_THEME_ID.dark);
+  if (!next) return;
+  for (const key of [STORAGE_KEY, PREFERRED_KEY.dark]) {
+    if (readStorage(key) === PREVIOUS_DEFAULT_DARK_THEME_ID) {
+      writeStorage(key, next.id);
+      // Keep the pre-paint background in step, or the first frame flashes the
+      // old colour before Angular boots and applies the theme.
+      writeStorage(BG_KEY, next.canvas.canvasBg);
+    }
   }
 }
 
@@ -152,6 +194,10 @@ export class ThemeService {
   }
 
   private loadInitial(): ICadTheme {
+    // Before the first read: the migration rewrites the very keys we are about
+    // to consult.
+    migrateDarkDefault();
+
     const saved = findTheme(readStorage(STORAGE_KEY));
     if (saved) {
       _activeTheme = saved;

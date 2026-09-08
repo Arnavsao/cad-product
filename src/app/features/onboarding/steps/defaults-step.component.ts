@@ -4,8 +4,12 @@ import { CAD_THEMES, ICadTheme } from '../../cad-editor/core/services/theme.serv
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { OnboardingDraft, UNIT_CHOICES } from '../onboarding.model';
 
-/** The two grounds offered during onboarding; the full picker lives in Settings. */
-const PREVIEW_THEME_IDS = ['cad-dark', 'cad-light'] as const;
+/**
+ * The two grounds offered during onboarding; the full picker lives in Settings.
+ * The dark tile is the app's default dark theme (`DEFAULT_THEME_ID.dark`) so the
+ * wizard previews what a user who never opens Settings actually gets.
+ */
+const PREVIEW_THEME_IDS = ['monokai', 'cad-light'] as const;
 
 /**
  * Step 2 — drawing defaults. Units feed `$INSUNITS` on new documents; the theme
