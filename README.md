@@ -81,6 +81,15 @@ can override it to supply its own.
 The API reads `server/.env` (see `server/.env.example`): `DATABASE_URL` + `DIRECT_DATABASE_URL` (pooled and direct —
 Neon needs both), the `SUPABASE_*` keys, and the `S3_*` block pointing at MinIO locally or R2/S3 in production.
 
+## Public site
+
+The pages outside the app — Home, Product, Features, Use cases, Pricing, Docs, About, Contact, What's
+new — live under `src/app/features/site/` (shell, shared components, motion, content data) with the
+older `landing/`, `features/`, `pricing/` and `about/` pages rendered inside the same shell. Product
+facts every page cites are in `src/app/features/site/data/site-content.ts`; change the product, change
+that file. Screenshots in `public/site/` are headless captures of the editor with the repository's
+sample DXF — regenerate them rather than editing them when the UI changes.
+
 ## Languages
 
 The UI ships in fourteen languages — deliberately AutoCAD's set, so a drafter arriving from AutoCAD finds both their

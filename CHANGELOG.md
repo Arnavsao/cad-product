@@ -6,6 +6,35 @@ DXF import fidelity. An imported drawing now renders as AutoCAD renders it: corr
 values, decoded text, per-style fonts and real lineweights.
 
 ### Added
+* **A full public website around the editor.** The three marketing pages (landing, features,
+  pricing), each carrying its own copy of the header and footer, are now a nine-page site under one
+  shell route: Home, Product (how it works), Features, Use cases, Pricing, Docs, About, Contact and
+  What's new, plus the legal drafts. `SiteShellComponent` mounts once for all of them: fixed
+  translucent header with the primary nav and auth-aware actions, a mobile drawer, a four-column
+  footer, the drafting-grid backdrop, per-route `<meta name="description">` from `data.description`,
+  scroll reset and ScrollTrigger refresh on navigation.
+
+  Content is real and shared. `site-content.ts` holds the facts every page cites — the command
+  groups with their aliases (from `tool-catalog.service.ts`), the fourteen object snaps, paper sizes,
+  formats, audiences, principles and timeline — so the home explorer, the features page and the docs
+  command reference cannot list different commands. The screenshots in `public/site/*.webp` are
+  headless captures of the editor with the repository's bridge general-arrangement DXF open (model,
+  detail, layout, Layers, Blocks, AI Agent, Plot); nothing is a mock-up. The contact form posts to the
+  existing `/feedback` endpoint, which already accepts anonymous submissions.
+
+  Layouts vary by purpose: a Three.js hero that explodes the drawing into its layers as the page
+  scrolls (`SiteLayerStackComponent`, lazily imported, SVG fallback without WebGL or under reduced
+  motion); the CSS scroll-drawn floor plan kept from the old hero; a sticky command-line monitor
+  beside the five workflow steps; a tabbed command explorer (`SiteExplorerComponent`, shared by Home
+  and Features); annotated hotspots on a real screenshot; a sticky model/paper/plot walkthrough;
+  comparison and format tables; accordions; a scroll-snap row of audiences; a docs page with a
+  scrollspy sidebar and a filterable command reference.
+
+  Motion is GSAP + ScrollTrigger (`SiteRevealDirective`, count-ups, the hero scrub) with Lenis
+  smooth scrolling on the site routes only, all loaded on demand by `MotionService` and all skipped
+  under `prefers-reduced-motion`, where every element lands on its finished state. `three`, `gsap`
+  and `lenis` are new dependencies; none of them is in the initial bundle.
+
 * **Profile pictures can be uploaded and removed.** `/dashboard/profile` was rendering an avatar
   it had no way to change — whatever the sign-in provider supplied was final. There is now a
   picker (and a drop target on the identity block) plus a Remove action behind the usual danger
