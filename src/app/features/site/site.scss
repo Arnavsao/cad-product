@@ -1,0 +1,174 @@
+/* ---------------------------------------------------------------
+ * Site — shared layout vocabulary for the public (marketing) pages.
+ *
+ * Global for the same reason `blueprint.scss` is: every public page uses the
+ * same section rhythm, container widths and heading scale, and declaring them
+ * once keeps eight pages from drifting apart. Only `--ui-*` tokens are used, so
+ * all twelve themes recolour the whole site.
+ * --------------------------------------------------------------- */
+
+:root {
+  --site-max: 1180px;
+  --site-max-narrow: 760px;
+  --site-gutter: clamp(16px, 4vw, 32px);
+  --site-section: clamp(72px, 12vh, 136px);
+  --site-header-h: 64px;
+}
+
+/* ── Containers ────────────────────────────────────────────────── */
+
+.site-container {
+  width: 100%;
+  max-width: var(--site-max);
+  margin-inline: auto;
+  padding-inline: var(--site-gutter);
+}
+
+.site-container--narrow { max-width: var(--site-max-narrow); }
+
+.site-section {
+  position: relative;
+  padding-block: var(--site-section);
+}
+
+.site-section--tight { padding-block: calc(var(--site-section) * .6); }
+
+/* A full-bleed band with a raised surface, for sections that need to read as a
+ * distinct chapter (comparison tables, the pricing teaser). */
+.site-band {
+  background: color-mix(in srgb, var(--ui-surface) 70%, transparent);
+  border-top: 1px solid var(--ui-border);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+/* ── Type ──────────────────────────────────────────────────────── */
+
+.site-eyebrow {
+  margin: 0;
+  font: 600 var(--ui-text-sm) / 1 var(--ui-font);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ui-accent);
+}
+
+.site-h1 {
+  margin: 18px 0 0;
+  font-size: clamp(34px, 6vw, 60px);
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -.028em;
+  color: var(--ui-text-strong);
+  text-wrap: balance;
+}
+
+.site-h2 {
+  margin: 14px 0 0;
+  font-size: clamp(26px, 3.4vw, 40px);
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -.025em;
+  color: var(--ui-text-strong);
+  text-wrap: balance;
+}
+
+.site-h3 {
+  margin: 0;
+  font-size: clamp(18px, 1.8vw, 22px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -.015em;
+  color: var(--ui-text-strong);
+  text-wrap: balance;
+}
+
+.site-lede {
+  margin: 18px 0 0;
+  max-width: 60ch;
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.55;
+  color: var(--ui-text-dim);
+  text-wrap: pretty;
+}
+
+.site-body {
+  margin: 12px 0 0;
+  font-size: var(--ui-text-base);
+  line-height: 1.6;
+  color: var(--ui-text-dim);
+  text-wrap: pretty;
+}
+
+.site-mono {
+  font-family: var(--ui-font-mono);
+  font-size: .92em;
+  color: var(--ui-accent);
+}
+
+/* Inline keyboard key / command chip. */
+.site-kbd {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid var(--ui-border);
+  border-bottom-width: 2px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  font: 500 12px / 1.5 var(--ui-font-mono);
+  color: var(--ui-text);
+  white-space: nowrap;
+}
+
+/* ── Surfaces ──────────────────────────────────────────────────── */
+
+.site-panel {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl);
+  background: color-mix(in srgb, var(--ui-surface) 84%, transparent);
+  box-shadow: var(--ui-shadow-panel);
+}
+
+/* A generic prose link. */
+.site-link {
+  color: var(--ui-accent);
+  text-decoration: none;
+  text-underline-offset: 3px;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; border-radius: var(--ui-radius-sm); }
+}
+
+/* Small pill for status text ("Available on Free", "Roadmap"). */
+.site-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--ui-radius-full);
+  font: 600 var(--ui-text-xs) / 1.4 var(--ui-font);
+  background: var(--ui-accent-tint);
+  color: var(--ui-accent);
+
+  &--muted { background: var(--ui-hover); color: var(--ui-text-dim); }
+  &--success { background: var(--ui-success-tint); color: var(--ui-success); }
+  &--warning { background: var(--ui-warning-tint); color: var(--ui-warning); }
+}
+
+/* ── Motion hooks ──────────────────────────────────────────────── */
+
+/*
+ * `[siteReveal]` sets this class synchronously so the element does not flash
+ * before GSAP arrives; the directive then owns the element. Never hidden under
+ * reduced motion — the directive skips the class entirely there.
+ */
+.site-reveal-pending { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .site-reveal-pending { opacity: 1; }
+}
+
+/* Lenis: the library needs `height: auto` on html and disables native
+ * smooth scrolling itself; these are its documented base rules. */
+html.lenis,
+html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
