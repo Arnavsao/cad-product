@@ -8,9 +8,11 @@
  * --------------------------------------------------------------- */
 
 :root {
-  --site-max: 1180px;
-  --site-max-narrow: 760px;
-  --site-gutter: clamp(16px, 4vw, 32px);
+  /* Wide on purpose: the pages are full of tables, screenshots and split layouts,
+   * and a 1180px column left a third of a desktop screen empty on each side. */
+  --site-max: 1480px;
+  --site-max-narrow: 800px;
+  --site-gutter: clamp(16px, 3vw, 40px);
   --site-section: clamp(72px, 12vh, 136px);
   --site-header-h: 64px;
 }

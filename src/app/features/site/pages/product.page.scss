@@ -9,8 +9,11 @@
 
 .anat {
   display: grid;
-  grid-template-columns: minmax(260px, 4fr) minmax(0, 8fr);
-  gap: clamp(20px, 3vw, 40px);
+  /* A fixed, generous list column rather than a fraction: at very wide
+   * viewports an fr-based split let the screenshot balloon while the list
+   * stayed cramped and its labels wrapped. */
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px);
   align-items: start;
   margin-top: clamp(28px, 5vh, 48px);
 
@@ -38,7 +41,7 @@
   &__text { display: grid; gap: 4px; min-width: 0; }
   &__label { color: var(--ui-text-strong); }
   &__detail { font-size: var(--ui-text-sm); font-weight: 400; line-height: 1.5; color: var(--ui-text-dim); animation: ui-pop-in var(--ui-dur) var(--ui-ease); }
-  &__shot { position: sticky; top: calc(var(--site-header-h) + 16px); }
+  &__shot { position: sticky; top: calc(var(--site-header-h) + 16px); padding-top: 34px; }
 }
 
 /* ── Spaces ────────────────────────────────────────────────────── */
