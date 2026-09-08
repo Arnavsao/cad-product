@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import type { CadAction, TargetSelector } from '../models/ai-action.model';
+import type { CadAction, TargetSelector, EntityWhere } from '../models/ai-action.model';
 import type { CadContextSnapshot } from '../models/ai-context.model';
 import { AiModelService } from './ai-model.service';
 import { AiToolRegistryService } from './ai-tool-registry.service';
@@ -39,6 +39,13 @@ const TYPE_MAP: Record<string, string[] | null> = {
 
 // ── Mock command parser ───────────────────────────────────────────────────────
 
+const COLOR_WORDS = Object.keys(COLOR_MAP).join('|');
+const TYPE_WORDS = Object.keys(TYPE_MAP).join('|');
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function extractEntityTypes(prompt: string): string[] | null {
   for (const [word, types] of Object.entries(TYPE_MAP)) {
     if (new RegExp(`\\b${word}\\b`, 'i').test(prompt)) return types;
@@ -46,42 +53,153 @@ function extractEntityTypes(prompt: string): string[] | null {
   return null; // null = could not determine specific type
 }
 
+/** "selected", "the selection", "these", "them", "it" → operate on what is selected. */
+function refersToSelection(lower: string): boolean {
+  return /\b(selected|selection|these|those|them|this|it|highlighted|chosen)\b/.test(lower);
+}
+
+/** "all", "every", "everything", "entire drawing" → operate on the whole drawing. */
+function refersToEverything(lower: string): boolean {
+  return /\b(all|every|everything|entire|whole)\b/.test(lower);
+}
+
+/**
+ * A colour used as an adjective on a noun is a FILTER, not a destination:
+ * "delete the red lines", "change all blue text to green". Returns the ACI
+ * and the matched phrase so callers can strip it before reading the target colour.
+ */
+function extractColorFilter(lower: string): { color: number; phrase: string } | null {
+  const m = new RegExp(`\\b(${COLOR_WORDS})\\s+(${TYPE_WORDS}|ones?|things?)\\b`).exec(lower);
+  if (!m) return null;
+  return { color: COLOR_MAP[m[1]], phrase: m[0] };
+}
+
 function extractColor(prompt: string): number | string | null {
-  // Named ACI color
-  for (const [name, num] of Object.entries(COLOR_MAP)) {
-    if (new RegExp(`\\b${name}\\b`, 'i').test(prompt)) return num;
-  }
-  // Hex color
-  const hexMatch = /#([0-9a-f]{6})/i.exec(prompt);
-  if (hexMatch) return `#${hexMatch[1]}`;
-  // ACI number literal (e.g., "color 3" or "aci 3")
-  const numMatch = /\bcolor\s+(\d{1,3})\b/i.exec(prompt);
+  // Hex color first — it is unambiguous.
+  const hexMatch = /#([0-9a-f]{6})\b/i.exec(prompt);
+  if (hexMatch) return `#${hexMatch[1].toLowerCase()}`;
+  // ACI number literal ("color 3", "colour index 3", "aci 3")
+  const numMatch = /\b(?:colou?r|aci)\s*(?:index|number|no\.?)?\s*(\d{1,3})\b/i.exec(prompt);
   if (numMatch) {
     const n = parseInt(numMatch[1], 10);
     if (n >= 0 && n <= 255) return n;
+  }
+  // Named ACI color — take the LAST one so "red lines to blue" → blue even
+  // when the filter phrase was not stripped.
+  const re = new RegExp(`\\b(${COLOR_WORDS})\\b`, 'gi');
+  let last: string | null = null;
+  for (let m = re.exec(prompt); m; m = re.exec(prompt)) last = m[1].toLowerCase();
+  return last ? COLOR_MAP[last] : null;
+}
+
+/** Case-insensitive lookup of a candidate against the drawing's layer names. */
+function matchKnownLayer(candidate: string, knownLayers: string[]): string | null {
+  const c = candidate.trim().toLowerCase().replace(/^["']|["']$/g, '');
+  return knownLayers.find(n => n.toLowerCase() === c) ?? null;
+}
+
+/**
+ * Find a known layer name mentioned anywhere in the prompt. Whole-word only,
+ * longest first, and one-character names ("0", "A") only count right after the
+ * word "layer" — otherwise a layer called "0" would match "500".
+ */
+function findKnownLayer(prompt: string, knownLayers: string[]): string | null {
+  const lower = prompt.toLowerCase();
+  const sorted = [...knownLayers].sort((a, b) => b.length - a.length);
+  for (const name of sorted) {
+    const n = escapeRe(name.toLowerCase());
+    const re = name.length > 1
+      ? new RegExp(`(^|[^a-z0-9_])${n}(?![a-z0-9_])`)
+      : new RegExp(`\\blayer\\s+["']?${n}(?![a-z0-9_])`);
+    if (re.test(lower)) return name;
   }
   return null;
 }
 
 function extractLayerName(prompt: string, knownLayers: string[]): string | null {
-  const lower = prompt.toLowerCase();
-  // First: exact match against known layer names (longest first to avoid partial)
-  const sorted = [...knownLayers].sort((a, b) => b.length - a.length);
-  for (const name of sorted) {
-    if (lower.includes(name.toLowerCase())) return name;
-  }
-  // Fallback: word(s) after "layer" keyword
+  // An explicit "layer X" wins when X is a real layer.
   const m = /\blayer\s+["']?([a-z0-9_\-.]+)["']?/i.exec(prompt);
+  if (m) {
+    const known = matchKnownLayer(m[1], knownLayers);
+    if (known) return known;
+  }
+  const known = findKnownLayer(prompt, knownLayers);
+  if (known) return known;
   return m ? m[1] : null;
 }
 
-function extractLineweight(prompt: string): number | null {
-  const m = /\b(\d{1,4})\s*(mm|cm)?\b/i.exec(prompt);
+/**
+ * A layer used as a SCOPE, not a destination: "on layer DIM", "in layer WALLS",
+ * "of layer 0". "to layer X" is deliberately excluded — that is where entities go.
+ */
+function extractLayerScope(prompt: string, knownLayers: string[]): string | null {
+  const m = /\b(?:on|in|from|of|inside)\s+(?:the\s+)?layer\s+["']?([a-z0-9_\-.]+)["']?/i.exec(prompt);
   if (!m) return null;
-  let val = parseInt(m[1], 10);
-  if (m[2]?.toLowerCase() === 'mm') val = val * 100; // convert mm to hundredths of mm
-  // Valid DXF lineweights: 0,5,9,13,15,18,20,25,30,35,40,50,53,60,70,80,90,100,106,120,140,158,200,211,-1,-2,-3
-  return val;
+  return matchKnownLayer(m[1], knownLayers) ?? m[1];
+}
+
+/** Standard DXF lineweights in hundredths of a millimetre. */
+const DXF_LINEWEIGHTS = [0, 5, 9, 13, 15, 18, 20, 25, 30, 35, 40, 50, 53, 60, 70, 80, 90, 100, 106, 120, 140, 158, 200, 211];
+
+function snapLineweight(hundredths: number): number {
+  let best = DXF_LINEWEIGHTS[0];
+  for (const lw of DXF_LINEWEIGHTS) {
+    if (Math.abs(lw - hundredths) < Math.abs(best - hundredths)) best = lw;
+  }
+  return best;
+}
+
+/**
+ * Lineweight in hundredths of a mm (DXF convention). Accepts "0.25mm", "0.5",
+ * "25" (already hundredths), and the words thin/medium/thick/heavy.
+ */
+function extractLineweight(prompt: string): number | null {
+  const m = /(\d+(?:\.\d+)?)\s*(mm|millimet(?:er|re)s?)?\b/i.exec(prompt);
+  if (m) {
+    const val = parseFloat(m[1]);
+    // A decimal without a unit ("0.5") can only sensibly be millimetres.
+    const isMm = !!m[2] || (m[1].includes('.') && val < 3);
+    return snapLineweight(isMm ? Math.round(val * 100) : Math.round(val));
+  }
+  const lower = prompt.toLowerCase();
+  if (/\b(hairline|thinnest)\b/.test(lower)) return 0;
+  if (/\b(thin|fine|light)\b/.test(lower)) return 13;
+  if (/\b(medium|normal|default)\b/.test(lower)) return 25;
+  if (/\b(thick|heavy|bold|thicker|heavier)\b/.test(lower)) return 50;
+  return null;
+}
+
+/**
+ * Build the target selector for an entity-level command from whatever the user
+ * said about WHICH entities: a type ("circles"), a colour adjective ("red lines"),
+ * a layer scope ("on layer DIM"), a reference to the selection, or "everything".
+ *
+ * `fallback` decides what an unqualified command ("delete", "make it red") means
+ * when nothing is selected: the whole drawing, or ask.
+ */
+function buildEntityTarget(
+  prompt: string,
+  ctx: CadContextSnapshot,
+  fallback: 'all' | 'clarify',
+): { target: TargetSelector | null; colorFilter: { color: number; phrase: string } | null } {
+  const lower = prompt.toLowerCase();
+  const layerNames = ctx.layers.map(l => l.name);
+  const colorFilter = extractColorFilter(lower);
+  const types = extractEntityTypes(lower);
+  const layerScope = extractLayerScope(prompt, layerNames);
+
+  if (!types && !colorFilter && !layerScope) {
+    if (refersToSelection(lower) && !refersToEverything(lower)) return { target: { kind: 'selection' }, colorFilter };
+    if (refersToEverything(lower)) return { target: { kind: 'all' }, colorFilter };
+    if (ctx.selection.count > 0) return { target: { kind: 'selection' }, colorFilter };
+    return { target: fallback === 'all' ? { kind: 'all' } : null, colorFilter };
+  }
+
+  const where: EntityWhere = { visibleOnly: true };
+  if (types) where.type = types;
+  if (layerScope) where.layer = [layerScope];
+  if (colorFilter) where.color = [colorFilter.color];
+  return { target: { kind: 'query', where }, colorFilter };
 }
 
 /**
@@ -100,11 +218,14 @@ function extractDistanceUnits(prompt: string): number | null {
 }
 
 function extractDirection(prompt: string): 'left' | 'right' | 'up' | 'down' | null {
-  if (/\bright\b/i.test(prompt)) return 'right';
-  if (/\bleft\b/i.test(prompt)) return 'left';
-  if (/\b(up|upward|upwards|north)\b/i.test(prompt)) return 'up';
-  if (/\b(down|downward|downwards|south)\b/i.test(prompt)) return 'down';
-  return null;
+  // The LAST direction word is the destination: "move the right view to the left".
+  const re = /\b(left|right|up|upward|upwards|north|down|downward|downwards|south)(?:wards?)?\b/gi;
+  let last: string | null = null;
+  for (let m = re.exec(prompt); m; m = re.exec(prompt)) last = m[1].toLowerCase();
+  if (!last) return null;
+  if (last === 'left' || last === 'right') return last;
+  if (last.startsWith('up') || last === 'north') return 'up';
+  return 'down';
 }
 
 /**
@@ -177,17 +298,14 @@ export function parseMockCommand(
   const layerNames = ctx.layers.map(l => l.name);
 
   // ── SELECT ────────────────────────────────────────────────────────────────
-  if (/\bselect\b/.test(lower)) {
-    const types = extractEntityTypes(lower);
-    const target: TargetSelector = types
-      ? { kind: 'query', where: { type: types, visibleOnly: true } }
-      : { kind: 'all' };
+  if (/\bselect\b/.test(lower) && !/\b(deselect|unselect)\b/.test(lower)) {
+    const { target } = buildEntityTarget(p, ctx, 'all');
     return {
       type: 'actions',
       actions: [{
         action: 'query.selectEntities',
-        target,
-        parameters: { mode: 'replace' },
+        target: target ?? { kind: 'all' },
+        parameters: { mode: /\b(add|also|too|as well)\b/.test(lower) ? 'add' : 'replace' },
         metadata: { intentText: p, confidence: 0.92 },
       }],
     };
@@ -195,10 +313,10 @@ export function parseMockCommand(
 
   // ── DELETE / ERASE / REMOVE ───────────────────────────────────────────────
   if (/\b(delete|erase|remove)\b/.test(lower)) {
-    const types = extractEntityTypes(lower);
-    const target: TargetSelector = types
-      ? { kind: 'query', where: { type: types, visibleOnly: true } }
-      : { kind: 'selection' };
+    const { target } = buildEntityTarget(p, ctx, 'clarify');
+    if (!target) {
+      return { type: 'clarify', question: 'Delete what? Select something first, or name it (e.g., "delete all text", "delete the red lines").' };
+    }
     return {
       type: 'actions',
       actions: [{
@@ -210,17 +328,58 @@ export function parseMockCommand(
     };
   }
 
+  // ── CHANGE COLOR ──────────────────────────────────────────────────────────
+  // Runs before CHANGE LAYER so "change the color of layer DIM to red" recolours
+  // instead of moving everything onto DIM. A colour adjective on a noun ("red
+  // lines") is a filter; the destination colour is whatever remains.
+  {
+    const mentionsColor = /\b(colou?r|aci)\b/.test(lower) || /#[0-9a-f]{6}\b/i.test(p) ||
+      new RegExp(`\\b(${COLOR_WORDS})\\b`).test(lower);
+    const explicit = /\bcolou?r\b/.test(lower);
+    const toLayer = /\bto\s+(?:the\s+)?layer\b/.test(lower) && !explicit;
+    // A bare colour word inside another command ("hide layer RED", "insert a
+    // white box culvert") is not a recolour request.
+    const otherCommand = !explicit &&
+      /\b(hide|show|lock|unlock|freeze|thaw|isolate|rename|zoom|move|align|distribute|spacing|insert|place|generate|replace|swap|dimension)\b/.test(lower);
+    // A verb (or "to") is required: a bare "red" is an answer to a question,
+    // handled by the follow-up merge, not an order to repaint the drawing.
+    const hasIntent = explicit || /\b(change|make|set|turn|paint|recolou?r|to|into|become|should be)\b/.test(lower);
+    if (mentionsColor && hasIntent && !toLayer && !otherCommand) {
+      const { target, colorFilter } = buildEntityTarget(p, ctx, 'all');
+      const rest = colorFilter ? p.replace(new RegExp(colorFilter.phrase, 'i'), ' ') : p;
+      const color = extractColor(rest);
+      if (color === null) {
+        return { type: 'clarify', question: 'What color should I change them to? (e.g., red, blue, ACI 3, or a hex like #ff0000)' };
+      }
+      return {
+        type: 'actions',
+        actions: [{
+          action: 'entities.changeColor',
+          target: target ?? { kind: 'all' },
+          parameters: { color },
+          metadata: { intentText: p, confidence: 0.91, requiresConfirmation: true },
+        }],
+      };
+    }
+  }
+
   // ── CHANGE LAYER (move to layer / assign layer) ───────────────────────────
-  if (/\b(move|change|assign|put|set)\b.*\blayer\b|\blayer\b.*(change|set)/.test(lower) &&
-      !/\b(hide|show|lock|unlock|freeze|isolate|visible|rename)\b/.test(lower)) {
-    const layerName = extractLayerName(p, layerNames);
+  if (/\b(move|change|assign|put|set|transfer|send)\b.*\blayer\b|\blayer\b.*(change|set)/.test(lower) &&
+      !/\b(hide|show|lock|unlock|freeze|thaw|isolate|visible|rename)\b/.test(lower)) {
+    // The destination is "to layer X" when present; otherwise the last layer named.
+    const dest = /\b(?:to|onto|into|on)\s+(?:the\s+)?layer\s+["']?([a-z0-9_\-.]+)["']?/i.exec(p);
+    const layerName = dest
+      ? (matchKnownLayer(dest[1], layerNames) ?? dest[1])
+      : extractLayerName(p, layerNames);
     if (!layerName) {
       return { type: 'clarify', question: 'Which layer should I move the entities to?' };
     }
-    const types = extractEntityTypes(lower);
-    const target: TargetSelector = types
-      ? { kind: 'query', where: { type: types, visibleOnly: true } }
-      : { kind: 'selection' };
+    // Strip the destination so it is not mistaken for a layer scope filter.
+    const scopePrompt = dest ? p.replace(dest[0], ' ') : p;
+    const { target } = buildEntityTarget(scopePrompt, ctx, 'clarify');
+    if (!target) {
+      return { type: 'clarify', question: `Which entities should go to layer ${layerName}? Select them first, or name them (e.g., "move all text to layer ${layerName}").` };
+    }
     return {
       type: 'actions',
       actions: [{
@@ -232,43 +391,20 @@ export function parseMockCommand(
     };
   }
 
-  // ── CHANGE COLOR ──────────────────────────────────────────────────────────
-  if ((/\b(color|colour|red|yellow|green|cyan|blue|magenta|white|black|orange|gray|grey|pink|brown|purple|lime)\b/.test(lower) ||
-       /#[0-9a-f]{6}/i.test(p)) &&
-      /\b(change|make|set|turn|all|to)\b/.test(lower)) {
-    const color = extractColor(p);
-    if (color === null) {
-      return { type: 'clarify', question: 'What color should I change the entities to? (e.g., red, blue, or a hex like #ff0000)' };
-    }
-    const types = extractEntityTypes(lower);
-    const target: TargetSelector = types
-      ? { kind: 'query', where: { type: types, visibleOnly: true } }
-      : { kind: 'all' };
-    return {
-      type: 'actions',
-      actions: [{
-        action: 'entities.changeColor',
-        target,
-        parameters: { color },
-        metadata: { intentText: p, confidence: 0.91, requiresConfirmation: true },
-      }],
-    };
-  }
-
   // ── CHANGE LINEWEIGHT ─────────────────────────────────────────────────────
   // "thickness" only means lineweight when NOT inserting/generating a component
   // (those use thickness as a geometry parameter).
   const componentCtx = /\b(insert|add|place|put|draw|generate|create|build|replace|wall|culvert|channel|chamber|pipe|component)\b/.test(lower);
-  if (/\b(lineweight|line\s*weight|lw)\b/.test(lower) ||
-      (/\bthickness\b/.test(lower) && !componentCtx)) {
+  if (/\b(lineweight|line\s*weight|lw|line\s*thickness|pen\s*width)\b/.test(lower) ||
+      (/\b(thickness|thick|thicker|thin|thinner|bold|bolder|heavy|heavier|hairline)\b/.test(lower) && !componentCtx)) {
     const lw = extractLineweight(p);
     if (lw === null) {
-      return { type: 'clarify', question: 'What lineweight should I set? (e.g., 25 for 0.25mm)' };
+      return { type: 'clarify', question: 'What lineweight should I set? (e.g., 0.25mm, 25, or "thick")' };
     }
-    const types = extractEntityTypes(lower);
-    const target: TargetSelector = types
-      ? { kind: 'query', where: { type: types, visibleOnly: true } }
-      : { kind: 'selection' };
+    const { target } = buildEntityTarget(p, ctx, 'clarify');
+    if (!target) {
+      return { type: 'clarify', question: 'Which entities should get that lineweight? Select them first, or name them (e.g., "set all lines to 0.5mm").' };
+    }
     return {
       type: 'actions',
       actions: [{
@@ -635,6 +771,31 @@ export function parseMockCommand(
   };
 }
 
+/**
+ * Local parsing with clarify follow-ups: when the previous assistant turn was a
+ * question ("What color?") and the user answers with a fragment ("red"), the
+ * fragment alone will not parse — so retry with the previous prompt prepended
+ * ("change the selected lines" + "red"). `history` already ends with the
+ * current user prompt, so the previous exchange sits two entries back.
+ */
+export function parseLocalWithFollowUp(
+  prompt: string,
+  context: CadContextSnapshot,
+  history: Array<{ role: string; content: string }>,
+): GatewayResponse {
+  const direct = parseMockCommand(prompt, context);
+  if (direct.type !== 'clarify') return direct;
+
+  const prev = history.filter(h => h.role === 'user');
+  const lastAssistant = [...history].reverse().find(h => h.role === 'assistant');
+  const previousPrompt = prev.length >= 2 ? prev[prev.length - 2].content : null;
+  const askedQuestion = !!lastAssistant && /\?\s*$/.test(lastAssistant.content.trim());
+  if (!previousPrompt || !askedQuestion) return direct;
+
+  const merged = parseMockCommand(`${previousPrompt} ${prompt}`, context);
+  return merged.type === 'actions' ? merged : direct;
+}
+
 // ── Gateway service ───────────────────────────────────────────────────────────
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -658,7 +819,7 @@ export class LlmGatewayService {
     // ── Local regex parser ───────────────────────────────────────────────────
     if (model.kind === 'local' || !model.slug) {
       await new Promise(r => setTimeout(r, 200));
-      return parseMockCommand(prompt, context);
+      return parseLocalWithFollowUp(prompt, context, history);
     }
 
     // ── Resolve endpoint + auth for the chosen backend ───────────────────────
@@ -768,6 +929,9 @@ export class LlmGatewayService {
       'Colors are AutoCAD ACI integers: red=1 yellow=2 green=3 cyan=4 blue=5 magenta=6 white=7. Or a hex string like "#ff0000".',
       'Convert metres to millimetres (5m -> 5000). Lineweights are hundredths of mm (0.25mm -> 25).',
       'Set requiresConfirmation:true for delete, replace, mass recolor, layout changes, and auto-layout.',
+      'Targeting: a colour or type adjective ("red lines", "all text") is a query filter; "on layer X" filters by layer; "to layer X" is a destination.',
+      'If the user says "selected/these/them" or something is selected and no entities are named, target {"kind":"selection"}.',
+      'When the user answers a clarifying question with a fragment ("red", "5m right"), combine it with their previous request.',
       'If the command is ambiguous or a required value is missing, return a clarify object instead of guessing.',
       '',
       '── Current drawing context ──',

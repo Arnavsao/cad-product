@@ -1,4 +1,4 @@
-import { parseMockCommand, type GatewayResponse } from './llm-gateway.service';
+import { parseMockCommand, parseLocalWithFollowUp, type GatewayResponse } from './llm-gateway.service';
 import type { CadContextSnapshot } from '../models/ai-context.model';
 import type { CadAction } from '../models/ai-action.model';
 
@@ -82,10 +82,15 @@ describe('parseMockCommand', () => {
     });
 
     it('converts mm lineweight to hundredths', () => {
-      const a = firstAction(parseMockCommand('set lineweight 0.25mm', ctx));
-      // "0.25mm" -> the parser only matches integer groups; ensure tool + key present
+      const a = firstAction(parseMockCommand('set lineweight of all lines to 0.25mm', ctx));
       expect(a.action).toBe('entities.changeLineweight');
-      expect(typeof a.parameters['lineWeight']).toBe('number');
+      expect(a.parameters['lineWeight']).toBe(25);
+    });
+
+    it('reads a unitless decimal lineweight as millimetres and snaps to a DXF weight', () => {
+      const a = firstAction(parseMockCommand('make all lines 0.5 thick', ctx));
+      expect(a.action).toBe('entities.changeLineweight');
+      expect(a.parameters['lineWeight']).toBe(50);
     });
 
     it('asks to clarify an unknown layer for hide', () => {
@@ -204,6 +209,131 @@ describe('parseMockCommand', () => {
   });
 
   // ── Fallback ──────────────────────────────────────────────────────────────
+
+  // ── Targeting: selection, colour filters, layer scope ─────────────────────
+  describe('Targeting', () => {
+    const selected = { ...makeContext(), selection: { count: 3, ids: [1, 2, 3], byType: {}, byLayer: {}, bbox: null } };
+
+    it('recolours the selection when the user says "selected"', () => {
+      const a = firstAction(parseMockCommand('make the selected lines blue', selected));
+      expect(a.action).toBe('entities.changeColor');
+      expect(a.parameters['color']).toBe(5);
+    });
+
+    it('defaults to the selection when something is selected and nothing is named', () => {
+      const a = firstAction(parseMockCommand('change color to red', selected));
+      expect(a.target.kind).toBe('selection');
+      expect(a.parameters['color']).toBe(1);
+    });
+
+    it('still targets everything when "all" is said with a selection active', () => {
+      const a = firstAction(parseMockCommand('change everything to red', selected));
+      expect(a.target.kind).toBe('all');
+    });
+
+    it('treats a colour adjective as a filter and the trailing colour as the destination', () => {
+      const a = firstAction(parseMockCommand('change all red lines to blue', ctx));
+      expect(a.action).toBe('entities.changeColor');
+      expect(a.parameters['color']).toBe(5);
+      expect(a.target.kind).toBe('query');
+      if (a.target.kind === 'query') {
+        expect(a.target.where.type).toEqual(['LINE']);
+        expect(a.target.where.color).toEqual([1]);
+      }
+    });
+
+    it('deletes by colour filter', () => {
+      const a = firstAction(parseMockCommand('delete the red circles', ctx));
+      expect(a.action).toBe('entities.delete');
+      if (a.target.kind === 'query') expect(a.target.where.color).toEqual([1]);
+    });
+
+    it('asks what to delete when nothing is selected or named', () => {
+      expect(parseMockCommand('delete', ctx).type).toBe('clarify');
+    });
+
+    it('scopes by "on layer X"', () => {
+      const a = firstAction(parseMockCommand('select all text on layer DIM', ctx));
+      if (a.target.kind === 'query') {
+        expect(a.target.where.type).toEqual(['TEXT', 'MTEXT']);
+        expect(a.target.where.layer).toEqual(['DIM']);
+      } else { fail('expected a query target'); }
+    });
+
+    it('recolours a layer instead of moving entities onto it', () => {
+      const a = firstAction(parseMockCommand('change the color of layer DIM to red', ctx));
+      expect(a.action).toBe('entities.changeColor');
+      expect(a.parameters['color']).toBe(1);
+      if (a.target.kind === 'query') expect(a.target.where.layer).toEqual(['DIM']);
+    });
+
+    it('moves named entities to a destination layer without scoping to it', () => {
+      const a = firstAction(parseMockCommand('move all circles to layer STRUCTURAL', ctx));
+      expect(a.action).toBe('entities.changeLayer');
+      expect(a.parameters['layer']).toBe('STRUCTURAL');
+      if (a.target.kind === 'query') {
+        expect(a.target.where.type).toEqual(['CIRCLE']);
+        expect(a.target.where.layer).toBeUndefined();
+      }
+    });
+
+    it('does not let a layer called "0" match any digit', () => {
+      const a = firstAction(parseMockCommand('move top view 500 to the right', ctx));
+      expect(a.action).toBe('views.move');
+    });
+
+    it('does not mistake a colour-named layer for a recolour', () => {
+      const a = firstAction(parseMockCommand('hide layer RED', makeContext(['Layer 0', 'RED'])));
+      expect(a.action).toBe('layer.setVisible');
+    });
+
+    it('accepts an ACI number', () => {
+      const a = firstAction(parseMockCommand('set color 3 on all circles', ctx));
+      expect(a.parameters['color']).toBe(3);
+    });
+
+    it('uses the last direction word as the destination', () => {
+      const a = firstAction(parseMockCommand('move the right view 2m to the left', ctx));
+      expect(a.parameters['direction']).toBe('left');
+      expect(a.parameters['view']).toBe('right');
+    });
+  });
+
+  // ── Clarify follow-ups ────────────────────────────────────────────────────
+  describe('follow-up answers', () => {
+    it('merges a bare colour answer with the previous question', () => {
+      const history = [
+        { role: 'user', content: 'change the color of all circles' },
+        { role: 'assistant', content: 'What color should I change them to?' },
+        { role: 'user', content: 'red' },
+      ];
+      const a = firstAction(parseLocalWithFollowUp('red', ctx, history));
+      expect(a.action).toBe('entities.changeColor');
+      expect(a.parameters['color']).toBe(1);
+      if (a.target.kind === 'query') expect(a.target.where.type).toEqual(['CIRCLE']);
+    });
+
+    it('merges a distance answer into a pending move', () => {
+      const history = [
+        { role: 'user', content: 'move the top view' },
+        { role: 'assistant', content: 'How far and in which direction should I move it?' },
+        { role: 'user', content: '5m right' },
+      ];
+      const a = firstAction(parseLocalWithFollowUp('5m right', ctx, history));
+      expect(a.action).toBe('views.move');
+      expect(a.parameters['distance']).toBe(5000);
+    });
+
+    it('does not merge when the previous turn was not a question', () => {
+      const history = [
+        { role: 'user', content: 'select all circles' },
+        { role: 'assistant', content: 'Selected 4 entities.' },
+        { role: 'user', content: 'red' },
+      ];
+      expect(parseLocalWithFollowUp('red', ctx, history).type).toBe('clarify');
+    });
+  });
+
   it('falls back to clarify for gibberish', () => {
     const resp = parseMockCommand('asdfqwer zxcv', ctx);
     expect(resp.type).toBe('clarify');
