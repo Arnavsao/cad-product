@@ -5,7 +5,77 @@
 DXF import fidelity. An imported drawing now renders as AutoCAD renders it: correct dimension
 values, decoded text, per-style fonts and real lineweights.
 
+### Added
+* **Profile pictures can be uploaded and removed.** `/dashboard/profile` was rendering an avatar
+  it had no way to change — whatever the sign-in provider supplied was final. There is now a
+  picker (and a drop target on the identity block) plus a Remove action behind the usual danger
+  confirm. The image is downscaled and centre-cropped to a 256 px square in the browser
+  (`resizeToSquare`) before upload, so a phone photo is stored as ~20 KB of WebP rather than
+  several MB, and the circular avatar never letterboxes.
+
+  The URL goes into Supabase `user_metadata.avatar_url` and the session is refreshed, **not**
+  into `users.image_url` directly: that column is a mirror the API re-derives from the access
+  token on every authenticated request (`refreshProfileIfStale`), so a value that never reaches
+  the token is silently overwritten on the next call. Same reasoning as `updateName`. Both
+  actions then re-read `/me`, because the page prefers the server's mirrored value over the
+  session's.
+
+  Requires a public `avatars` bucket in the Supabase project, with RLS on `storage.objects`
+  scoping writes to `(storage.foldername(name))[1] = auth.uid()::text` — a per-user folder.
+  Object keys carry a timestamp instead of a fixed name: with a stable key the `<img src>` would
+  not change after a re-upload and the browser would keep serving the cached picture. The
+  previous object is deleted best-effort.
+
+### Changed
+* **The assistant's local parser understands which entities you mean.** Every entity-level
+  command (select, delete, recolour, change layer, lineweight) now goes through one target
+  builder instead of five copies of "type word or nothing". It reads a colour adjective as a
+  filter (`delete the red circles`, `change all red lines to blue` → filter red, destination
+  blue), `on/in/of layer X` as a scope, `to layer X` as a destination only, and "selected /
+  these / them" as the current selection. When nothing is named and something is selected, the
+  selection is the target — matching how AutoCAD's own property commands behave — and an
+  unqualified `delete` or `change layer` asks instead of erroring with "no entities match".
+  `change the color of layer DIM to red` recolours what is on DIM instead of moving the whole
+  drawing onto it (that branch used to win because it ran first and matched "change … layer").
+
+  Answers to clarifying questions now work: a bare `red` after "What color?" or `5m right`
+  after "How far?" is re-parsed together with the previous request, so the exchange completes
+  instead of falling back to "I'm not sure how to handle: red". A bare colour word with no verb
+  is no longer an order to repaint everything.
+
+  Smaller fixes in the same pass: `0.25mm` and `0.5` lineweights parse as millimetres and snap
+  to the nearest DXF weight (the old integer-only match read `0.25mm` as 0), `thick/thin/heavy`
+  map to weights, `color 3` / `ACI 3` read an index, the last direction word wins (`move the
+  right view to the left` goes left), and a layer named `0` no longer matches the "0" in `500`.
+  The hosted-model system prompt carries the same targeting rules.
+
+* **Monokai is the default dark theme**, replacing CAD Dark (`DEFAULT_THEME_ID.dark`, the client
+  `DEFAULT_PREFERENCES.theme` fallback, and the onboarding wizard's dark preview tile, which
+  would otherwise have previewed a theme the app no longer defaults to). `theme-color` and the
+  PWA manifest colours follow Monokai's `#272822` so the browser chrome matches the first paint.
+
+  A one-time localStorage migration moves existing users too. The active theme is persisted on
+  every apply, so a returning user who never opened the picker still had `cad-dark` written to
+  storage — which wins over the default and would have pinned them to it forever. The migration
+  rewrites only keys still holding that exact id and drops a marker so it never runs twice, and
+  so re-picking CAD Dark afterwards sticks. A stored value cannot distinguish "chose CAD Dark"
+  from "was given CAD Dark", so someone who deliberately picked the old default is moved once.
+
+  The server is deliberately untouched: `theme` is a free-form `@Length(1, 64)` string with no
+  allowlist, and its `@default("dark")` is a ground-shaped placeholder that `findTheme` ignores —
+  which is precisely the mechanism that lets the client default apply to a fresh account.
+
 ### Fixed
+* **Assistant edits did not appear until the drawing was panned.** Recolouring, relayering or
+  deleting through the assistant changed the entities but the canvas kept showing the old
+  picture until the next pan or zoom forced a redraw. The AI tool hooks called `markDirty()`,
+  which only sets the canvas flag; the cached content layer, spatial index and hatch regen are
+  all keyed on the content epoch (`vm.version()`), which only `markContentDirty()` bumps — the
+  same call every interactive tool and undo/redo already use. The hooks now bump the content
+  epoch and the properties panel (`doc.bump()`), the action router bumps it once more after any
+  applied action as a safety net, `query.selectEntities` bumps it so the selection highlight
+  updates, and zoom-to-view uses `markViewDirty()` so the view epoch follows the pan.
+
 * **Default-colour entities looked grey on HiDPI screens.** The three editor canvases were sized
   in CSS pixels with no device-pixel-ratio scaling, so on a Retina display the browser upscaled
   the bitmap and a 1 px white (or black) line blurred into a light-grey smear on every dark
