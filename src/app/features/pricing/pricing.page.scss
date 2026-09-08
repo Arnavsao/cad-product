@@ -11,66 +11,31 @@
   min-height: 100vh;
 }
 
-/* ── chrome ────────────────────────────────────────────────────────────────── */
-
-.pr__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ui-space-4);
-  padding: var(--ui-space-4) var(--ui-space-6);
-  border-bottom: 1px solid var(--ui-border);
-}
-
-.pr__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  color: var(--ui-text-strong);
-  text-decoration: none;
-}
-
-.pr__brand-mark {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-accent);
-  color: var(--ui-on-accent);
-}
-
 .pr__main {
   flex: 1;
   width: 100%;
-  max-width: 1080px;
+  max-width: var(--site-max);
   margin: 0 auto;
-  padding: var(--ui-space-10) var(--ui-space-6);
+  padding: clamp(48px, 10vh, 96px) var(--site-gutter) var(--ui-space-6);
 }
 
-/* ── hero ──────────────────────────────────────────────────────────────────── */
+.pr__hero { text-align: center; margin-bottom: var(--ui-space-10); }
 
-.pr__hero {
-  text-align: center;
-  margin-bottom: var(--ui-space-10);
-}
-
-.pr__title {
-  margin: 0;
-  font-size: var(--ui-text-3xl);
-  font-weight: 700;
-  letter-spacing: -.02em;
-  color: var(--ui-text-strong);
-}
-
-.pr__lede {
-  max-width: 56ch;
-  margin: var(--ui-space-3) auto 0;
-  font-size: var(--ui-text-lg);
+.pr__note {
+  max-width: 70ch;
+  margin: calc(-1 * var(--ui-space-6)) auto var(--ui-space-12);
+  padding: 12px 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-hover);
+  font-size: var(--ui-text-sm);
+  line-height: 1.5;
   color: var(--ui-text-dim);
-  line-height: var(--ui-leading);
+  text-align: center;
 }
+
+.pr__faq { margin-bottom: var(--ui-space-12); }
+.pr__faq-acc { display: block; max-width: 760px; margin: 0 auto; }
 
 .pr__toggle {
   display: inline-flex;
@@ -234,6 +199,9 @@
 /* The table is the one thing here that cannot reflow; let it scroll on its own
    rather than widening the page. */
 .pr__table-wrap {
+  /* Positioned so the cells' visually-hidden spans (position: absolute) are
+   * contained here rather than widening the page past the phone's viewport. */
+  position: relative;
   overflow-x: auto;
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-xl);
@@ -285,102 +253,3 @@
 .pr__yes { color: var(--ui-success); vertical-align: middle; }
 .pr__no { color: var(--ui-text-placeholder); }
 
-/* ── faq ───────────────────────────────────────────────────────────────────── */
-
-.pr__faq { margin-bottom: var(--ui-space-12); }
-
-.pr__faq-list {
-  max-width: 760px;
-  margin: 0 auto;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-xl);
-  overflow: hidden;
-}
-
-.pr__faq-item {
-  border-bottom: 1px solid var(--ui-border);
-  background: var(--ui-surface);
-
-  &:last-child { border-bottom: 0; }
-
-  summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--ui-space-4);
-    padding: 14px 18px;
-    font-size: var(--ui-text-md);
-    font-weight: 500;
-    color: var(--ui-text-strong);
-    cursor: pointer;
-    list-style: none;
-
-    &::-webkit-details-marker { display: none; }
-    &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
-  }
-
-  ui-icon {
-    color: var(--ui-text-dim);
-    flex: 0 0 auto;
-    transition: transform var(--ui-dur-fast) var(--ui-ease);
-  }
-
-  &[open] ui-icon { transform: rotate(180deg); }
-
-  p {
-    margin: 0;
-    padding: 0 18px 16px;
-    font-size: var(--ui-text-md);
-    color: var(--ui-text-dim);
-    line-height: var(--ui-leading);
-  }
-}
-
-/* ── closing cta ───────────────────────────────────────────────────────────── */
-
-.pr__cta {
-  text-align: center;
-  padding: var(--ui-space-10) var(--ui-space-6);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-xl);
-  background: var(--ui-surface);
-}
-
-.pr__cta-title {
-  margin: 0;
-  font-size: var(--ui-text-2xl);
-  font-weight: 700;
-  color: var(--ui-text-strong);
-}
-
-.pr__cta-text {
-  margin: var(--ui-space-2) 0 var(--ui-space-5);
-  font-size: var(--ui-text-md);
-  color: var(--ui-text-dim);
-}
-
-/* ── footer ────────────────────────────────────────────────────────────────── */
-
-.pr__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ui-space-4);
-  flex-wrap: wrap;
-  padding: var(--ui-space-5) var(--ui-space-6);
-  border-top: 1px solid var(--ui-border);
-  font-size: var(--ui-text-sm);
-  color: var(--ui-text-dim);
-}
-
-.pr__foot-links {
-  display: flex;
-  gap: var(--ui-space-4);
-
-  a {
-    color: var(--ui-text-dim);
-    text-decoration: none;
-
-    &:hover { color: var(--ui-text); text-decoration: underline; }
-  }
-}

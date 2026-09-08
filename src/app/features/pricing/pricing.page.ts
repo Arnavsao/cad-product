@@ -8,6 +8,9 @@ import { NotificationService } from '../../core/services/notification.service';
 import { messageOf } from '../dashboard/data/drawings-list.store';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiIconComponent } from '../../shared/ui/icon.component';
+import { SiteAccordionComponent, type SiteAccordionItem } from '../site/components/accordion.component';
+import { SiteClosingComponent } from '../site/components/closing.component';
+import { SiteHeadingComponent } from '../site/components/heading.component';
 import { COMPARISON, CURRENCY, FAQS, TIERS, type ComparisonRow, type PricingTier } from './pricing.data';
 
 /**
@@ -29,7 +32,7 @@ import { COMPARISON, CURRENCY, FAQS, TIERS, type ComparisonRow, type PricingTier
   selector: 'app-pricing-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiButtonDirective, UiIconComponent],
+  imports: [RouterLink, UiButtonDirective, UiIconComponent, SiteAccordionComponent, SiteClosingComponent, SiteHeadingComponent],
   templateUrl: './pricing.page.html',
   styleUrl: './pricing.page.scss',
 })
@@ -42,6 +45,7 @@ export class PricingPage {
   protected readonly tiers = TIERS;
   protected readonly comparison = COMPARISON;
   protected readonly faqs = FAQS;
+  protected readonly faqItems: SiteAccordionItem[] = FAQS.map((f, i) => ({ id: `faq-${i}`, title: f.q, body: f.a }));
   protected readonly currency = CURRENCY;
   protected readonly appName = environment.appName;
   protected readonly year = new Date().getFullYear();

@@ -1,20 +1,13 @@
 <div class="pr">
-  <header class="pr__top">
-    <a class="pr__brand" routerLink="/" [attr.aria-label]="appName + ' home'">
-      <span class="pr__brand-mark" aria-hidden="true"><ui-icon name="grid" [size]="16" /></span>
-      <span>{{ appName }}</span>
-    </a>
-    <a uiButton variant="secondary" size="sm" [routerLink]="homeLink()">
-      {{ signedIn() ? 'Back to dashboard' : 'Back to home' }}
-    </a>
-  </header>
-
   <main class="pr__main">
     <section class="pr__hero">
-      <h1 class="pr__title">Simple pricing for browser-native CAD</h1>
-      <p class="pr__lede">
-        Start free and stay free for occasional work. Upgrade when your drawings — or your studio — outgrow it.
-      </p>
+      <site-heading
+        [level]="1"
+        eyebrow="Plans &amp; pricing"
+        title="Simple pricing for browser-native CAD."
+        lede="Start free and stay free for occasional work. Upgrade when your drawings, or your studio, outgrow it. The full drafting toolset and DXF export are on every plan; the paid tiers add storage, history and collaboration."
+        align="center"
+      />
 
       <div class="pr__toggle" role="radiogroup" aria-label="Billing period">
         <button
@@ -43,7 +36,7 @@
 
     <section class="pr__tiers" aria-label="Plans">
       @for (tier of tiers; track tier.id) {
-        <article class="pr__tier" [class.pr__tier--featured]="tier.featured">
+        <article class="pr__tier" [id]="tier.id" [class.pr__tier--featured]="tier.featured">
           @if (tier.featured) {
             <span class="pr__tier-flag">Most popular</span>
           }
@@ -97,6 +90,11 @@
       }
     </section>
 
+    <p class="pr__note" role="note">
+      Billing runs through Dodo Payments and is switched on per deployment. Until it is live for your account the paid
+      buttons take you to sign-up, and the Free tier limits shown here are recorded but not yet enforced.
+    </p>
+
     <section class="pr__compare" aria-labelledby="pr-compare-title">
       <h2 id="pr-compare-title" class="pr__section-title">Compare plans</h2>
       <div class="pr__table-wrap">
@@ -141,29 +139,10 @@
 
     <section class="pr__faq" aria-labelledby="pr-faq-title">
       <h2 id="pr-faq-title" class="pr__section-title">Questions</h2>
-      <div class="pr__faq-list">
-        @for (faq of faqs; track faq.q) {
-          <details class="pr__faq-item">
-            <summary>{{ faq.q }}<ui-icon name="chevron-down" [size]="16" /></summary>
-            <p>{{ faq.a }}</p>
-          </details>
-        }
-      </div>
+      <site-accordion class="pr__faq-acc" [items]="faqItems" [initiallyOpen]="[faqItems[0].id]" />
     </section>
 
-    <section class="pr__cta">
-      <h2 class="pr__cta-title">Ready to draw?</h2>
-      <p class="pr__cta-text">No install, no licence server. Open a browser and start.</p>
-      <a uiButton size="lg" [routerLink]="ctaLink()">{{ signedIn() ? 'Go to dashboard' : 'Create your account' }}</a>
-    </section>
   </main>
+  <site-closing title="Ready to draw?" sub="No install, no licence server. Open a browser and start; upgrade only when the work asks for it." secondaryLabel="See the features" secondaryLink="/features" />
 
-  <footer class="pr__foot">
-    <span>© {{ year }} {{ appName }}</span>
-    <nav class="pr__foot-links" aria-label="Footer">
-      <a routerLink="/whats-new">What's New</a>
-      <a routerLink="/terms">Terms</a>
-      <a routerLink="/privacy">Privacy</a>
-    </nav>
-  </footer>
 </div>

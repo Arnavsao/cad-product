@@ -1,10 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { environment } from '../../../environments/environment';
-import { SupabaseAuthService } from '../../core/auth/supabase-auth.service';
-import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiIconComponent, type UiIconName } from '../../shared/ui/icon.component';
+import { SiteClosingComponent } from '../site/components/closing.component';
+import { SiteHeadingComponent } from '../site/components/heading.component';
 import { RELEASE_NOTES, type ReleaseChangeKind } from './release-notes';
 
 const KIND_LABEL: Record<ReleaseChangeKind, string> = {
@@ -31,22 +30,11 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
   selector: 'app-whats-new-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, UiButtonDirective, UiIconComponent],
+  imports: [DatePipe, UiIconComponent, SiteClosingComponent, SiteHeadingComponent],
   template: `
     <div class="wn">
-      <header class="wn__top">
-        <a class="wn__brand" routerLink="/" aria-label="{{ appName }} home">
-          <span class="wn__brand-mark" aria-hidden="true"><ui-icon name="grid" [size]="16" /></span>
-          <span>{{ appName }}</span>
-        </a>
-        <a uiButton variant="secondary" size="sm" [routerLink]="homeLink()">
-          {{ signedIn() ? 'Back to dashboard' : 'Back to home' }}
-        </a>
-      </header>
-
       <main class="wn__main">
-        <h1 class="wn__title">What's new</h1>
-        <p class="wn__lede">Everything we have shipped, newest first.</p>
+        <site-heading [level]="1" eyebrow="Release notes" title="What's new" lede="Everything we have shipped, newest first. The engineering changelog behind these notes lives in the repository." />
 
         @for (release of releases; track release.version) {
           <section class="wn__release">
@@ -74,15 +62,8 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
           </section>
         }
       </main>
+      <site-closing title="Try the latest build." sub="Every release is live for everyone the moment it ships. There is nothing to download." secondaryLabel="About CADO" secondaryLink="/about" />
 
-      <footer class="wn__foot">
-        <span>© {{ year }} {{ appName }}</span>
-        <nav class="wn__foot-links" aria-label="Footer">
-          <a routerLink="/pricing">Pricing</a>
-          <a routerLink="/terms">Terms</a>
-          <a routerLink="/privacy">Privacy</a>
-        </nav>
-      </footer>
     </div>
   `,
   styles: [
@@ -90,23 +71,8 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
       :host { display: block; min-height: 100vh; background: var(--ui-bg); color: var(--ui-text); }
       .wn { display: flex; flex-direction: column; min-height: 100vh; }
 
-      .wn__top {
-        display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-4);
-        padding: var(--ui-space-4) var(--ui-space-6);
-        border-bottom: 1px solid var(--ui-border);
-      }
-      .wn__brand {
-        display: inline-flex; align-items: center; gap: 10px;
-        font-weight: 600; color: var(--ui-text-strong); text-decoration: none;
-      }
-      .wn__brand-mark {
-        display: grid; place-items: center; width: 28px; height: 28px;
-        border-radius: var(--ui-radius-md); background: var(--ui-accent); color: var(--ui-on-accent);
-      }
-
-      .wn__main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: var(--ui-space-10) var(--ui-space-6); }
-      .wn__title { margin: 0; font-size: var(--ui-text-3xl); font-weight: 700; letter-spacing: -.02em; color: var(--ui-text-strong); }
-      .wn__lede { margin: var(--ui-space-2) 0 var(--ui-space-10); font-size: var(--ui-text-lg); color: var(--ui-text-dim); }
+      .wn__main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: clamp(48px, 10vh, 96px) var(--site-gutter) var(--ui-space-6); }
+      site-heading { display: block; margin-bottom: var(--ui-space-10); }
 
       .wn__release { margin-bottom: var(--ui-space-12); }
       .wn__release-head { display: flex; align-items: baseline; gap: var(--ui-space-3); margin-bottom: var(--ui-space-2); }
@@ -131,16 +97,6 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
       .wn__change-title { margin: 0; font-size: var(--ui-text-md); font-weight: 600; color: var(--ui-text-strong); }
       .wn__change-detail { margin: 2px 0 0; font-size: var(--ui-text-md); color: var(--ui-text-dim); line-height: var(--ui-leading); }
 
-      .wn__foot {
-        display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-4); flex-wrap: wrap;
-        padding: var(--ui-space-5) var(--ui-space-6);
-        border-top: 1px solid var(--ui-border);
-        font-size: var(--ui-text-sm); color: var(--ui-text-dim);
-      }
-      .wn__foot-links { display: flex; gap: var(--ui-space-4); }
-      .wn__foot-links a { color: var(--ui-text-dim); text-decoration: none; }
-      .wn__foot-links a:hover { color: var(--ui-text); text-decoration: underline; }
-
       @media (max-width: 560px) {
         .wn__change { flex-direction: column; gap: 6px; }
       }
@@ -148,14 +104,10 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
   ],
 })
 export class WhatsNewPage {
-  private readonly auth = inject(SupabaseAuthService);
-
   protected readonly releases = RELEASE_NOTES;
   protected readonly appName = environment.appName;
   protected readonly year = new Date().getFullYear();
 
-  protected readonly signedIn = () => this.auth.isSignedIn();
-  protected readonly homeLink = () => (this.auth.isSignedIn() ? '/dashboard' : '/');
 
   protected labelFor(kind: ReleaseChangeKind): string {
     return KIND_LABEL[kind];

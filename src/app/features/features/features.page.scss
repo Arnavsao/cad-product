@@ -1,138 +1,80 @@
-:host {
-  display: block;
-  min-height: 100%;
-}
+/* Public features page. Chrome (header, footer, backdrop) comes from the site
+ * shell; the four drawn figures keep the landing page's visual language. */
+:host { display: block; }
 
 .fx {
-  position: relative;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--ui-bg);
+  display: block;
   color: var(--ui-text);
   font-family: var(--ui-font);
-  /* The backdrop's fade follows the reader down the page rather than pooling
-   * under a hero this page does not have. */
-  --ui-grid-origin: 50% 6%;
-  --ui-grid-reach: 92% 46%;
 
-  &__nav,
-  &__main,
-  &__footer {
-    position: relative;
-    z-index: 1;
+  &__hero {
+    padding-block: clamp(48px, 10vh, 96px) clamp(32px, 6vh, 56px);
+    text-align: center;
   }
+  &__cta { margin-top: 30px; }
 
-  &__nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--ui-space-4);
-    padding: 20px clamp(20px, 6vw, 72px);
-  }
-
-  &__nav-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--ui-space-2);
-    min-height: 28px;
-  }
-
-  &__nav-link {
-    padding: 0 var(--ui-space-2);
-    font-size: var(--ui-text-md);
-    color: var(--ui-text-dim);
-    text-decoration: none;
-    transition: color var(--ui-dur) var(--ui-ease-out);
-
-    &:hover { color: var(--ui-text-strong); }
-    &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; border-radius: var(--ui-radius-sm); }
-  }
-
-  &__main {
-    flex: 1;
+  &__caps {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(64px, 12vh, 128px);
-    padding: 0 clamp(16px, 4vw, 32px) clamp(48px, 10vh, 96px);
+    gap: clamp(56px, 10vh, 112px);
+    padding-block: clamp(32px, 6vh, 64px) var(--site-section);
   }
 
-  &__footer {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--ui-space-2);
-    padding: 22px 24px;
-    border-top: 1px solid var(--ui-border);
+  &__explorer { margin-top: clamp(28px, 5vh, 48px); }
+
+  &__table-wrap { position: relative; margin-top: clamp(24px, 4vh, 40px); overflow-x: auto; }
+  &__compare { max-width: 980px; margin-inline: auto; }
+
+  &__table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
     font-size: var(--ui-text-sm);
-    color: var(--ui-text-dim);
 
-    a {
-      color: inherit;
-      text-decoration: none;
-
-      &:hover { text-decoration: underline; }
-    }
+    th, td { padding: 13px 18px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ui-border); line-height: 1.5; }
+    thead th { font-size: var(--ui-text-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ui-text-dim); background: var(--ui-hover); }
+    tbody th { font-weight: 600; color: var(--ui-text-strong); white-space: nowrap; }
+    tbody td { color: var(--ui-text); }
+    tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
   }
+  &__no { color: var(--ui-text-placeholder); }
+  &__note { color: var(--ui-text-dim) !important; }
+  &__us { color: var(--ui-text-strong) !important; font-weight: 500; }
+
+  &__acc { margin-top: clamp(24px, 4vh, 40px); }
 }
 
-.brand {
-  display: inline-flex;
+/* ── Snaps ─────────────────────────────────────────────────────── */
+
+.snaps {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(28px, 5vw, 72px);
   align-items: center;
-  gap: 10px;
-  color: var(--ui-text-strong);
-  text-decoration: none;
-  font-weight: 600;
-  letter-spacing: -.01em;
-  /* Same name as the landing page's brand, so the router's view transition
-   * morphs the one element instead of cross-fading two. */
-  view-transition-name: cado-brand;
 
-  &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 4px; border-radius: var(--ui-radius-sm); }
-
-  &__mark {
+  &__grid {
     display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--ui-radius-md);
-    background: var(--ui-accent);
-    color: var(--ui-on-accent);
-  }
-  &__name { font-size: var(--ui-text-base); }
-}
-
-/* ── Intro ─────────────────────────────────────────────────────── */
-
-.intro {
-  width: 100%;
-  max-width: 720px;
-  padding: clamp(40px, 10vh, 96px) 0 0;
-  text-align: center;
-
-  &__eyebrow {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
     margin: 0;
-    font: 600 var(--ui-text-sm) / 1 var(--ui-font);
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: var(--ui-accent);
+    padding: 0;
+    list-style: none;
   }
-  &__title {
-    margin: 18px 0 0;
-    font-size: clamp(30px, 5vw, 50px);
-    line-height: 1.06;
-    font-weight: 700;
-    letter-spacing: -.025em;
-    color: var(--ui-text-strong);
-    text-wrap: balance;
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: color-mix(in srgb, var(--ui-surface) 84%, transparent);
+    font-size: var(--ui-text-sm);
+    color: var(--ui-text);
+    transition: border-color var(--ui-dur-fast);
+    &:hover { border-color: var(--ui-accent); }
   }
-  &__sub {
-    margin: 18px 0 0;
-    font-size: clamp(15px, 1.4vw, 18px);
-    color: var(--ui-text-dim);
-    text-wrap: pretty;
-  }
+  &__glyph { flex: 0 0 auto; width: 20px; height: 20px; fill: none; stroke: var(--ui-accent); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 }
 
 /* ── One capability ───────────────────────────────────────────── */
@@ -143,7 +85,6 @@
   align-items: center;
   gap: clamp(24px, 4vw, 64px);
   width: 100%;
-  max-width: 1120px;
 
   /* Reverses the pair without reordering the DOM, so the copy still comes
    * before its figure for a screen reader and for tab order. */
@@ -256,54 +197,21 @@
   }
 }
 
-/* ── Closing call to action ───────────────────────────────────── */
 
-.close {
-  width: 100%;
-  max-width: 680px;
-  text-align: center;
-
-  &__title {
-    margin: 0;
-    font-size: clamp(26px, 3.4vw, 40px);
-    line-height: 1.1;
-    font-weight: 700;
-    letter-spacing: -.025em;
-    color: var(--ui-text-strong);
-    text-wrap: balance;
-  }
-  &__sub {
-    margin: 14px 0 0;
-    font-size: var(--ui-text-base);
-    color: var(--ui-text-dim);
-    text-wrap: pretty;
-  }
-  &__cta {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--ui-space-3);
-    margin-top: 28px;
-  }
-}
-
-/* ── Narrow viewports ─────────────────────────────────────────── */
+/* ── Breakpoints ───────────────────────────────────────────────── */
 
 @media (max-width: 860px) {
   .cap {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--ui-space-6);
-
-    /* Stacked, the copy always leads — the flip is a two-column device. */
     &--flip {
       .cap__copy { order: 0; }
       .cap__figure { order: 0; }
     }
   }
+  .snaps { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 600px) {
-  .fx__nav-link { display: none; }
-  .fx__nav-actions .ui-btn--primary { display: none; }
   .fig__label { font-size: 10px; }
 }

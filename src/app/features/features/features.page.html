@@ -1,35 +1,17 @@
 <div class="fx">
-  <ui-grid-backdrop />
+  <section class="fx__hero site-container">
+    <site-heading
+      [level]="1"
+      eyebrow="Features"
+      title="Everything a 2D drafting tool has to get right, and the browser gets out of the way."
+      lede="{{ appName }} is not a viewer with a pencil bolted on. It is a full drafting editor: the command set, the snaps, the layouts, the DXF fidelity and the file management, with an assistant on top. This page lists what is there, group by group, with the alias you would type."
+      align="center"
+    />
+    <site-cta class="site-cta--center fx__cta" primaryLabel="Start drawing free" secondaryLabel="See pricing" secondaryLink="/pricing" />
+  </section>
 
-  <header class="fx__nav">
-    <a class="brand" routerLink="/" aria-label="{{ appName }} home">
-      <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
-      <span class="brand__name">{{ appName }}</span>
-    </a>
-    <nav class="fx__nav-actions" aria-label="Account">
-      <a class="fx__nav-link" routerLink="/pricing">Pricing</a>
-      @if (!auth.enabled()) {
-      <a uiButton size="sm" variant="ghost" routerLink="/editor">Open editor</a>
-      } @else if (!auth.isLoaded()) {
-      <ui-skeleton width="72px" height="28px" radius="var(--ui-radius-md)" />
-      } @else if (auth.isSignedIn()) {
-      <a uiButton size="sm" variant="ghost" routerLink="/dashboard">Dashboard</a>
-      } @else {
-      <a uiButton size="sm" variant="ghost" routerLink="/sign-in">Sign in</a>
-      <a uiButton size="sm" variant="primary" routerLink="/sign-up">Create account</a>
-      }
-    </nav>
-  </header>
-
-  <main class="fx__main">
-    <section class="intro">
-      <p class="intro__eyebrow">Capabilities</p>
-      <h1 class="intro__title">Four things a drafting tool has to get right.</h1>
-      <p class="intro__sub">
-        Scroll and each one draws itself, in the order you would draft it.
-      </p>
-    </section>
-
+  <section class="fx__caps site-container" aria-labelledby="caps-title">
+    <site-heading eyebrow="The fundamentals" title="Four things a drafting tool has to get right." lede="Scroll and each one draws itself, in the order you would draft it." align="center" id="caps-title" />
     <!-- 1 ─ DXF round-trip ─────────────────────────────────────── -->
     <article class="cap" uiReveal>
       <div class="cap__copy">
@@ -73,7 +55,6 @@
         </svg>
       </figure>
     </article>
-
     <!-- 2 ─ Layouts and viewports ──────────────────────────────── -->
     <article class="cap cap--flip" uiReveal>
       <div class="cap__copy">
@@ -111,7 +92,6 @@
         </svg>
       </figure>
     </article>
-
     <!-- 3 ─ Associative dimensions ─────────────────────────────── -->
     <article class="cap" uiReveal>
       <div class="cap__copy">
@@ -152,7 +132,6 @@
         </span>
       </figure>
     </article>
-
     <!-- 4 ─ Blocks ─────────────────────────────────────────────── -->
     <article class="cap cap--flip" uiReveal>
       <div class="cap__copy">
@@ -192,36 +171,80 @@
         </svg>
       </figure>
     </article>
+  </section>
 
-    <section class="close" uiReveal aria-labelledby="close-title">
-      <h2 class="close__title" id="close-title">Open a drawing and try it.</h2>
-      <p class="close__sub">The editor is free to use, and DXF export is not behind a paywall.</p>
-      <div class="close__cta">
-        @if (!auth.enabled()) {
-        <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
-        } @else if (!auth.isLoaded()) {
-        <ui-skeleton width="150px" height="42px" radius="var(--ui-radius-lg)" />
-        } @else if (auth.isSignedIn()) {
-        <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
-        } @else {
-        <a uiButton variant="primary" size="lg" routerLink="/sign-up">Create a free account</a>
-        <a uiButton size="lg" variant="ghost" routerLink="/pricing">See pricing</a>
-        }
+  <section class="site-section site-band" aria-labelledby="fx-ex-title">
+    <div class="site-container">
+      <site-heading eyebrow="Command reference" title="Every group, every command, its alias." lede="Type the alias at the command line or click the tool; the prompts that follow are the ones AutoCAD users expect, in fourteen languages." id="fx-ex-title" />
+      <div class="fx__explorer" siteReveal>
+        <span id="draw"></span><span id="annotate"></span><span id="modify"></span><span id="blocks"></span><span id="layouts"></span><span id="files"></span><span id="ai"></span>
+        <site-explorer orientation="vertical" [limit]="8" [initial]="initialGroup" />
       </div>
-    </section>
-  </main>
+    </div>
+  </section>
 
-  <footer class="fx__footer">
-    <span>&copy; {{ year }} {{ appName }}</span>
-    <span class="fx__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/">Home</a>
-    <span class="fx__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/pricing">Pricing</a>
-    <span class="fx__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/whats-new">What's New</a>
-    <span class="fx__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/terms">Terms</a>
-    <span class="fx__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/privacy">Privacy</a>
-  </footer>
+  <section class="site-section site-container" aria-labelledby="snap-title">
+    <div class="snaps">
+      <div class="snaps__copy" siteReveal="left">
+        <site-heading eyebrow="Precision" title="Fourteen object snaps, plus tracking." lede="Every point you pick can lock to geometry that already exists. Ortho and polar tracking, a snap grid and dynamic input next to the cursor come with it, and all of them toggle from the status bar." id="snap-title" />
+        <p class="site-body">Snap markers use the AutoCAD glyphs, so the square, triangle and circle mean what they have always meant.</p>
+      </div>
+      <ul class="snaps__grid" siteReveal revealStagger="li">
+        @for (snap of snaps; track snap; let i = $index) {
+          <li class="snaps__item">
+            <svg class="snaps__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path [attr.d]="glyph(i)" /></svg>
+            <span>{{ snap }}</span>
+          </li>
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="site-section site-band" aria-labelledby="fmt-title">
+    <div class="site-container">
+      <site-heading eyebrow="Files" title="What goes in, what comes out." lede="DXF is the native exchange format and it is on every plan. Everything below is checked against AutoCAD, not against a spec sheet." align="center" id="fmt-title" />
+      <div class="fx__table-wrap site-panel" siteReveal>
+        <table class="fx__table">
+          <caption class="ui-visually-hidden">File formats CADO reads and writes</caption>
+          <thead><tr><th scope="col">Format</th><th scope="col">Read</th><th scope="col">Write</th><th scope="col">Notes</th></tr></thead>
+          <tbody>
+            @for (row of formats; track row.format) {
+              <tr>
+                <th scope="row">{{ row.format }}</th>
+                <td [class.fx__no]="row.read === '—'">{{ row.read }}</td>
+                <td [class.fx__no]="row.write === '—'">{{ row.write }}</td>
+                <td class="fx__note">{{ row.note }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="site-section site-container" aria-labelledby="cmp-title">
+    <site-heading eyebrow="Compared" title="A browser tab against an installed seat." lede="Where CADO is ahead, where it is level, and where it is honestly not there yet." id="cmp-title" />
+    <div class="fx__table-wrap site-panel fx__compare" siteReveal>
+      <table class="fx__table">
+        <caption class="ui-visually-hidden">CADO compared with installed desktop CAD</caption>
+        <thead><tr><th scope="col"></th><th scope="col">{{ appName }}</th><th scope="col">Installed desktop CAD</th></tr></thead>
+        <tbody>
+          @for (row of compare; track row.label) {
+            <tr><th scope="row">{{ row.label }}</th><td class="fx__us">{{ row.cado }}</td><td>{{ row.desktop }}</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="site-section site-band" aria-labelledby="det-title">
+    <div class="site-container site-container--narrow">
+      <site-heading eyebrow="Details" title="The things drafters ask before they trust a tool." align="center" id="det-title" />
+      <div class="fx__acc" siteReveal>
+        <site-accordion [items]="details" [initiallyOpen]="['lineweights']" />
+      </div>
+    </div>
+  </section>
+
+  <site-closing title="Open a drawing and try every one of these." sub="The editor is free to use and DXF export is not behind a paywall. Sign up, drop a file, start typing commands." secondaryLabel="How it works" secondaryLink="/product" />
 </div>

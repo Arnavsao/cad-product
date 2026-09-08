@@ -1,66 +1,54 @@
 <div class="landing">
-  <ui-grid-backdrop />
-
-  <header class="landing__nav">
-    <a class="brand" routerLink="/" aria-label="{{ appName }} home">
-      <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
-      <span class="brand__name">{{ appName }}</span>
-    </a>
-    <nav class="landing__nav-actions" aria-label="Account">
-      <a class="landing__nav-link" routerLink="/features">Features</a>
-      <a class="landing__nav-link" routerLink="/pricing">Pricing</a>
-      @if (!auth.enabled()) {
-      <a uiButton size="sm" variant="ghost" routerLink="/editor">Open editor</a>
-      } @else if (!auth.isLoaded()) {
-      <ui-skeleton width="72px" height="28px" radius="var(--ui-radius-md)" />
-      } @else if (auth.isSignedIn()) {
-      <a uiButton size="sm" variant="ghost" routerLink="/dashboard">Dashboard</a>
-      } @else {
-      <a uiButton size="sm" variant="ghost" routerLink="/sign-in">Sign in</a>
-      <a uiButton size="sm" variant="primary" routerLink="/sign-up">Create account</a>
-      }
-    </nav>
-  </header>
-
-  <main class="landing__main">
-    <section class="hero">
-      <p class="hero__eyebrow">Browser-native 2D CAD</p>
-      <h1 class="hero__title">Draw anywhere.<br />Your drawings, in the browser.</h1>
-      <p class="hero__sub">
-        {{ appName }} is a full 2D CAD editor that runs in any modern browser — DXF in and out, layouts and plotting,
-        autosave and cloud files.
+  <!-- ── Hero ──────────────────────────────────────────────────── -->
+  <section class="hero site-container" #hero aria-labelledby="hero-title">
+    <div class="hero__copy" siteReveal revealStagger=".hero__item">
+      <p class="site-eyebrow hero__item">Browser-native 2D CAD</p>
+      <h1 class="site-h1 hero__item" id="hero-title">The drafting tool you already know, in the tab you already have open.</h1>
+      <p class="site-lede hero__item">
+        {{ appName }} is a full 2D CAD editor that runs in the browser. Open a DXF exactly as AutoCAD drew it, draft
+        with the same commands and snaps, lay it out on paper, plot to PDF and write the DXF back out. Your drawings are
+        versioned in your account and shareable with a link.
       </p>
-      <div class="hero__cta">
-        @if (!auth.enabled()) {
-        <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
-        } @else if (!auth.isLoaded()) {
-        <ui-skeleton width="120px" height="42px" radius="var(--ui-radius-lg)" />
-        <ui-skeleton width="160px" height="42px" radius="var(--ui-radius-lg)" />
-        } @else if (auth.isSignedIn()) {
-        <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
-        <a uiButton size="lg" routerLink="/editor">Open editor</a>
-        } @else {
-        <a uiButton variant="primary" size="lg" routerLink="/sign-up">Start drawing</a>
-        <a uiButton size="lg" routerLink="/sign-in">Sign in</a>
-        }
+      <site-cta class="hero__item" primaryLabel="Start drawing free" secondaryLabel="See how it works" secondaryLink="/product" />
+      <ul class="hero__proof hero__item" aria-label="Included on every plan">
+        <li><ui-icon name="check" [size]="14" /> DXF import and export</li>
+        <li><ui-icon name="check" [size]="14" /> Layouts and PDF plotting</li>
+        <li><ui-icon name="check" [size]="14" /> Nothing to install</li>
+      </ul>
+    </div>
+
+    <div class="hero__figure">
+      <div class="hero__stack site-panel">
+        <site-layer-stack [progress]="stackProgress()" />
+        <p class="hero__hint" aria-hidden="true">
+          <ui-icon name="chevron-down" [size]="14" /> Scroll to pull the drawing apart
+        </p>
       </div>
-    </section>
+      <ol class="hero__legend" aria-label="What a drawing is made of">
+        @for (layer of layers; track layer.id; let i = $index) {
+          <li class="hero__layer" [class.hero__layer--on]="i === activeLayer()" [class.hero__layer--done]="i < activeLayer()">
+            <span class="hero__layer-dot" aria-hidden="true"></span>
+            <span class="hero__layer-text">
+              <span class="hero__layer-label">{{ layer.label }}</span>
+              <span class="hero__layer-detail">{{ layer.detail }}</span>
+            </span>
+          </li>
+        }
+      </ol>
+    </div>
+  </section>
 
-    <!--
-      The hero effect. `ui-sheet` carries the named view timeline every stroke
-      inside animates against (see blueprint.scss) — the plan assembles in
-      drafting order as this scrolls up: walls, then doors and windows, then
-      dimensions, then the hatch.
-    -->
-    <section class="sheet ui-sheet" aria-labelledby="sheet-caption">
-      <h2 class="ui-visually-hidden" id="sheet-caption">A floor plan being drafted</h2>
+  <!-- ── The drafting sheet (CSS scroll-drawn) ─────────────────── -->
+  <section class="sheetsec site-container" aria-labelledby="sheet-title">
+    <site-heading
+      eyebrow="A viewport, not a picture"
+      title="It behaves like the CAD you learned on."
+      lede="Move your pointer over the sheet and the coordinates track it in millimetres. Scroll, and the plan drafts itself in the order you would draw it: walls, openings, dimensions, hatch."
+      align="center"
+      id="sheet-title"
+    />
 
-      <!--
-        The canvas box is locked to the viewBox ratio and carries no padding, so
-        the overlay measurements below can be positioned in plain percentages of
-        the plan's own coordinates — and so the pointer readout maps against the
-        same box the geometry is drawn in.
-      -->
+    <div class="sheet ui-sheet" uiReveal>
       <div class="sheet__canvas" #sheet>
         <svg
           class="sheet__plan"
@@ -75,61 +63,22 @@
               <line class="sheet__hatch-line" x1="0" y1="0" x2="0" y2="14" />
             </pattern>
           </defs>
-
-          <!-- Hatch first, so the walls bounding it draw over the top. -->
-          <rect
-            class="ui-fade ui-ink--detail sheet__hatch"
-            x="148" y="318" width="404" height="154"
-            fill="url(#cado-hatch)"
-          />
-
-          <!-- Walls. One path, so the dash traces the shell continuously. -->
-          <path
-            class="ui-ink ui-ink--walls sheet__wall"
-            pathLength="1"
-            d="M140 140H240 M360 140H640 M760 140H840 M840 140V480 M840 480H470 M380 480H140 M140 480V140
-               M560 140V200 M560 280V480 M140 310H250 M330 310H560"
-          />
-
-          <!-- Door leaves and their swings. -->
-          <path
-            class="ui-ink ui-ink--doors sheet__thin"
-            pathLength="1"
-            d="M380 480V392 M380 392A88 88 0 0 1 468 480
-               M560 200H640 M640 200A80 80 0 0 1 560 280
-               M330 310V230 M330 230A80 80 0 0 0 250 310"
-          />
-
-          <!-- Windows: the wall is gapped above, these are the glazing lines. -->
-          <path
-            class="ui-ink ui-ink--doors sheet__thin"
-            pathLength="1"
-            d="M240 134H360 M240 140H360 M240 146H360 M640 134H760 M640 140H760 M640 146H760"
-          />
-
-          <!-- Dimensions: extension lines, then the dimension line itself. -->
-          <path
-            class="ui-ink ui-ink--dims sheet__dim"
-            pathLength="1"
-            d="M140 132V80 M840 132V80 M140 92H840 M132 140H80 M132 480H80 M92 140V480"
-          />
-          <path
-            class="ui-fade ui-ink--dims sheet__arrow"
-            d="M140 92L154 87.5L154 96.5Z M840 92L826 87.5L826 96.5Z
-               M92 140L87.5 154L96.5 154Z M92 480L87.5 466L96.5 466Z"
-          />
-
-          <!-- Object snaps: square endpoint, triangle midpoint, circle centre. -->
+          <rect class="ui-fade ui-ink--detail sheet__hatch" x="148" y="318" width="404" height="154" fill="url(#cado-hatch)" />
+          <path class="ui-ink ui-ink--walls sheet__wall" pathLength="1"
+            d="M140 140H240 M360 140H640 M760 140H840 M840 140V480 M840 480H470 M380 480H140 M140 480V140 M560 140V200 M560 280V480 M140 310H250 M330 310H560" />
+          <path class="ui-ink ui-ink--doors sheet__thin" pathLength="1"
+            d="M380 480V392 M380 392A88 88 0 0 1 468 480 M560 200H640 M640 200A80 80 0 0 1 560 280 M330 310V230 M330 230A80 80 0 0 0 250 310" />
+          <path class="ui-ink ui-ink--doors sheet__thin" pathLength="1"
+            d="M240 134H360 M240 140H360 M240 146H360 M640 134H760 M640 140H760 M640 146H760" />
+          <path class="ui-ink ui-ink--dims sheet__dim" pathLength="1"
+            d="M140 132V80 M840 132V80 M140 92H840 M132 140H80 M132 480H80 M92 140V480" />
+          <path class="ui-fade ui-ink--dims sheet__arrow"
+            d="M140 92L154 87.5L154 96.5Z M840 92L826 87.5L826 96.5Z M92 140L87.5 154L96.5 154Z M92 480L87.5 466L96.5 466Z" />
           <rect class="ui-fade ui-snap sheet__snap" x="134" y="134" width="12" height="12" />
           <rect class="ui-fade ui-snap sheet__snap" x="834" y="474" width="12" height="12" />
           <path class="ui-fade ui-snap sheet__snap" d="M140 302L147 314H133Z" />
           <circle class="ui-fade ui-snap sheet__snap" cx="700" cy="310" r="6" />
         </svg>
-
-        <!--
-          Measurements are HTML, not SVG <text>: the count-up is a CSS counter,
-          which SVG text does not render.
-        -->
         <span class="sheet__dim-val sheet__dim-val--top ui-fade ui-ink--dims" aria-label="7000 millimetres">
           <span class="ui-dim-val ui-ink--dims" style="--ui-dim-to: 7000" aria-hidden="true"></span>
           <span aria-hidden="true">mm</span>
@@ -139,7 +88,6 @@
           <span aria-hidden="true">mm</span>
         </span>
       </div>
-
       <div class="sheet__status" aria-hidden="true">
         <p class="sheet__cmd">
           <span class="sheet__cmd-name">_LINE</span>
@@ -149,92 +97,164 @@
         <p class="sheet__readout">
           <span class="sheet__coord">X&nbsp;<span #coordX>0.0</span></span>
           <span class="sheet__coord">Y&nbsp;<span #coordY>0.0</span></span>
+          <span class="sheet__toggles"><b>OSNAP</b> <b>POLAR</b> <b>DYN</b></span>
         </p>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="strip" aria-label="What it does">
-      <article class="cap" uiReveal>
-        <div class="cap__icon"><ui-icon name="download" [size]="18" /></div>
-        <h2 class="cap__title">DXF round-trip</h2>
-        <p class="cap__body">Open a drawing from your desk, edit it, export it back. Layers and blocks survive.</p>
-      </article>
-      <article class="cap" uiReveal="80">
-        <div class="cap__icon"><ui-icon name="grid" [size]="18" /></div>
-        <h2 class="cap__title">Layouts and plotting</h2>
-        <p class="cap__body">Paper-space layouts with viewports, then plot to PDF or SVG at a real scale.</p>
-      </article>
-      <article class="cap" uiReveal="160">
-        <div class="cap__icon"><ui-icon name="pencil" [size]="18" /></div>
-        <h2 class="cap__title">Associative dimensions</h2>
-        <p class="cap__body">Twelve object snaps, dimension styles, hatch and tables. Move the geometry — the
-          measurement follows.</p>
-      </article>
-      <article class="cap" uiReveal="240">
-        <div class="cap__icon"><ui-icon name="cloud" [size]="18" /></div>
-        <h2 class="cap__title">Never lose work</h2>
-        <p class="cap__body">Autosave, local recovery and versioned cloud drawings you can share.</p>
-      </article>
-    </section>
+  <!-- ── Facts ─────────────────────────────────────────────────── -->
+  <section class="facts site-band" aria-label="By the numbers">
+    <ul class="facts__list site-container" siteReveal revealStagger=".facts__item">
+      @for (fact of facts; track fact.label) {
+        <li class="facts__item">
+          <span class="facts__value" [siteCountUp]="fact.value" [countSuffix]="fact.suffix ?? ''">{{ fact.value }}{{ fact.suffix }}</span>
+          <span class="facts__label">{{ fact.label }}</span>
+          <span class="facts__detail">{{ fact.detail }}</span>
+        </li>
+      }
+    </ul>
+  </section>
 
-    <section class="demo" uiReveal aria-labelledby="demo-title">
-      <h2 class="demo__title" id="demo-title">The actual editor</h2>
-      <p class="demo__sub">Not a mockup — this is the drafting surface you get on the free plan.</p>
+  <!-- ── Workflow ─────────────────────────────────────────────── -->
+  <section class="site-section site-container" aria-labelledby="wf-title">
+    <site-heading
+      eyebrow="How a drawing moves through CADO"
+      title="From a file on your desk to a sheet in someone's inbox."
+      lede="Five steps, all in one tab. The command line on the left follows along."
+      id="wf-title"
+    />
+    <div class="wfwrap">
+      <site-workflow />
+    </div>
+  </section>
 
-      <div class="demo__frame">
-        @if (demoVideo) {
-        <!-- preload="metadata" so the poster and duration arrive without pulling the media. -->
-        <video
-          class="demo__video"
-          [src]="demoVideo"
-          [poster]="demoPoster"
-          muted
-          loop
-          autoplay
-          playsinline
-          preload="metadata"
-          aria-label="Screen recording of the {{ appName }} editor"
-        ></video>
-        } @else {
-        <p class="demo__placeholder">
-          <ui-icon name="upload" [size]="22" [strokeWidth]="1.5" />
-          <strong>[EDITOR SCREEN CAPTURE]</strong>
-          <span>Drop a muted, looping clip at <code>public/editor-demo.mp4</code> with a poster frame, then set
-            <code>demoVideo</code> in <code>landing.page.ts</code>.</span>
-        </p>
+  <!-- ── Explorer ─────────────────────────────────────────────── -->
+  <section class="site-section site-band" aria-labelledby="ex-title">
+    <div class="site-container">
+      <site-heading
+        eyebrow="Capabilities"
+        title="Seventy-odd commands, and the aliases your fingers remember."
+        lede="Pick a group. Each command is listed with the alias you would type, next to a real screenshot of where it lives. Nothing here is a mock-up."
+        align="center"
+        id="ex-title"
+      />
+      <div class="exwrap" siteReveal>
+        <site-explorer />
+      </div>
+    </div>
+  </section>
+
+  <!-- ── AI assistant ─────────────────────────────────────────── -->
+  <section class="site-section site-container aisec" aria-labelledby="ai-title">
+    <div class="aisec__copy" siteReveal="left">
+      <site-heading
+        eyebrow="AI drafting assistant"
+        title="Say what you mean. Review what it will do. Undo if you change your mind."
+        lede="The assistant turns plain English into ordinary editor commands, then validates them before anything touches the drawing. It runs against a model you choose: a local Ollama server that never sees the network, or an OpenRouter key."
+        id="ai-title"
+      />
+      <ul class="aisec__points">
+        <li><strong>Understands targets.</strong> Colour words are filters, "on layer X" is a scope, "selected" is the current selection. An ambiguous request asks instead of guessing.</li>
+        <li><strong>Classifies risk.</strong> Every plan is labelled safe, review or destructive; destructive ones need a confirmation.</li>
+        <li><strong>Stays undoable and private.</strong> Actions land on the same undo stack as your own edits, and the audit log lives in your browser, not on our servers.</li>
+      </ul>
+      <a uiButton variant="secondary" routerLink="/docs" fragment="ai">Set up the assistant <ui-icon name="chevron-right" [size]="14" /></a>
+    </div>
+
+    <div class="aisec__demo" siteReveal="right">
+      <div class="chat site-panel" role="img" aria-label="Example: the request 'change all red lines on layer DIM to blue' becomes a reviewed three-step plan">
+        <div class="chat__bar"><span class="chat__dots"><i></i><i></i><i></i></span><span class="chat__title">AI Agent · local model</span></div>
+        <div class="chat__body">
+          <p class="chat__user"><span class="chat__who">You</span>{{ ai.prompt }}</p>
+          <div class="chat__plan">
+            <p class="chat__plan-head"><ui-icon name="sparkle" [size]="14" /> Plan · {{ ai.plan.length }} steps · <span class="site-pill site-pill--warning">review</span></p>
+            <ol class="chat__steps" siteReveal revealStagger="li" revealDelay="200">
+              @for (step of ai.plan; track step.label) {
+                <li><span class="chat__step-label">{{ step.label }}</span><span class="chat__step-detail">{{ step.detail }}</span></li>
+              }
+            </ol>
+            <p class="chat__foot">Affects 128 entities on 1 layer. Applied plans can be undone with <kbd class="site-kbd">Ctrl+Z</kbd>.</p>
+          </div>
+        </div>
+      </div>
+      <ol class="pipe" aria-label="How a request is processed">
+        <li>Parse</li><li>Validate</li><li>Classify risk</li><li>Preview</li><li>Commit</li><li>Undo</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── Cloud & versions ─────────────────────────────────────── -->
+  <section class="site-section site-band" aria-labelledby="cloud-title">
+    <div class="site-container cloud">
+      <figure class="cloud__figure site-panel" siteReveal="left">
+        <svg class="cloud__svg" viewBox="0 0 520 220" role="img" aria-label="A version rail: saves 12, 13 and 14, with a conflict at save 14 offering Overwrite, Save as copy or Reload" focusable="false">
+          <line class="cloud__rail" x1="40" y1="70" x2="480" y2="70" />
+          <g class="cloud__v" transform="translate(80 70)"><circle r="12" /><text y="-24" text-anchor="middle">v12</text><text class="cloud__meta" y="40" text-anchor="middle">Mon 09:14</text></g>
+          <g class="cloud__v" transform="translate(220 70)"><circle r="12" /><text y="-24" text-anchor="middle">v13</text><text class="cloud__meta" y="40" text-anchor="middle">Mon 11:02 · autosave</text></g>
+          <g class="cloud__v cloud__v--conflict" transform="translate(360 70)"><circle r="12" /><text y="-24" text-anchor="middle">v14</text><text class="cloud__meta" y="40" text-anchor="middle">two saves, one version</text></g>
+          <path class="cloud__branch" d="M372 82 L458 150 M360 82 L360 150 M348 82 L262 150" />
+          <g class="cloud__choice" transform="translate(262 168)"><rect x="-42" y="-12" width="84" height="24" rx="6" /><text text-anchor="middle" y="4">Reload</text></g>
+          <g class="cloud__choice cloud__choice--primary" transform="translate(360 168)"><rect x="-52" y="-12" width="104" height="24" rx="6" /><text text-anchor="middle" y="4">Save as copy</text></g>
+          <g class="cloud__choice" transform="translate(458 168)"><rect x="-42" y="-12" width="84" height="24" rx="6" /><text text-anchor="middle" y="4">Overwrite</text></g>
+        </svg>
+        <figcaption>Every save is a version. Two people saving at once get a choice, not a silent overwrite.</figcaption>
+      </figure>
+      <div class="cloud__copy" siteReveal="right">
+        <site-heading
+          eyebrow="Cloud drawings"
+          title="Never lose a line. Never lose an argument about which file is current."
+          lede="Drawings save to your account with Ctrl+S, and every 30 seconds unsaved work is snapshotted in the browser in case the tab dies. Offline, the save is kept locally and goes through the next time you press Save with a connection."
+          id="cloud-title"
+        />
+        <dl class="cloud__dl">
+          <div><dt>Version history</dt><dd>Every save is kept and can be restored from the dashboard.</dd></div>
+          <div><dt>Conflict detection</dt><dd>A save against a stale version is refused with Overwrite, Save as copy or Reload.</dd></div>
+          <div><dt>Folders, trash, search</dt><dd>A file manager for drawings: My Drawings with folders, Recent, Shared with me, Trash.</dd></div>
+          <div><dt>Organizations</dt><dd>Owner, admin, member and viewer roles; shared folders; view or edit links you can email.</dd></div>
+        </dl>
+        <a class="site-link" routerLink="/docs" fragment="cloud">How saving works <ui-icon name="chevron-right" [size]="14" /></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Who it is for ────────────────────────────────────────── -->
+  <section class="site-section" aria-labelledby="who-title">
+    <div class="site-container">
+      <site-heading eyebrow="Who it is for" title="Built for people who still draw in 2D, and mean it." lede="Swipe through. Each one has its own page with the workflow spelled out." id="who-title" />
+    </div>
+    <div class="who" siteReveal revealStagger=".who__card">
+      @for (a of audiences; track a.id) {
+        <a class="who__card site-panel" routerLink="/use-cases" [fragment]="a.id">
+          <span class="who__icon"><ui-icon [name]="a.icon" [size]="18" /></span>
+          <span class="who__label">{{ a.label }}</span>
+          <span class="who__headline">{{ a.headline }}</span>
+          <ul class="who__points">
+            @for (p of a.points; track p) { <li>{{ p }}</li> }
+          </ul>
+          <span class="who__more">Read the use case <ui-icon name="chevron-right" [size]="14" /></span>
+        </a>
+      }
+    </div>
+  </section>
+
+  <!-- ── Pricing teaser ──────────────────────────────────────── -->
+  <section class="site-section site-band" aria-labelledby="price-title">
+    <div class="site-container">
+      <site-heading eyebrow="Pricing" title="Free for occasional drawings. Paid when it earns its keep." lede="Prices shown per user per month, billed annually. The full toolset and DXF export are on every plan, including Free." align="center" id="price-title" />
+      <div class="teaser" siteReveal revealStagger=".teaser__tier">
+        @for (tier of tiers; track tier.id) {
+          <a class="teaser__tier site-panel" [class.teaser__tier--featured]="tier.featured" routerLink="/pricing">
+            <span class="teaser__name">{{ tier.name }} @if (tier.featured) { <span class="site-pill">Most popular</span> }</span>
+            <span class="teaser__price">{{ currency }}{{ priceOf(tier) }}<small>{{ priceOf(tier) ? '/mo' : ' forever' }}</small></span>
+            <span class="teaser__tag">{{ tier.tagline }}</span>
+            <span class="teaser__top">{{ tier.highlights[1] }} · {{ tier.highlights[2] }}</span>
+          </a>
         }
       </div>
-    </section>
+      <p class="teaser__more"><a class="site-link" routerLink="/pricing">Compare every plan line by line <ui-icon name="chevron-right" [size]="14" /></a></p>
+    </div>
+  </section>
 
-    <section class="close" uiReveal aria-labelledby="close-title">
-      <h2 class="close__title" id="close-title">Open a drawing in the next ten seconds.</h2>
-      <p class="close__sub">No install, no licence server. It runs in the tab you already have open.</p>
-      <div class="close__cta">
-        @if (!auth.enabled()) {
-        <a uiButton variant="primary" size="lg" routerLink="/editor">Open editor</a>
-        } @else if (!auth.isLoaded()) {
-        <ui-skeleton width="150px" height="42px" radius="var(--ui-radius-lg)" />
-        } @else if (auth.isSignedIn()) {
-        <a uiButton variant="primary" size="lg" routerLink="/dashboard">Go to dashboard</a>
-        } @else {
-        <a uiButton variant="primary" size="lg" routerLink="/sign-up">Create a free account</a>
-        <a uiButton size="lg" variant="ghost" routerLink="/features">See what it does</a>
-        }
-      </div>
-    </section>
-  </main>
-
-  <footer class="landing__footer">
-    <span>&copy; {{ year }} {{ appName }}</span>
-    <span class="landing__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/features">Features</a>
-    <span class="landing__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/pricing">Pricing</a>
-    <span class="landing__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/whats-new">What's New</a>
-    <span class="landing__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/terms">Terms</a>
-    <span class="landing__footer-sep" aria-hidden="true">·</span>
-    <a routerLink="/privacy">Privacy</a>
-  </footer>
+  <site-closing title="Open a drawing in the next ten seconds." sub="No install, no licence server, no conversion step. Sign up, drop a DXF on the dashboard, and it is on your screen as it was drawn." secondaryLabel="Read the docs" secondaryLink="/docs" />
 </div>
