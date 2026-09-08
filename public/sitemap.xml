@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Replace YOUR-DOMAIN below once the production domain is known. The editor
-     itself (/editor, /editor/:id) is intentionally excluded — those are
-     per-drawing/per-session routes, not stable pages worth indexing. -->
+     itself (/editor, /editor/:id), the dashboard and the auth pages are
+     intentionally excluded: they are per-session routes, not pages worth indexing. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://YOUR-DOMAIN/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://YOUR-DOMAIN/features</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
+  <url><loc>https://YOUR-DOMAIN/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://YOUR-DOMAIN/product</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://YOUR-DOMAIN/features</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://YOUR-DOMAIN/use-cases</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://YOUR-DOMAIN/pricing</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://YOUR-DOMAIN/docs</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://YOUR-DOMAIN/about</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://YOUR-DOMAIN/contact</loc><changefreq>yearly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://YOUR-DOMAIN/whats-new</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
 </urlset>
