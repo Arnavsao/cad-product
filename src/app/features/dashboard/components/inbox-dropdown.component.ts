@@ -1,8 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { Router } from '@angular/router';
 import { InboxItemDto } from '../../../core/api/api.models';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
-import { UiEmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { UiIconComponent, type UiIconName } from '../../../shared/ui/icon.component';
 import { RelativeTimePipe } from '../../../shared/ui/pipes/relative-time.pipe';
 import { UiSkeletonComponent } from '../../../shared/ui/skeleton.component';
@@ -29,19 +28,23 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
  *    scrolling past something is not the same as reading it.
  */
 @Component({
-  selector: 'app-inbox-page',
+  selector: 'app-inbox-dropdown',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiEmptyStateComponent, UiIconComponent, UiSkeletonComponent, RelativeTimePipe],
+  imports: [UiButtonDirective, UiIconComponent, UiSkeletonComponent, RelativeTimePipe],
   template: `
     <header class="pg__head">
-      <h1 class="pg__title">Notifications</h1>
-      @if (inbox.hasUnread()) {
-        <button type="button" uiButton variant="secondary" size="sm" (click)="inbox.markAllRead()">
-          <ui-icon name="check" [size]="14" />
-          Mark all read
+      <h3 class="pg__title">Notifications</h3>
+      <div class="pg__head-actions">
+        @if (inbox.hasUnread()) {
+          <button type="button" uiButton variant="ghost" size="sm" class="mark-read-btn" (click)="inbox.markAllRead()" title="Mark all read">
+            <ui-icon name="check" [size]="14" />
+          </button>
+        }
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly (click)="close.emit()" title="Close">
+          <ui-icon name="close" [size]="16" />
         </button>
-      }
+      </div>
     </header>
 
     @if (inbox.loading()) {
@@ -56,11 +59,10 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
         <button type="button" uiButton (click)="inbox.load()"><ui-icon name="refresh" [size]="14" /> Retry</button>
       </div>
     } @else if (inbox.isEmpty()) {
-      <ui-empty-state
-        icon="bell"
-        heading="Nothing to catch up on"
-        description="Imports, storage warnings and account updates will show up here."
-      />
+      <div class="in__empty">
+        <p class="in__empty-title">No Notifications</p>
+        <p class="in__empty-desc">Helpful information about the product and your account will appear here.</p>
+      </div>
     } @else {
       <ul class="in__list">
         @for (item of inbox.items(); track item.id) {
@@ -100,9 +102,24 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
   `,
   styles: [
     `
-      :host { display: block; }
-      .pg__head { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-4); margin-bottom: var(--ui-space-5); flex-wrap: wrap; }
-      .pg__title { margin: 0; font-size: var(--ui-text-xl); font-weight: 600; letter-spacing: -.01em; color: var(--ui-text-strong); }
+      :host { 
+        display: flex; flex-direction: column; 
+        width: 320px; max-height: 400px;
+        background: var(--ui-surface);
+        border: 1px solid var(--ui-border);
+        border-radius: var(--ui-radius-lg);
+        box-shadow: var(--ui-shadow-panel);
+        overflow-y: auto;
+      }
+      .pg__head { 
+        display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-2); 
+        padding: 12px 16px; border-bottom: 1px solid var(--ui-border);
+        position: sticky; top: 0; background: var(--ui-surface); z-index: 2;
+      }
+      .pg__title { margin: 0; font-size: var(--ui-text-lg); font-weight: 600; letter-spacing: -.01em; color: var(--ui-text-strong); }
+      .pg__head-actions { display: flex; align-items: center; gap: 4px; }
+      .mark-read-btn { color: var(--ui-text-dim); }
+      .mark-read-btn:hover { color: var(--ui-text-strong); }
 
       .pg__error {
         display: flex; align-items: center; gap: var(--ui-space-3);
@@ -114,9 +131,12 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
       .pg__error-title { margin: 0; font-size: var(--ui-text-md); font-weight: 600; color: var(--ui-text-strong); }
       .pg__error-msg { margin: 2px 0 0; font-size: var(--ui-text-sm); color: var(--ui-text-dim); }
 
+      .in__empty { padding: 24px 16px; text-align: left; }
+      .in__empty-title { margin: 0; font-size: var(--ui-text-md); font-weight: 600; color: var(--ui-text-strong); }
+      .in__empty-desc { margin: 4px 0 0; font-size: var(--ui-text-sm); color: var(--ui-text-dim); line-height: var(--ui-leading); }
+
       .in__list {
         list-style: none; margin: 0; padding: 0;
-        border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); overflow: hidden;
       }
       .in__row {
         display: flex; align-items: flex-start; gap: var(--ui-space-3);
@@ -153,7 +173,9 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
     `,
   ],
 })
-export class InboxPage {
+export class InboxDropdownComponent {
+  readonly close = output<void>();
+
   protected readonly inbox = inject(InboxService);
   private readonly router = inject(Router);
 

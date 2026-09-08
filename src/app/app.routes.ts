@@ -85,8 +85,6 @@ export const routes: Routes = [
         loadComponent: () => import('./features/dashboard/pages/drawings.page').then((m) => m.DrawingsPage) },
       { path: 'trash', title: 'Trash · CADO',
         loadComponent: () => import('./features/dashboard/pages/trash.page').then((m) => m.TrashPage) },
-      { path: 'inbox', title: 'Notifications · CADO',
-        loadComponent: () => import('./features/dashboard/pages/inbox.page').then((m) => m.InboxPage) },
       { path: 'feedback', title: 'Provide Feedback · CADO',
         loadComponent: () => import('./features/dashboard/pages/feedback.page').then((m) => m.FeedbackPage) },
       // `profile`, not `account`: /dashboard/settings/account is the Settings account pane.

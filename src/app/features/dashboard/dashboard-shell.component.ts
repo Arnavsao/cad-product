@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { OverlayModule } from '@angular/cdk/overlay';
 import { filter, map, startWith } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { MeService } from '../../core/api/me.service';
@@ -21,6 +22,7 @@ import { WorkspaceSwitcherComponent } from './components/workspace-switcher.comp
 import { UploadDropzoneDirective } from './components/upload-dropzone.directive';
 import { DashboardEventsService } from './data/dashboard-events.service';
 import { InboxService } from './data/inbox.service';
+import { InboxDropdownComponent } from './components/inbox-dropdown.component';
 import { UPLOAD_ACCEPT, UploadService } from './data/upload.service';
 import { FolderDto } from '../../core/api/api.models';
 
@@ -32,7 +34,6 @@ type DashboardSection =
   | 'trash'
   | 'settings'
   | 'feedback'
-  | 'inbox'
   | 'profile'
   | 'organization';
 
@@ -94,6 +95,8 @@ const HELP_MENU: UiMenuItem[] = [
     NewDrawingMenuComponent,
     UploadDropzoneDirective,
     WorkspaceSwitcherComponent,
+    OverlayModule,
+    InboxDropdownComponent,
   ],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
@@ -145,7 +148,6 @@ export class DashboardShellComponent {
     if (url.startsWith('/dashboard/trash')) return 'trash';
     if (url.startsWith('/dashboard/settings')) return 'settings';
     if (url.startsWith('/dashboard/feedback')) return 'feedback';
-    if (url.startsWith('/dashboard/inbox')) return 'inbox';
     if (url.startsWith('/dashboard/profile')) return 'profile';
     if (url.startsWith('/dashboard/organization')) return 'organization';
     if (url.startsWith('/dashboard/drawings') || url.startsWith('/dashboard/folders')) return 'drawings';
@@ -184,6 +186,7 @@ export class DashboardShellComponent {
   /** True once `/me` failed, so the footer stops pretending to load. */
   protected readonly usageUnavailable = signal(false);
   protected readonly creatingFolder = signal(false);
+  protected readonly inboxOpen = signal(false);
 
   /** Last value this component pushed into the URL, so echoes do not fight typing. */
   private pushedQuery = '';

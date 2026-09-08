@@ -18,14 +18,27 @@
         <ui-icon name="help" [size]="20" />
       </button>
 
-      <a uiButton variant="ghost" size="sm" iconOnly class="dash__action dash__bell" routerLink="/dashboard/inbox"
+      <button type="button" uiButton variant="ghost" size="sm" iconOnly class="dash__action dash__bell"
+        cdkOverlayOrigin #bellTrigger="cdkOverlayOrigin" (click)="inboxOpen.set(!inboxOpen())"
         [title]="bellTitle()" [attr.aria-label]="bellTitle()"
-        [attr.aria-current]="section() === 'inbox' ? 'page' : null">
+        [attr.aria-expanded]="inboxOpen()">
         <ui-icon name="bell" [size]="20" />
         @if (inbox.hasUnread()) {
         <span class="dash__badge" aria-hidden="true">{{ badgeLabel() }}</span>
         }
-      </a>
+      </button>
+
+      <ng-template
+        cdkConnectedOverlay
+        [cdkConnectedOverlayOrigin]="bellTrigger"
+        [cdkConnectedOverlayOpen]="inboxOpen()"
+        (overlayOutsideClick)="inboxOpen.set(false)"
+        [cdkConnectedOverlayPositions]="[{originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 8}]"
+        cdkConnectedOverlayHasBackdrop
+        cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+      >
+        <app-inbox-dropdown (close)="inboxOpen.set(false)" />
+      </ng-template>
 
       <app-account-button />
     </div>

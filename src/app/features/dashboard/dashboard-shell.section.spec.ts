@@ -77,7 +77,6 @@ describe('DashboardShellComponent section()', () => {
     expect(sectionAt('/dashboard/trash')).toBe('trash');
     expect(sectionAt('/dashboard/settings')).toBe('settings');
     expect(sectionAt('/dashboard/feedback')).toBe('feedback');
-    expect(sectionAt('/dashboard/inbox')).toBe('inbox');
     expect(sectionAt('/dashboard/profile')).toBe('profile');
   });
 
@@ -89,7 +88,7 @@ describe('DashboardShellComponent section()', () => {
 
   it('keeps query strings from breaking the match', () => {
     expect(sectionAt('/dashboard/drawings?q=plan')).toBe('drawings');
-    expect(sectionAt('/dashboard/inbox?x=1')).toBe('inbox');
+    expect(sectionAt('/dashboard/trash?x=1')).toBe('trash');
   });
 
   it('keeps "Shared with me" off the My Drawings entry', () => {
