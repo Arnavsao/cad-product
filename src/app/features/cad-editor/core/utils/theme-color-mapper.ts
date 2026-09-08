@@ -55,10 +55,43 @@ export interface ICanvasBrightnessHint {
   isPrintMode?: boolean;
 }
 
+/**
+ * Brightness of the surface currently being painted, when it differs from the
+ * theme ground. A layout tab paints onto a white paper sheet whatever the
+ * theme, so the paper-space renderer sets this to `'light'` for the duration
+ * of its draw and clears it afterwards. `null` = follow the theme.
+ */
+let _paintSurface: CanvasBrightness | null = null;
+
+/** Override the brightness colours are mapped against. Pass `null` to follow the theme again. */
+export function setPaintSurface(brightness: CanvasBrightness | null): void {
+  _paintSurface = brightness;
+}
+
+/** The active paint-surface override, or `null` when following the theme. */
+export function getPaintSurface(): CanvasBrightness | null {
+  return _paintSurface;
+}
+
+/**
+ * Run `fn` with the paint surface forced to `brightness`, restoring the
+ * previous override afterwards (also on throw). Nested calls are safe.
+ */
+export function withPaintSurface<T>(brightness: CanvasBrightness | null, fn: () => T): T {
+  const prev = _paintSurface;
+  _paintSurface = brightness;
+  try {
+    return fn();
+  } finally {
+    _paintSurface = prev;
+  }
+}
+
 /** Resolve the effective EDITOR canvas brightness. Exporters should not
  *  read this — they have their own bg semantics in IPlotOptions. */
 export function canvasIsLight(doc?: ICanvasBrightnessHint | null): boolean {
   if (doc?.isPrintMode) return true;
+  if (_paintSurface) return _paintSurface === 'light';
   return isLightTheme();
 }
 

@@ -194,8 +194,12 @@ export class SnappingService {
       const effScale = Math.max(fileVm.cumulativeScale, 1e-6);
       const localTol = this.tolerance / effScale;
 
+      const snapPaper = this.doc.activeSpace() === 'paper';
       for (const ent of file.entities) {
         if (!ent.visible) continue;
+        // Model entities are not snap targets on the sheet, nor paper entities
+        // while editing the model through a viewport (different coordinate systems).
+        if (!!ent.inPaperSpace !== snapPaper || (snapPaper && ent.type === 'VIEWPORT')) continue;
         const lay = file.layers.get(ent.layer);
         if (lay && (lay.frozen || !lay.visible || lay.locked)) continue;
 
@@ -308,8 +312,10 @@ export class SnappingService {
         };
       };
 
+      const snapPaper = this.doc.activeSpace() === 'paper';
       for (const ent of file.entities) {
         if (!ent.visible) continue;
+        if (!!ent.inPaperSpace !== snapPaper || (snapPaper && ent.type === 'VIEWPORT')) continue;
         if (candidateIds && !candidateIds.has(ent.id)) continue;
         const lay = file.layers.get(ent.layer);
         if (lay && (lay.frozen || !lay.visible || lay.locked)) continue;

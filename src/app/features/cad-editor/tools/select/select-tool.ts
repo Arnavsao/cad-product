@@ -9,6 +9,21 @@ import { SpatialIndexService } from '../../core/services/spatial-index.service';
 interface HitResult { entity: Entity; dist: number; }
 
 /**
+ * Whether an entity can be picked in the current workspace. On the Model tab
+ * only model entities are pickable; on a layout tab only paper-space entities
+ * are (the model is seen through viewports, in a different coordinate system,
+ * so a hit on it with the main view would highlight it at paper-mm coordinates
+ * — the "drawing under the sheet" ghost). VIEWPORT records are managed as
+ * layout viewports, never as bare entities.
+ */
+export function isPickableInActiveSpace(doc: DocumentService, ent: Entity): boolean {
+  const paper = doc.activeSpace() === 'paper';
+  if (!!ent.inPaperSpace !== paper) return false;
+  if (paper && ent.type === 'VIEWPORT') return false;
+  return true;
+}
+
+/**
  * Pick the single closest entity under the cursor within the configured pickbox radius.
  * If multiple entities are hit (e.g. they overlap), it prefers text/blocks
  * (as geometry proxy) so the nearest geometry within the pickbox wins —
@@ -49,7 +64,7 @@ export function hitTestAll(doc: DocumentService, vm: ViewModelService, sx: numbe
     }
 
     for (const ent of candidateEntities) {
-      if (!ent.visible) continue;
+      if (!ent.visible || !isPickableInActiveSpace(doc, ent)) continue;
       const lay = file.layers.get(ent.layer);
       if (lay && (lay.frozen || !lay.visible || lay.locked)) continue;
       if (!ent.hitTest(sx, sy, fileVm, tol)) continue;
@@ -136,7 +151,7 @@ export function hitTestAllList(
     }
 
     for (const ent of candidateEntities) {
-      if (!ent.visible) continue;
+      if (!ent.visible || !isPickableInActiveSpace(doc, ent)) continue;
       const lay = file.layers.get(ent.layer);
       if (lay && (lay.frozen || !lay.visible || lay.locked)) continue;
       if (ent.hitTest(sx, sy, fileVm, tol)) hits.push(ent);
@@ -340,7 +355,7 @@ export class SelectTool implements ITool {
       }
 
       for (const ent of candidateEntities) {
-        if (!ent.visible) continue;
+        if (!ent.visible || !isPickableInActiveSpace(this.doc, ent)) continue;
         const lay = file.layers.get(ent.layer);
         if (lay && (lay.frozen || !lay.visible || lay.locked)) continue;
 

@@ -85,23 +85,80 @@ export class PaperViewport {
   readonly id: string;
   name: string;
 
+  // Backing fields, used when the viewport was created in the editor. A
+  // viewport adopted from a DXF VIEWPORT entity reads and writes the entity
+  // instead (see `sourceEntity`), so the drawing round-trips through export
+  // without a separate sync step.
+  private _x = 0;
+  private _y = 0;
+  private _w = 0;
+  private _h = 0;
+  private _camCenterX = 0;
+  private _camCenterY = 0;
+  private _camScale = 1;
+
   // ── Paper placement (mm from sheet lower-left origin) ──
-  x: number;   // left edge
-  y: number;   // bottom edge
-  w: number;   // width
-  h: number;   // height
+
+  /** Left edge. */
+  get x(): number { const s = this.sourceEntity; return s ? s.cx - s.w / 2 : this._x; }
+  set x(v: number) { const s = this.sourceEntity; if (s) s.cx = v + s.w / 2; else this._x = v; }
+
+  /** Bottom edge. */
+  get y(): number { const s = this.sourceEntity; return s ? s.cy - s.h / 2 : this._y; }
+  set y(v: number) { const s = this.sourceEntity; if (s) s.cy = v + s.h / 2; else this._y = v; }
+
+  /** Width. Changing it keeps the left edge in place. */
+  get w(): number { return this.sourceEntity ? this.sourceEntity.w : this._w; }
+  set w(v: number) {
+    const s = this.sourceEntity;
+    if (s) { const left = s.cx - s.w / 2; s.w = v; s.cx = left + v / 2; }
+    else this._w = v;
+  }
+
+  /** Height. Changing it keeps the bottom edge and the viewport scale in place. */
+  get h(): number { return this.sourceEntity ? this.sourceEntity.h : this._h; }
+  set h(v: number) {
+    const s = this.sourceEntity;
+    if (s) {
+      const bottom = s.cy - s.h / 2;
+      const scale = this.camScale;
+      s.h = v;
+      s.cy = bottom + v / 2;
+      s.viewHeight = scale * v;
+    } else this._h = v;
+  }
 
   // ── Model-space camera ──
+
   /** World-space X of the model point shown at viewport centre. */
-  camCenterX = 0;
+  get camCenterX(): number { return this.sourceEntity ? this.sourceEntity.viewCenter.x : this._camCenterX; }
+  set camCenterX(v: number) {
+    const s = this.sourceEntity;
+    if (s) s.viewCenter = { ...s.viewCenter, x: v }; else this._camCenterX = v;
+  }
+
   /** World-space Y of the model point shown at viewport centre. */
-  camCenterY = 0;
+  get camCenterY(): number { return this.sourceEntity ? this.sourceEntity.viewCenter.y : this._camCenterY; }
+  set camCenterY(v: number) {
+    const s = this.sourceEntity;
+    if (s) s.viewCenter = { ...s.viewCenter, y: v }; else this._camCenterY = v;
+  }
+
   /**
    * World-units per paper-mm.
    * e.g. 1:100 → camScale = 100  (100 world-units = 1 mm on paper)
    * e.g. 1:1   → camScale = 1
+   * On an adopted viewport this is the DXF view height over the paper height.
    */
-  camScale = 1;
+  get camScale(): number {
+    const s = this.sourceEntity;
+    if (!s) return this._camScale;
+    return s.viewHeight > 0 && s.h > 0 ? s.viewHeight / s.h : 1;
+  }
+  set camScale(v: number) {
+    const s = this.sourceEntity;
+    if (s) s.viewHeight = v * s.h; else this._camScale = v;
+  }
 
   /** Named scale preset label ('1:100', '1:50', …) or null when freely zoomed. */
   scalePreset: string | null = null;
@@ -116,6 +173,13 @@ export class PaperViewport {
    * Layers not in this map follow the global layer visible/frozen setting.
    */
   layerOverrides: Map<string, boolean> = new Map();
+
+  /**
+   * The paper-space VIEWPORT entity this viewport was adopted from (DXF
+   * import), or null for viewports created in the editor. Camera changes are
+   * mirrored back onto it so the drawing round-trips through DXF export.
+   */
+  sourceEntity: IViewportEntityLike | null = null;
 
   constructor(x: number, y: number, w: number, h: number) {
     this.id   = generatePaperViewportId();
@@ -155,6 +219,41 @@ export class PaperViewport {
     c.layerOverrides = new Map(this.layerOverrides);
     return c;
   }
+}
+
+/** The subset of `ViewportEntity` a layout needs to adopt it as a PaperViewport. */
+export interface IViewportEntityLike {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+  viewCenter: { x: number; y: number };
+  viewHeight: number;
+  /** DXF group 69. `1` is the paper-space view itself, never a window onto the model. */
+  dxfViewportId?: number;
+  /** DXF group 68. `<= 0` means the viewport is switched off. */
+  dxfStatus?: number;
+}
+
+/**
+ * Build a PaperViewport from a paper-space VIEWPORT entity, or null when the
+ * entity is not a drawable window: the paper view (id 1), a switched-off
+ * viewport, or a degenerate rectangle.
+ *
+ * DXF stores the centre + size on paper and the model view as centre + height
+ * in model units; `camScale` is world-units per paper-mm, so it is simply
+ * viewHeight / h.
+ */
+export function paperViewportFromEntity(e: IViewportEntityLike): PaperViewport | null {
+  if (e.dxfViewportId === 1) return null;
+  if (e.dxfStatus !== undefined && e.dxfStatus <= 0) return null;
+  if (!(e.w > 0) || !(e.h > 0)) return null;
+  const vp = new PaperViewport(e.cx - e.w / 2, e.cy - e.h / 2, e.w, e.h);
+  vp.camCenterX = e.viewCenter?.x ?? 0;
+  vp.camCenterY = e.viewCenter?.y ?? 0;
+  vp.camScale   = e.viewHeight > 0 ? e.viewHeight / e.h : 1;
+  vp.sourceEntity = e;
+  return vp;
 }
 
 // ─── Standard viewport scale presets ─────────────────────────────────────────
@@ -209,6 +308,19 @@ export class Layout {
   /** Id of the viewport currently active for MSPACE editing. null = PSPACE mode. */
   activeMspaceViewportId: string | null = null;
 
+  /**
+   * Last main-canvas view (pan/zoom) used on this tab. AutoCAD keeps an
+   * independent view per layout tab, so switching tabs never disturbs the
+   * zoom of another tab. null = never shown yet → zoom to the paper sheet.
+   */
+  savedView: { scale: number; panX: number; panY: number } | null = null;
+
+  /**
+   * true once the layout has been shown for the first time. AutoCAD creates
+   * the default viewport on a layout's first activation, not at creation.
+   */
+  initialized = false;
+
   constructor(name: string, order: number, isModel = false) {
     this.id      = isModel ? '__MODEL__' : generateLayoutId();
     this.name    = name;
@@ -235,6 +347,7 @@ export class Layout {
     };
     c.entities  = this.entities.map((e: any) => e.clone());
     c.viewports = this.viewports.map((vp) => vp.clone());
+    c.initialized = this.initialized;
     return c;
   }
 }

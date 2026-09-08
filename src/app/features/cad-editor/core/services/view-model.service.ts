@@ -12,6 +12,44 @@ export interface IProxyVm {
   s2w(sx: number, sy: number): IPoint2;
 }
 
+/** A layout viewport's paper rectangle (mm) and model camera — `PaperViewport` satisfies it. */
+export interface IMspaceCamera {
+  x: number; y: number; w: number; h: number;
+  camCenterX: number; camCenterY: number;
+  /** World units per paper mm. */
+  camScale: number;
+}
+
+export interface IViewTransform { scale: number; panX: number; panY: number; }
+
+/**
+ * Compose the screen transform that shows the model through a layout viewport.
+ *
+ * On a layout tab the base view is the paper zoom (px per mm) and pan. The
+ * viewport's centre on paper maps to a screen point through that base view;
+ * the model point `camCenter` must land there at `pxPerMm / camScale` px per
+ * world unit. Returned in the same {scale, panX, panY} form `w2s()` uses, so
+ * every consumer of the view model works unchanged inside MSPACE.
+ */
+export function composeViewportCamera(
+  base: IViewTransform,
+  vpCenterX: number,
+  vpCenterY: number,
+  vp: IMspaceCamera,
+): IViewTransform {
+  const pxPerMm = base.scale;
+  const scale = pxPerMm / Math.max(vp.camScale, 1e-9);
+  const cxMm = vp.x + vp.w / 2;
+  const cyMm = vp.y + vp.h / 2;
+  const sx =  cxMm * pxPerMm + base.panX + vpCenterX;
+  const sy = -cyMm * pxPerMm + base.panY + vpCenterY;
+  return {
+    scale,
+    panX: sx - vp.camCenterX * scale - vpCenterX,
+    panY: sy + vp.camCenterY * scale - vpCenterY,
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class ViewModelService {
   private injector = inject(Injector);
@@ -22,14 +60,104 @@ export class ViewModelService {
   readonly cursorX = signal('0.000');
   readonly cursorY = signal('0.000');
 
-  get scale(): number { return this.docManager.activeDocument?.vmState.scale ?? 1; }
-  set scale(v: number) { if (this.docManager.activeDocument) this.docManager.activeDocument.vmState.scale = v; }
+  // ── Base view: the document's own pan/zoom (model view, or paper zoom on a layout) ──
 
-  get panX(): number { return this.docManager.activeDocument?.vmState.panX ?? 0; }
-  set panX(v: number) { if (this.docManager.activeDocument) this.docManager.activeDocument.vmState.panX = v; }
+  get baseScale(): number { return this.docManager.activeDocument?.vmState.scale ?? 1; }
+  set baseScale(v: number) { if (this.docManager.activeDocument) this.docManager.activeDocument.vmState.scale = v; }
 
-  get panY(): number { return this.docManager.activeDocument?.vmState.panY ?? 0; }
-  set panY(v: number) { if (this.docManager.activeDocument) this.docManager.activeDocument.vmState.panY = v; }
+  get basePanX(): number { return this.docManager.activeDocument?.vmState.panX ?? 0; }
+  set basePanX(v: number) { if (this.docManager.activeDocument) this.docManager.activeDocument.vmState.panX = v; }
+
+  get basePanY(): number { return this.docManager.activeDocument?.vmState.panY ?? 0; }
+  set basePanY(v: number) { if (this.docManager.activeDocument) this.docManager.activeDocument.vmState.panY = v; }
+
+  // ── MSPACE camera ─────────────────────────────────────────────────────────
+  // While the user edits the model through a layout viewport (AutoCAD MSPACE),
+  // the effective view is the viewport camera composed onto the paper zoom.
+  // `scale`, `panX`, `panY`, `w2s` and `s2w` all reflect that composite, so
+  // tools, snapping, grips and hit-testing work through the viewport with no
+  // knowledge of layouts. Writes to scale/pan in this mode move the viewport
+  // camera instead of the paper. `LayoutManagerService` installs the source.
+
+  private _mspaceSource: (() => IMspaceCamera | null) | null = null;
+
+  setMspaceCameraSource(source: (() => IMspaceCamera | null) | null): void {
+    this._mspaceSource = source;
+  }
+
+  /** The viewport whose camera is currently composed onto the view, or null. */
+  get mspaceCamera(): IMspaceCamera | null {
+    return this._mspaceSource?.() ?? null;
+  }
+
+  private composed(vp: IMspaceCamera): IViewTransform {
+    return composeViewportCamera(
+      { scale: this.baseScale, panX: this.basePanX, panY: this.basePanY },
+      this.vpCenterX, this.vpCenterY, vp,
+    );
+  }
+
+  private cameraChanged(): void {
+    this.dirty = true;
+    this.viewEpoch.update((v) => v + 1);
+  }
+
+  get scale(): number {
+    const vp = this.mspaceCamera;
+    return vp ? this.composed(vp).scale : this.baseScale;
+  }
+  set scale(v: number) {
+    const vp = this.mspaceCamera;
+    if (vp) {
+      // composite scale = pxPerMm / camScale
+      vp.camScale = Math.max(1e-6, Math.min(1e7, this.baseScale / Math.max(v, 1e-12)));
+      this.cameraChanged();
+      return;
+    }
+    this.baseScale = v;
+  }
+
+  get panX(): number {
+    const vp = this.mspaceCamera;
+    return vp ? this.composed(vp).panX : this.basePanX;
+  }
+  set panX(v: number) {
+    const vp = this.mspaceCamera;
+    if (vp) {
+      const c = this.composed(vp);
+      // Shifting the content right by d px means the model point at the
+      // viewport centre moves left by d / scale world units.
+      vp.camCenterX -= (v - c.panX) / c.scale;
+      this.cameraChanged();
+      return;
+    }
+    this.basePanX = v;
+  }
+
+  get panY(): number {
+    const vp = this.mspaceCamera;
+    return vp ? this.composed(vp).panY : this.basePanY;
+  }
+  set panY(v: number) {
+    const vp = this.mspaceCamera;
+    if (vp) {
+      const c = this.composed(vp);
+      vp.camCenterY += (v - c.panY) / c.scale;
+      this.cameraChanged();
+      return;
+    }
+    this.basePanY = v;
+  }
+
+  /** World → screen through the base view only (ignores any MSPACE camera). */
+  baseW2s(wx: number, wy: number): IPoint2 {
+    return { x: wx * this.baseScale + this.basePanX + this.vpCenterX, y: -wy * this.baseScale + this.basePanY + this.vpCenterY };
+  }
+
+  /** Screen → world through the base view only (ignores any MSPACE camera). */
+  baseS2w(sx: number, sy: number): IPoint2 {
+    return { x: (sx - this.basePanX - this.vpCenterX) / this.baseScale, y: -(sy - this.basePanY - this.vpCenterY) / this.baseScale };
+  }
 
   get lastCursorWorld(): IPoint2 { return this.docManager.activeDocument?.vmState.lastCursorWorld ?? { x: 0, y: 0 }; }
   set lastCursorWorld(v: IPoint2) { if (this.docManager.activeDocument) this.docManager.activeDocument.vmState.lastCursorWorld = v; }

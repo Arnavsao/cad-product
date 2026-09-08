@@ -151,7 +151,9 @@ export class ExportService {
 
       case 'VIEWPORT': {
         const vp = e as any;
-        s = `${header('VIEWPORT')}10\n${vp.cx}\n20\n${vp.cy}\n30\n0.0\n40\n${vp.width}\n41\n${vp.height}\n68\n1\n69\n1\n12\n${vp.viewCenterX}\n22\n${vp.viewCenterY}\n45\n${vp.viewHeight}\n`;
+        const status = typeof vp.dxfStatus === 'number' ? vp.dxfStatus : 1;
+        const vpId   = typeof vp.dxfViewportId === 'number' ? vp.dxfViewportId : 2;
+        s = `${header('VIEWPORT')}10\n${vp.cx}\n20\n${vp.cy}\n30\n0.0\n40\n${vp.w}\n41\n${vp.h}\n68\n${status}\n69\n${vpId}\n12\n${vp.viewCenter?.x ?? 0}\n22\n${vp.viewCenter?.y ?? 0}\n45\n${vp.viewHeight}\n`;
         break;
       }
 

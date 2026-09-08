@@ -275,6 +275,9 @@ export class DocumentService {
     for (const e of sortedEntities) {
       if (!e.visible || !e.inPaperSpace) continue;
       if ((e as any).layoutId && (e as any).layoutId !== layout.id) continue;
+      // VIEWPORT entities are adopted into layout.viewports and drawn (with the
+      // model seen through them) by PaperSpaceRendererService, not as a bare frame.
+      if (e.type === 'VIEWPORT') continue;
       
       if (this.vm.previewHiddenIds?.has(e.id)) continue;
       const lay = file.layers.get(e.layer);

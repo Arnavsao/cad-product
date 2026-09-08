@@ -28,8 +28,10 @@ import { TopologyDebugService } from '../../core/services/topology-debug.service
 import { ThemeService } from '../../core/services/theme.service';
 import { TextEditorService } from '../text-editor/text-editor.service';
 import { LayoutManagerService } from '../../core/services/layout-manager.service';
+import type { PaperViewport } from '../../core/models/layout.model';
 import { AssociationGraphService } from '../../core/services/association-graph.service';
 import { PaperSpaceRendererService } from '../../core/services/paper-space-renderer.service';
+import { setPaintSurface } from '../../core/utils/theme-color-mapper';
 import type { Entity } from '../../core/models/entity.model';
 import { hitTestAll, deselectAll } from '../../tools/select/select-tool';
 import { drawTransformGhost } from '../../tools/drag-preview';
@@ -381,6 +383,20 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
 
   private isPanning = false;
   private panStart = { sx: 0, sy: 0, px: 0, py: 0 };
+  private camPan: { vp: PaperViewport; sx: number; sy: number; cx: number; cy: number } | null = null;
+
+  /**
+   * PSPACE viewport object drag (AutoCAD: a viewport is an object on the sheet —
+   * click its frame to select, drag to move, drag a grip to resize).
+   * `handle` indexes PaperSpaceRendererService.viewportGripPoints; null = move.
+   */
+  private pvpDrag: {
+    vp: PaperViewport;
+    handle: number | null;
+    startMm: { x: number; y: number };
+    orig: { x: number; y: number; w: number; h: number };
+    moved: boolean;
+  } | null = null;
 
   private mouseX = -1000;
   private mouseY = -1000;
@@ -414,6 +430,21 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
   private _bgCacheKey = '';          // serialised key for cache invalidation
   private _bgPanX = 0;               // panX at the time the cache was rendered
   private _bgPanY = 0;               // panY at the time the cache was rendered
+
+  /**
+   * Device-pixel ratio the backing stores were last sized for. The three
+   * canvases are sized in DEVICE pixels and their contexts scaled by this
+   * factor, so all drawing code keeps working in CSS pixels
+   * (`vm.canvasWidth` / `vm.canvasHeight`) while the bitmap is crisp on
+   * HiDPI displays. Without this a 1 px white line was upscaled by the
+   * browser into a blurry 2 px grey smear on a Retina screen.
+   */
+  private _dpr = 1;
+
+  private currentDpr(): number {
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+    return Math.min(4, Math.max(1, dpr || 1));
+  }
 
   ngAfterViewInit(): void {
     this.gridCtx = this.gridRef.nativeElement.getContext('2d')!;
@@ -464,8 +495,22 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     if (!w || !h) return;
-    this.gridRef.nativeElement.width = this.mainRef.nativeElement.width = this.dynamicRef.nativeElement.width = w;
-    this.gridRef.nativeElement.height = this.mainRef.nativeElement.height = this.dynamicRef.nativeElement.height = h;
+    const dpr = this.currentDpr();
+    this._dpr = dpr;
+    const pw = Math.round(w * dpr);
+    const ph = Math.round(h * dpr);
+    const layers: [HTMLCanvasElement, CanvasRenderingContext2D][] = [
+      [this.gridRef.nativeElement, this.gridCtx],
+      [this.mainRef.nativeElement, this.mainCtx],
+      [this.dynamicRef.nativeElement, this.dynamicCtx],
+    ];
+    for (const [canvas, ctx] of layers) {
+      canvas.width = pw;
+      canvas.height = ph;
+      // Resizing resets the context state; re-apply the CSS→device scale so
+      // every consumer keeps drawing in CSS pixels.
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     this.vm.canvasWidth = w;
     this.vm.canvasHeight = h;
     this.modelVps.updateVmCenter();
@@ -486,6 +531,10 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     const dynDirtyPre = this._dynamicNeedsRedraw;
     this._dynamicNeedsRedraw = false;
 
+    // Browser zoom or a move to another display changes the DPR without a
+    // layout resize; re-size the backing stores so lines stay crisp.
+    if (this.currentDpr() !== this._dpr) this.resize();
+
     // Flush any pending mouse position at most once per frame.
     this.processMouseMove();
     this.drawGrid();
@@ -495,9 +544,9 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
       // Content changed → tool preview / grips need a dynamic-layer refresh too.
       this._dynamicNeedsRedraw = true;
 
-      const c = this.mainRef.nativeElement;
-      const W = c.width;
-      const H = c.height;
+      // CSS-pixel extents; the contexts are pre-scaled by the DPR.
+      const W = this.vm.canvasWidth;
+      const H = this.vm.canvasHeight;
 
       const isTiled = this.layoutMgr.isModelSpace() && this.modelVps.tiles.length > 1;
 
@@ -517,6 +566,9 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
           this.layoutMgr.workspaceMode(),
           this.vm.vpCenterX.toFixed(1),
           this.vm.vpCenterY.toFixed(1),
+          this.layoutMgr.version(),
+          this.layoutMgr.activeLayoutId(),
+          this.layoutCameraKey(),
         ].join('|');
 
         const panX = this.vm.panX;
@@ -528,11 +580,15 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
           this._bgPanX = panX;
           this._bgPanY = panY;
 
-          if (!this._bgCanvas || this._bgCanvas.width !== W || this._bgCanvas.height !== H) {
+          const dpr = this._dpr;
+          const bw = Math.round(W * dpr);
+          const bh = Math.round(H * dpr);
+          if (!this._bgCanvas || this._bgCanvas.width !== bw || this._bgCanvas.height !== bh) {
             this._bgCanvas = document.createElement('canvas');
-            this._bgCanvas.width = W;
-            this._bgCanvas.height = H;
+            this._bgCanvas.width = bw;
+            this._bgCanvas.height = bh;
             this._bgCtx = this._bgCanvas.getContext('2d')!;
+            this._bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
           }
 
           const bgCtx = this._bgCtx!;
@@ -542,19 +598,19 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
             this.doc.drawAll(bgCtx);
             this.vps.drawAll(bgCtx);
             this.mainCtx.clearRect(0, 0, W, H);
-            this.mainCtx.drawImage(this._bgCanvas, 0, 0);
+            this.mainCtx.drawImage(this._bgCanvas, 0, 0, W, H);
           } else {
             const layout = this.layoutMgr.activeLayout();
             this.paperRenderer.render(bgCtx, layout, layout.activeMspaceViewportId);
             this.mainCtx.clearRect(0, 0, W, H);
-            this.mainCtx.drawImage(this._bgCanvas, 0, 0);
+            this.mainCtx.drawImage(this._bgCanvas, 0, 0, W, H);
           }
         } else if (this._bgCanvas) {
           // Cache is valid — blit with a pan-delta offset (O(1) copy).
           const dx = panX - this._bgPanX;
           const dy = panY - this._bgPanY;
           this.mainCtx.clearRect(0, 0, W, H);
-          this.mainCtx.drawImage(this._bgCanvas, dx, dy);
+          this.mainCtx.drawImage(this._bgCanvas, dx, dy, W, H);
 
           // If the delta exceeds 15% of the canvas width/height, force a fresh
           // cache render to avoid a large clipped gap on the trailing edge.
@@ -571,7 +627,7 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
               this.paperRenderer.render(bgCtx, layout, layout.activeMspaceViewportId);
             }
             this.mainCtx.clearRect(0, 0, W, H);
-            this.mainCtx.drawImage(this._bgCanvas, 0, 0);
+            this.mainCtx.drawImage(this._bgCanvas, 0, 0, W, H);
           }
         } else {
           // No cache yet — full draw.
@@ -597,11 +653,25 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     const shouldDrawDynamic = dynDirtyPre || this._dynamicNeedsRedraw || this.grips.dragging;
     if (shouldDrawDynamic) {
       this._dynamicNeedsRedraw = false;
-      const dc = this.dynamicRef.nativeElement;
-      this.dynamicCtx.clearRect(0, 0, dc.width, dc.height);
+      this.dynamicCtx.clearRect(0, 0, this.vm.canvasWidth, this.vm.canvasHeight);
 
       this.drawCrosshair(this.dynamicCtx);
 
+      // On a layout tab the previews land on the white paper sheet, so map
+      // stored white/black against a light surface (see PaperSpaceRendererService).
+      if (!this.layoutMgr.isModelSpace()) setPaintSurface('light');
+      // MSPACE: everything drawn through the viewport is clipped to it.
+      let clipped = false;
+      const mspVp = this.layoutMgr.activeMspaceViewport();
+      if (mspVp) {
+        const geom = this.paperRenderer.computePaperGeometry(this.layoutMgr.activeLayout());
+        const r = this.paperRenderer.viewportScreenRect(mspVp, geom);
+        this.dynamicCtx.save();
+        this.dynamicCtx.beginPath();
+        this.dynamicCtx.rect(r.x, r.y, r.w, r.h);
+        this.dynamicCtx.clip();
+        clipped = true;
+      }
       try {
         let anchor = this.toolMgr.activeTool?.getAnchor?.() ?? null;
         if (!anchor && this.grips.dragStartWorld) {
@@ -629,6 +699,9 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
         this.topologyDebug.drawOverlay(this.dynamicCtx, this.vm);
       } catch (err) {
         console.error('Tool preview error:', err);
+      } finally {
+        if (clipped) this.dynamicCtx.restore();
+        setPaintSurface(null);
       }
       this.syncDynamicInput();
       this.syncCommandPrompt();
@@ -669,12 +742,19 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
       this.vm.gridDirty = false;
     }
 
-    const canvas = this.gridRef.nativeElement;
-    const W = targetW ?? canvas.width;
-    const H = targetH ?? canvas.height;
+    const W = targetW ?? this.vm.canvasWidth;
+    const H = targetH ?? this.vm.canvasHeight;
     const ctx = targetCtx ?? this.gridCtx;
     
     if (!targetCtx) ctx.clearRect(0, 0, W, H);
+
+    // Layout tabs: the paper renderer draws the sheet and the model grid inside
+    // each viewport. The grid layer only paints the grey surround (AutoCAD).
+    if (!this.layoutMgr.isModelSpace()) {
+      ctx.fillStyle = this.paperRenderer.surroundColor();
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
     if (!this.gridEnabled()) return;
 
     const step = niceGridStep(this.vm.scale);
@@ -746,8 +826,8 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
 
     // ── Model-space tiled viewport focus ──
     if (this.layoutMgr.isModelSpace() && this.modelVps.tiles.length > 1) {
-      const W = this.mainRef.nativeElement.width;
-      const H = this.mainRef.nativeElement.height;
+      const W = this.vm.canvasWidth;
+      const H = this.vm.canvasHeight;
       const tile = this.modelVps.tileAt(sx, sy, W, H);
       if (tile && tile.id !== this.modelVps.activeTileId) {
         this.modelVps.setActiveTile(tile.id);
@@ -757,6 +837,14 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     const isPanGesture = e.button === 1 || (e.button === 0 && e.altKey) || (e.button === 0 && this.toolMgr.activeToolName() === 'pan');
     if (isPanGesture) {
       this.isPanning = true;
+      // MSPACE: pan the active viewport's camera, not the paper sheet.
+      const mspVp = this.layoutMgr.activeMspaceViewport();
+      if (mspVp) {
+        this.camPan = { vp: mspVp, sx: e.clientX, sy: e.clientY, cx: mspVp.camCenterX, cy: mspVp.camCenterY };
+        this.wrapRef.nativeElement.style.cursor = 'grabbing';
+        e.preventDefault();
+        return;
+      }
       const activeTile = this.modelVps.activeTile;
       if (this.layoutMgr.isModelSpace() && this.modelVps.tiles.length > 1 && activeTile) {
         this.panStart = { sx: e.clientX, sy: e.clientY, px: activeTile.panX, py: activeTile.panY };
@@ -768,10 +856,17 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // ── Paper-space viewport interaction ──
+    // ── Layout tab, PSPACE: viewports are selectable objects on the sheet ──
+    if (e.button === 0
+      && this.layoutMgr.workspaceMode() === 'PSPACE'
+      && this.toolMgr.activeToolName() === 'select') {
+      if (this.onPaperViewportMouseDown(sx, sy, e)) return;
+    }
+
+    // ── Legacy split-screen viewport interaction (Model tab only) ──
     // Active tool='viewport' creates new viewports; otherwise click inside a
     // viewport activates it and either resizes, moves, or pans the camera.
-    if (e.button === 0 && this.toolMgr.activeToolName() !== 'viewport') {
+    if (e.button === 0 && this.layoutMgr.isModelSpace() && this.toolMgr.activeToolName() !== 'viewport') {
       // If clicking inside an EXISTING viewport, activate it on first click
       const hoveredVp = this.vps.vpAt(sx, sy);
       if (hoveredVp && hoveredVp.id !== this.vps.activeId) {
@@ -820,7 +915,14 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     // Mark the dynamic canvas as needing a redraw. The crosshair, snap marker
     // and tool preview must refresh whenever the cursor position changes.
     this._dynamicNeedsRedraw = true;
-    if (this.isPanning) {
+    if (this.isPanning && this.camPan) {
+      const layout = this.layoutMgr.activeLayout();
+      const geom = this.paperRenderer.computePaperGeometry(layout);
+      const worldPerPx = this.camPan.vp.camScale / geom.pxPerMm;
+      this.camPan.vp.camCenterX = this.camPan.cx - (e.clientX - this.camPan.sx) * worldPerPx;
+      this.camPan.vp.camCenterY = this.camPan.cy + (e.clientY - this.camPan.sy) * worldPerPx;
+      this.vm.markDirty();
+    } else if (this.isPanning) {
       const activeTile = this.modelVps.activeTile;
       if (this.layoutMgr.isModelSpace() && this.modelVps.tiles.length > 1 && activeTile) {
         activeTile.panX = this.panStart.px + (e.clientX - this.panStart.sx);
@@ -836,6 +938,12 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     this.mouseX = sx;
     this.mouseY = sy;
     this.mouseInCanvas = true;
+
+    // PSPACE viewport move / resize in progress
+    if (this.pvpDrag) {
+      this.updatePaperViewportDrag(sx, sy);
+      return;
+    }
 
     // Viewport drag (pan/move/resize) takes precedence over tool moves
     if (this.vps.isDragging()) {
@@ -906,12 +1014,19 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
   onMouseUp(e: MouseEvent): void {
     if (this.isPanning) {
       this.isPanning = false;
+      this.camPan = null;
       this.wrapRef.nativeElement.style.cursor = resolveCadCursor(this.toolMgr.activeToolName(), this.toolMgr.activeTool?.getCursor?.());
       return;
     }
     if (this.vps.isDragging()) {
       this.vps.endDrag();
       this.wrapRef.nativeElement.style.cursor = resolveCadCursor(this.toolMgr.activeToolName(), this.toolMgr.activeTool?.getCursor?.());
+      return;
+    }
+    if (this.pvpDrag) {
+      this.pvpDrag = null;
+      this.layoutMgr.bump();
+      this.vm.markDirty();
       return;
     }
     if (this.grips.dragging) {
@@ -938,9 +1053,19 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
 
+    // MSPACE: the wheel zooms the model through the active viewport (AutoCAD).
+    const mspVp = this.layoutMgr.activeMspaceViewport();
+    if (mspVp) {
+      const layout = this.layoutMgr.activeLayout();
+      const geom = this.paperRenderer.computePaperGeometry(layout);
+      const anchor = this.paperRenderer.screenToModelWorld(cx, cy, mspVp.id, layout, geom);
+      this.layoutMgr.zoomViewportCamera(mspVp, factor, anchor);
+      return;
+    }
+
     if (this.layoutMgr.isModelSpace() && this.modelVps.tiles.length > 1) {
-      const W = this.mainRef.nativeElement.width;
-      const H = this.mainRef.nativeElement.height;
+      const W = this.vm.canvasWidth;
+      const H = this.vm.canvasHeight;
       const tile = this.modelVps.tileAt(cx, cy, W, H);
       if (tile) {
         if (tile.id !== this.modelVps.activeTileId) {
@@ -1032,7 +1157,18 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     this.vm.zoomAt(1 / 1.5, this.vm.canvasWidth / 2, this.vm.canvasHeight / 2);
   }
   zoomExtents(): void {
-    this.vm.zoomExtents(this.doc);
+    this.layoutMgr.zoomExtents();
+  }
+
+  /** Cache-key fragment: viewport cameras of the active layout (MSPACE zoom/pan). */
+  private layoutCameraKey(): string {
+    if (this.layoutMgr.isModelSpace()) return '';
+    const layout = this.layoutMgr.activeLayout();
+    let k = '';
+    for (const vp of layout.viewports) {
+      k += `${vp.camScale.toFixed(6)},${vp.camCenterX.toFixed(3)},${vp.camCenterY.toFixed(3)},${vp.x},${vp.y},${vp.w},${vp.h};`;
+    }
+    return k;
   }
   toggleGrid(): void {
     this.snap.toggleGrid();
@@ -1047,17 +1183,76 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
     const rect = this.wrapRef.nativeElement.getBoundingClientRect();
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
-    let w: { x: number, y: number };
-
-    if (this.layoutMgr.workspaceMode() === 'MSPACE') {
-      const layout = this.layoutMgr.activeLayout();
-      const geom = this.paperRenderer.computePaperGeometry(layout);
-      w = this.paperRenderer.screenToModelWorld(sx, sy, layout.activeMspaceViewportId!, layout, geom);
-    } else {
-      w = this.vm.s2w(sx, sy);
-    }
-
+    // In MSPACE the view model composes the active viewport's camera onto
+    // s2w, so this is model world through the viewport; on the Model tab and
+    // in PSPACE it is the plain view (paper mm = world units on a layout).
+    const w = this.vm.s2w(sx, sy);
     return { wx: w.x, wy: w.y, sx, sy };
+  }
+
+  // ── PSPACE viewport objects ──────────────────────────────────────────────
+
+  /**
+   * Select / start moving or resizing a viewport by its frame or grips.
+   * Returns true when the click was consumed (the select tool must not run).
+   */
+  private onPaperViewportMouseDown(sx: number, sy: number, e: MouseEvent): boolean {
+    const layout = this.layoutMgr.activeLayout();
+    const geom = this.paperRenderer.computePaperGeometry(layout);
+    const hit = this.paperRenderer.viewportFrameHit(sx, sy, layout, geom);
+    if (!hit) {
+      // Click elsewhere on the sheet: viewports drop out of the selection set,
+      // and the select tool carries on (paper entities, window selection).
+      if (!e.shiftKey) this.layoutMgr.clearViewportSelection();
+      return false;
+    }
+    const mm = geom.s2mm(sx, sy);
+    const orig = { x: hit.vp.x, y: hit.vp.y, w: hit.vp.w, h: hit.vp.h };
+    if (hit.handle !== null) {
+      this.pvpDrag = { vp: hit.vp, handle: hit.handle, startMm: mm, orig, moved: false };
+      return true;
+    }
+    this.layoutMgr.selectViewport(hit.vp, e.shiftKey);
+    if (hit.vp.selected && !hit.vp.locked) {
+      this.pvpDrag = { vp: hit.vp, handle: null, startMm: mm, orig, moved: false };
+    }
+    this._dynamicNeedsRedraw = true;
+    return true;
+  }
+
+  private updatePaperViewportDrag(sx: number, sy: number): void {
+    const d = this.pvpDrag!;
+    const layout = this.layoutMgr.activeLayout();
+    const geom = this.paperRenderer.computePaperGeometry(layout);
+    const mm = geom.s2mm(sx, sy);
+    const dx = mm.x - d.startMm.x;
+    const dy = mm.y - d.startMm.y;
+    if (!d.moved && Math.hypot(dx, dy) * geom.pxPerMm < 2) return; // click, not a drag
+    d.moved = true;
+
+    const MIN_MM = 5;
+    if (d.handle === null) {
+      d.vp.x = d.orig.x + dx;
+      d.vp.y = d.orig.y + dy;
+    } else {
+      // Grip index order: 0 TL, 1 T, 2 TR, 3 R, 4 BR, 5 B, 6 BL, 7 L (screen).
+      let left   = d.orig.x;
+      let right  = d.orig.x + d.orig.w;
+      let bottom = d.orig.y;
+      let top    = d.orig.y + d.orig.h;
+      const h = d.handle;
+      if (h === 0 || h === 6 || h === 7) left   += dx;
+      if (h === 2 || h === 3 || h === 4) right  += dx;
+      if (h === 0 || h === 1 || h === 2) top    += dy;
+      if (h === 4 || h === 5 || h === 6) bottom += dy;
+      if (right - left < MIN_MM || top - bottom < MIN_MM) return;
+      d.vp.x = left;
+      d.vp.y = bottom;
+      d.vp.w = right - left;
+      d.vp.h = top - bottom;
+    }
+    this.vm.markDirty();
+    this.layoutMgr.bump();
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -1075,6 +1270,16 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
       this.grips.cancelDrag();
       this._dynamicNeedsRedraw = true; // ensure the drag preview clears on next frame
       return;
+    }
+    // PSPACE: viewports are objects — ERASE removes them, Escape deselects.
+    if (this.layoutMgr.workspaceMode() === 'PSPACE') {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !this.toolMgr.activeTool?.getAnchor?.()) {
+        if (this.layoutMgr.deleteSelectedViewports()) { e.preventDefault(); return; }
+      }
+      if (e.key === 'Escape') {
+        this.pvpDrag = null;
+        this.layoutMgr.clearViewportSelection();
+      }
     }
     // Ctrl+Shift+H — toggle hatch dependency debug overlay.
     if (e.key === 'H' && e.ctrlKey && e.shiftKey) {

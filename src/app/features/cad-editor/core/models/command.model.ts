@@ -7,6 +7,22 @@ export interface ICommand {
   undo(): void;
 }
 
+/**
+ * Which space newly created entities belong to. Installed by
+ * `LayoutManagerService`: 'paper' while editing a layout sheet (PSPACE),
+ * 'model' on the Model tab and inside a viewport (MSPACE). Tools never need
+ * to know — the add/paste commands stamp `inPaperSpace` on first execute.
+ */
+let _newEntitySpace: (() => 'model' | 'paper') | null = null;
+
+export function setNewEntitySpaceProvider(fn: (() => 'model' | 'paper') | null): void {
+  _newEntitySpace = fn;
+}
+
+function stampSpace(e: Entity): void {
+  if (_newEntitySpace) e.inPaperSpace = _newEntitySpace() === 'paper';
+}
+
 export interface IModifyEntitiesCmdHooks {
   /** Called after execute/undo to mark the view dirty. */
   markDirty(): void;
@@ -22,7 +38,12 @@ export class AddEntityCmd implements ICommand {
     private readonly hooks: IModifyEntitiesCmdHooks & { refreshBlocks?(): void },
   ) {}
 
+  private stamped = false;
+
   execute(): void {
+    // Only on the first execute: a redo must not re-stamp with whatever space
+    // happens to be active then.
+    if (!this.stamped) { this.stamped = true; stampSpace(this.entity); }
     if (!this.file.entities.includes(this.entity)) {
       this.file.entities.push(this.entity);
     }
@@ -45,7 +66,10 @@ export class PasteEntitiesCmd implements ICommand {
     private readonly hooks: IModifyEntitiesCmdHooks,
   ) {}
 
+  private stamped = false;
+
   execute(): void {
+    if (!this.stamped) { this.stamped = true; for (const e of this.entities) stampSpace(e); }
     for (const e of this.entities) {
       if (!this.file.entities.includes(e)) this.file.entities.push(e);
     }
