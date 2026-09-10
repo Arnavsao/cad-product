@@ -1,6 +1,20 @@
 # Container Apps variant of nginx.conf, rendered at start by
 # docker-entrypoint.sh so the API upstream can be an env var: each Container App
 # gets its FQDN at creation time, which is not knowable when the image is built.
+# Keep-alive pool to the API. Without an `upstream`, nginx opens a fresh TCP +
+# TLS connection to the Container Apps ingress for every proxied request; with
+# one, connections are reused across requests so a browser API call costs one
+# hop instead of a handshake. `resolve` (nginx >= 1.27.3) re-resolves the
+# ingress hostname in the background, so an IP change needs no restart.
+upstream cado_api {
+  zone cado_api 64k;
+  resolver 168.63.129.16 valid=30s ipv6=off;
+  server ${API_HOST}:443 resolve;
+  keepalive 32;
+  keepalive_requests 1000;
+  keepalive_timeout 60s;
+}
+
 server {
   listen 80;
   server_name _;
