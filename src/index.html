@@ -47,7 +47,7 @@
     .boot__mark {
       width: 80px;
       height: 80px;
-      color: #4c9aff;
+      color: var(--boot-accent, #a6e22e);
     }
     /* Source order is TL, TR, BL, BR; the delays run clockwise, a quarter-loop
        apart, so no two tiles ever peak together. */
@@ -60,7 +60,8 @@
       font: 500 11px/1 Inter, system-ui, sans-serif;
       letter-spacing: .14em;
       text-transform: uppercase;
-      color: #8b93a1;
+      color: var(--boot-accent, #a6e22e);
+      opacity: .6;
     }
     /* High floor, brief peak: one tile lifts out of the mark rather than three
        dropping away, so the logo reads as itself at all times. */

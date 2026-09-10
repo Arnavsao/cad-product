@@ -10,4 +10,8 @@ try {
   var bg = localStorage.getItem('cad.theme.bg');
   if (localStorage.getItem('theme') !== 'light') document.documentElement.classList.add('dark-theme-pending');
   if (bg && /^#[0-9a-f]{3,8}$/i.test(bg)) document.documentElement.style.background = bg;
+  // The boot splash reads these so its mark and label match the saved theme
+  // instead of the default accent.
+  var accent = localStorage.getItem('cad.theme.accent');
+  if (accent && /^#[0-9a-f]{3,8}$/i.test(accent)) document.documentElement.style.setProperty('--boot-accent', accent);
 } catch (e) {}

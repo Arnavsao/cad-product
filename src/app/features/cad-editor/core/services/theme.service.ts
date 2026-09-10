@@ -29,6 +29,8 @@ const PREFERRED_KEY: Record<CadThemeKind, string> = {
 /** Resolved background of the active theme, so the pre-paint script in
  *  index.html can match it and avoid a flash of the wrong colour. */
 const BG_KEY = 'cad.theme.bg';
+/** Resolved accent, for the same reason: the boot splash's mark is drawn in it. */
+const ACCENT_KEY = 'cad.theme.accent';
 /** Marker for the one-time move off the previous dark default (see `migrate`). */
 const MIGRATION_KEY = 'cad.theme.migrated.monokai';
 
@@ -188,6 +190,7 @@ export class ThemeService {
       localStorage.setItem(LEGACY_KEY, theme.kind);
       localStorage.setItem(PREFERRED_KEY[theme.kind], theme.id);
       localStorage.setItem(BG_KEY, theme.canvas.canvasBg);
+      localStorage.setItem(ACCENT_KEY, theme.ui['--color-primary'] ?? '');
     } catch {
       /* SSR or storage-disabled environments — ignore. */
     }
