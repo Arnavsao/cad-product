@@ -12,6 +12,8 @@ import { SiteCtaComponent } from './cta.component';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [SiteCtaComponent, SiteRevealDirective],
+  // Keep the `title` input off the host element, or it shows as a tooltip.
+  host: { '[attr.title]': 'null' },
   template: `
     <section class="close site-section" aria-labelledby="site-close-title">
       <div class="site-container">

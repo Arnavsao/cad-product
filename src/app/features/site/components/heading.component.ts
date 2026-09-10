@@ -21,6 +21,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   `,
   host: {
     class: 'site-heading',
+    // The `title` input would otherwise stay on the host as a native attribute
+    // and show as a browser tooltip over every heading.
+    '[attr.title]': 'null',
     '[class.site-heading--center]': 'align() === "center"',
   },
   styles: [

@@ -68,7 +68,7 @@ export interface ScreenHotspot {
       @if (caption()) { <figcaption class="scr__cap">{{ caption() }}</figcaption> }
     </figure>
   `,
-  host: { class: 'site-screen' },
+  host: { class: 'site-screen', '[attr.title]': 'null' },
   styles: [
     `
       :host { display: block; }
