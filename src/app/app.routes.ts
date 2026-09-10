@@ -159,6 +159,9 @@ export const routes: Routes = [
   {
     path: 'dashboard',
     canActivate: [authGuard, onboardingGuard],
+    // Preloaded once signed in (SelectivePreloadStrategy) so the shell chunk is
+    // already cached when the guards finish instead of being a further round trip.
+    data: { preload: true },
     loadComponent: () => import('./features/dashboard/dashboard-shell.component').then((m) => m.DashboardShellComponent),
     children: [
       { path: '', pathMatch: 'full', title: 'Recent · CADO',

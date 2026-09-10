@@ -75,6 +75,15 @@ export class SignInPage {
     this.magicMode.update((on) => !on);
   }
 
+  constructor() {
+    // Whoever is on this page is about to land on the dashboard. Fetch its
+    // chunks now, in parallel with typing, so the post-sign-in navigation only
+    // waits on the API and not on another JS download after the guards resolve.
+    // Fire-and-forget: a failed prefetch just means the router loads it later.
+    void import('../dashboard/dashboard-shell.component').catch(() => undefined);
+    void import('../dashboard/pages/recent.page').catch(() => undefined);
+  }
+
   protected async submit(): Promise<void> {
     if (!this.canSubmit()) {
       return;
