@@ -95,6 +95,35 @@ values, decoded text, per-style fonts and real lineweights.
   which is precisely the mechanism that lets the client default apply to a fresh account.
 
 ### Fixed
+* **Sign-in and the dashboard felt slow on every visit, and much slower after a quiet spell.**
+  Measured from India against the Korea Central deployment: a single API call cost 370–500 ms
+  even when nothing was wrong, the first request after a few idle minutes waited around 22 s,
+  and the dashboard needed five dependent waves of requests before it was usable. Four causes,
+  each fixed separately.
+  1. *Scale-to-zero.* Both Container Apps ran with `--min-replicas 0`, so the first request after
+     idle paid for an image pull, `prisma migrate deploy` and the Nest boot — and that request
+     was almost always the sign-in. Both apps now keep one warm replica (`provision.sh`, applied
+     to the live apps on 2026-09-10; README *Cold starts* has the rollback).
+  2. *A TLS handshake per API call.* The web container's nginx proxied `/api/` with a variable
+     `proxy_pass`, which gives nginx no connection pool: every browser request opened a new TCP
+     and TLS connection to the API ingress. The Azure nginx config now declares a keep-alive
+     `upstream` (with background re-resolution of the ingress hostname) and sends an empty
+     `Connection` header so those connections are reused.
+  3. *Redundant database work on `GET /me`.* The auth guard had already read the user row, and
+     the handler read it again by primary key; it also ran an `upsert` with an empty update on the
+     preferences row — a write, with its row lock and WAL — on every dashboard visit. The guard
+     now carries the loaded row on `req.user.record`, `getMe` reuses it, and preferences are read
+     first and created only on an account's very first request. Separately, the API pings the
+     database every `DB_KEEPALIVE_SECONDS` (default 240) so Neon never suspends its compute and
+     the first query after idle does not wait out a cold start.
+  4. *A JavaScript download between the guards and the page.* The dashboard shell and Recent
+     page chunks were fetched only after `/me` had answered, adding a full round trip. The
+     sign-in page now prefetches both while the user types, and the dashboard route is flagged
+     for the existing signed-in preload strategy.
+
+  What remains is geography: about 120 ms per round trip from India to Korea Central and about
+  100 ms per query from there to the database in Singapore. README *Latency and region* records
+  the measurements and the `centralindia` re-provisioning path.
 * **Changing the language did not change the editor.** Picking another language in Settings
   updated `<html lang>` and the sign-in page, but the toolbar kept its English tool names and section
   labels, and an active command's prompt did not follow either. On a cold load in a non-English
