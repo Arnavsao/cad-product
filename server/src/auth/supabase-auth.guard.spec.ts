@@ -106,7 +106,7 @@ describe('SupabaseAuthGuard', () => {
 
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(users.ensureLocalUser).toHaveBeenCalledWith(AUTH_ID, { sub: AUTH_ID, session_id: 'sess-1' });
-    expect(req.user).toEqual({ id: LOCAL_USER.id, authId: AUTH_ID, email: 'dev@example.com', sessionId: 'sess-1' });
+    expect(req.user).toEqual({ id: LOCAL_USER.id, authId: AUTH_ID, email: 'dev@example.com', sessionId: 'sess-1', record: LOCAL_USER });
   });
 
   it('accepts the { data } result style too', async () => {
@@ -158,7 +158,7 @@ describe('SupabaseAuthGuard', () => {
       const { ctx, req } = optionalContext({ headers: { authorization: 'Bearer good' } });
 
       await expect(guard.canActivate(ctx)).resolves.toBe(true);
-      expect(req.user).toEqual({ id: LOCAL_USER.id, authId: AUTH_ID, email: 'dev@example.com', sessionId: 'sess-1' });
+      expect(req.user).toEqual({ id: LOCAL_USER.id, authId: AUTH_ID, email: 'dev@example.com', sessionId: 'sess-1', record: LOCAL_USER });
     });
 
     it('treats an invalid or expired token as anonymous rather than 401', async () => {

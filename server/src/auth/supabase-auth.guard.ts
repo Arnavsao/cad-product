@@ -101,6 +101,7 @@ export class SupabaseAuthGuard implements CanActivate {
       // comparison downstream then gets to be a plain equality.
       email: user.email.toLowerCase(),
       sessionId: typeof claims.session_id === 'string' ? claims.session_id : null,
+      record: user,
     };
     return true;
   }

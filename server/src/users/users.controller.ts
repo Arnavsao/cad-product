@@ -17,7 +17,7 @@ export class UsersController {
   /** `GET /me` → `MeDto`. */
   @Get()
   me(@CurrentUser() user: AuthUser): Promise<MeDto> {
-    return this.users.getMe(user.id);
+    return this.users.getMe(user.id, user.record);
   }
 
   /** `PATCH /me/preferences` → `PreferencesDto`. */

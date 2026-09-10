@@ -136,11 +136,16 @@ export class UsersService {
   // /me
   // ---------------------------------------------------------------------------
 
-  async getMe(userId: string): Promise<MeDto> {
+  /**
+   * `known` is the row the auth guard already loaded for this request. Passing it
+   * saves the second read of the same user; callers that just changed the row
+   * (onboarding) leave it out so the fresh values are returned.
+   */
+  async getMe(userId: string, known?: User): Promise<MeDto> {
     // Billing joins the existing fan-out rather than adding a round trip: it is
     // one indexed primary-key read, so `/me` costs the same as before.
     const [user, prefs, usage, organizations, billing] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      known && known.id === userId ? known : this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.ensurePreferences(userId),
       this.getUsage(userId),
       this.organizations.listForUser(userId),
@@ -190,13 +195,30 @@ export class UsersService {
     return this.getMe(userId);
   }
 
-  /** Preferences row, created with defaults on first access. */
+  /**
+   * Preferences row, created with defaults on first access.
+   *
+   * A plain read first: `/me` is fetched on every dashboard visit, and an
+   * `upsert` with an empty update still takes a row lock and writes WAL on each
+   * of them. The create only runs on the very first request of an account; two
+   * such requests racing is settled by the unique index and a re-read.
+   */
   async ensurePreferences(userId: string): Promise<UserPreferences> {
-    return this.prisma.userPreferences.upsert({
-      where: { userId },
-      create: { userId },
-      update: {},
-    });
+    const existing = await this.prisma.userPreferences.findUnique({ where: { userId } });
+    if (existing) {
+      return existing;
+    }
+    try {
+      return await this.prisma.userPreferences.create({ data: { userId } });
+    } catch (error) {
+      if (isPrismaKnownError(error, PRISMA_ERROR.UNIQUE_VIOLATION)) {
+        const winner = await this.prisma.userPreferences.findUnique({ where: { userId } });
+        if (winner) {
+          return winner;
+        }
+      }
+      throw error;
+    }
   }
 
   /** `SUM(byteSize)` / `COUNT(*)` over the user's non-deleted drawings. */

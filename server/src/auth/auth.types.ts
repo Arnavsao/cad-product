@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import type { User } from '../generated/prisma/client';
 
 /**
  * The authenticated principal attached to `req.user` by `SupabaseAuthGuard`.
@@ -18,6 +19,12 @@ export interface AuthUser {
   email: string;
   /** Supabase session id, the JWT `session_id`. Null when the token omits it. */
   sessionId: string | null;
+  /**
+   * The full local row the guard already read while resolving this request.
+   * Handlers that would otherwise re-read the same user (`GET /me`) take it from
+   * here instead of paying a second indexed round trip to the database.
+   */
+  record?: User;
 }
 
 /** Express request after the guard has run. */
