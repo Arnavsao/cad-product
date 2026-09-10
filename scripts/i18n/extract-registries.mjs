@@ -36,6 +36,14 @@ const stubAngularPlugin = {
       '@angular/core': `
         export const Injectable = () => (target) => target;
         export const inject = () => ({});
+        // Signal factories: the registries are plain data, but the services
+        // around them build signals at field-initialisation time. A signal is
+        // only ever *created* here, never read, so an inert getter is enough.
+        export const signal = (v) => { const f = () => v; f.set = () => {}; f.update = () => {}; return f; };
+        export const computed = (fn) => () => fn();
+      `,
+      '@angular/core/rxjs-interop': `
+        export const toSignal = (_src, opts) => () => opts?.initialValue;
       `,
       '@jsverse/transloco': `
         export class TranslocoService {}
