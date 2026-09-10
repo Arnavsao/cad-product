@@ -65,10 +65,19 @@ export class MotionService {
     if (this.lenis) return () => undefined;
 
     const lenis = new LenisCtor({
-      duration: 1.1,
-      // Decelerating ease-out, the same curve as `--ui-ease-out`.
-      easing: (t: number) => 1 - Math.pow(1 - t, 3),
+      // Short on purpose. Lenis' own default (1.2s with a long tail) reads as
+      // lag rather than polish: the page keeps travelling after the wheel has
+      // stopped, and every scroll-driven animation trails the input. This is
+      // just enough to take the stepping out of a wheel notch.
+      duration: 0.55,
+      // Quintic ease-out: nearly all of the distance is covered in the first
+      // third of the tween, so motion arrives immediately and settles quickly
+      // instead of gliding. A cubic curve here still felt slow.
+      easing: (t: number) => 1 - Math.pow(1 - t, 5),
       smoothWheel: true,
+      // A little over 1 so a wheel notch covers slightly more than the native
+      // distance; combined with the short duration this feels direct.
+      wheelMultiplier: 1.1,
       // Lets scroll-driven CSS animations (blueprint.scss) and IntersectionObservers see the same scroll.
       syncTouch: false,
     });
@@ -91,7 +100,7 @@ export class MotionService {
   /** Scrolls the window so `target` sits just under the fixed header. */
   scrollToElement(target: HTMLElement, offset = -80): void {
     if (this.lenis) {
-      this.lenis.scrollTo(target, { offset, duration: this.reduced() ? 0 : 1 });
+      this.lenis.scrollTo(target, { offset, duration: this.reduced() ? 0 : 0.7 });
       return;
     }
     const top = target.getBoundingClientRect().top + window.scrollY + offset;
