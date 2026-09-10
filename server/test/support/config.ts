@@ -9,6 +9,7 @@ export const TEST_ENV: Env = {
   CORS_ORIGIN: ['http://localhost:4200'],
   DATABASE_URL: 'postgresql://cad:cad@localhost:5432/cad',
   DIRECT_DATABASE_URL: 'postgresql://cad:cad@localhost:5432/cad',
+  DB_KEEPALIVE_SECONDS: 0,
   SUPABASE_URL: undefined,
   SUPABASE_JWT_SECRET: undefined,
   S3_ENDPOINT: 'http://localhost:9000',

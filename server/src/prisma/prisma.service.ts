@@ -43,6 +43,9 @@ export function isPrismaKnownError(error: unknown, code?: string): error is Pris
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
+  /** Interval between keep-alive pings, in ms; 0 disables. See `DB_KEEPALIVE_SECONDS`. */
+  private readonly keepaliveMs: number;
+  private keepalive: NodeJS.Timeout | null = null;
 
   constructor(config: ConfigService<Env, true>) {
     const adapter = new PrismaPg({
@@ -54,14 +57,28 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       adapter,
       log: isProd ? ['warn', 'error'] : ['warn', 'error'],
     });
+    this.keepaliveMs = config.get('DB_KEEPALIVE_SECONDS', { infer: true }) * 1000;
   }
 
   async onModuleInit(): Promise<void> {
     await this.$connect();
     this.logger.log('Connected to Postgres');
+    if (this.keepaliveMs > 0) {
+      // Neon parks an idle compute after ~5 minutes and the next connection then
+      // waits out a cold start of a second or more. A cheap periodic ping keeps
+      // the compute (and this pool's connections) warm so the first request
+      // after a quiet spell is as fast as the tenth. `unref` so a pending timer
+      // never holds the process open during shutdown.
+      this.keepalive = setInterval(() => void this.ping(), this.keepaliveMs);
+      this.keepalive.unref();
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
+    if (this.keepalive) {
+      clearInterval(this.keepalive);
+      this.keepalive = null;
+    }
     await this.$disconnect();
   }
 

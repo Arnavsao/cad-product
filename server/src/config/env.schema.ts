@@ -60,6 +60,14 @@ export const envSchema = z.object({
   // --- Postgres -----------------------------------------------------------
   DATABASE_URL: z.string().min(1).startsWith('postgres', 'DATABASE_URL must be a postgres:// URL'),
   DIRECT_DATABASE_URL: z.string().min(1).startsWith('postgres', 'DIRECT_DATABASE_URL must be a postgres:// URL'),
+  /**
+   * Seconds between background `SELECT 1`s that keep the pool and the database
+   * compute awake. Serverless Postgres (Neon) suspends an idle compute after a
+   * few minutes and the next query then pays a multi-second cold start — which
+   * lands on whoever signs in first. 0 disables (local docker Postgres does not
+   * need it).
+   */
+  DB_KEEPALIVE_SECONDS: z.coerce.number().int().min(0).default(240),
 
   // --- Supabase auth ------------------------------------------------------
   /**
