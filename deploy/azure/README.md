@@ -190,19 +190,46 @@ location that proxies to the API's bare `/healthz`.
 
 ## Cold starts
 
-`--min-replicas 0` is what makes this nearly free; the cost is latency. The
-first request after idle waits for a container start **plus**
-`prisma migrate deploy`, which `start:prod` runs before listening. Budget
-15–30s.
+Both apps run with `--min-replicas 1` (set by `provision.sh`, and applied to the
+live apps on 2026-09-10). With `0` the first request after an idle spell waited
+for a container start **plus** `prisma migrate deploy`, which `start:prod` runs
+before listening — measured at ~22 s — and that request is almost always a
+sign-in. The Consumption plan bills an idle replica at its reduced idle rate.
 
-Options, increasing in cost:
+To go back to scale-to-zero (accepting the 15–30 s first request):
 
-- **Accept it** — fine for internal or low-traffic use.
-- **Warm it** — ping `/healthz` every 5 min during business hours.
-- **`--min-replicas 1`** on `cado-api` (~$15/mo): no cold start.
-  ```bash
-  az containerapp update -g cado-prod-rg -n cado-api --min-replicas 1
-  ```
+```bash
+az containerapp update -g cado-prod-rg -n cado-api --min-replicas 0
+az containerapp update -g cado-prod-rg -n cado-web --min-replicas 0
+```
+
+The database has its own cold start: Neon suspends an idle compute after about
+five minutes. The API keeps it awake with a `SELECT 1` every
+`DB_KEEPALIVE_SECONDS` (default 240; 0 disables), so this only matters if the
+keep-alive is turned off.
+
+## Latency and region
+
+The environment is in `koreacentral`, the database in Neon `ap-southeast-1`
+(Singapore). From India that is ~120 ms per network round trip to the API and
+another ~100 ms per query from the API to Postgres, so even a warm request
+costs 350–500 ms and a fresh TLS connection about three round trips. Two
+things keep the count of round trips down: nginx reuses TLS connections to the
+API ingress (the `cado_api` upstream in `nginx.azure.conf.template`), and the
+client preloads the dashboard chunks and fans out its API calls.
+
+The subscription's region policy also allows `centralindia`, and its Container
+Apps quota there (1 environment) was free as of 2026-09-10. Re-provisioning
+there would cut the browser round trip to ~25 ms:
+
+```bash
+LOCATION=centralindia RESOURCE_GROUP=cado-prod-in-rg ENV_FILE=~/cado-prod.env \
+  ./deploy/azure/provision.sh
+```
+
+then grant the `cado-github-deploy` app Contributor on the new group, change
+`RESOURCE_GROUP` in `.github/workflows/deploy.yml`, bind the custom domain and
+move the GoDaddy `A`/`asuid` records to the new environment's static IP.
 
 Moving migrations out of `start:prod` into a release step would remove most of
 the penalty, but it changes how migrations are applied — deliberately not done.
