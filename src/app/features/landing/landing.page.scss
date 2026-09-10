@@ -346,7 +346,7 @@
   scrollbar-width: thin;
 
   /* Centre the row on the container width, but let it bleed on scroll. */
-  @media (min-width: 1540px) {
+  @media (min-width: 1820px) {
     padding-inline: max(var(--site-gutter), calc((100vw - var(--site-max)) / 2 + var(--site-gutter)));
   }
 
