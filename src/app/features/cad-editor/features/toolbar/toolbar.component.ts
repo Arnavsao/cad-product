@@ -113,7 +113,10 @@ import { ViewModelService } from '../../core/services/view-model.service';
     }
 
     .cad-toolbar-wrap {
-      padding: 0 6px;
+      /* Symmetric breathing room: the same 6px above the first row, below the
+         last, and at both ends, so the ribbon reads as one padded strip
+         rather than content pressed against its top edge. */
+      padding: 6px 6px;
       /* min-height, not height: with flex-wrap nowrap this ribbon's min-content
          width is wider than a 1600px viewport, and because it sits in the root
          grid's auto-sized column that width was imposed on the whole editor.
@@ -124,6 +127,8 @@ import { ViewModelService } from '../../core/services/view-model.service';
       display: flex;
       flex-wrap: wrap;
       align-content: flex-start;
+      align-items: stretch;
+      row-gap: 6px;
       min-width: 0;
       overflow: visible;
       background: var(--cad-bg-panel);
@@ -131,21 +136,24 @@ import { ViewModelService } from '../../core/services/view-model.service';
     }
 
     .toolbar-section {
-      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      padding: 2px 10px;
       border-right: 1px solid var(--cad-border);
-      justify-content: space-between !important;
-      height: 100%;
     }
+    .toolbar-section:first-child { padding-left: 4px; }
+    .toolbar-section:last-child { border-right: 0; padding-right: 4px; }
 
     .toolbar-section-buttons {
       display: grid !important;
       grid-template-rows: repeat(2, 24px);
       grid-auto-flow: column dense;
-      gap: 2px 4px;
+      gap: 2px 6px;
       align-items: center;
+      align-content: center;
       flex: 1;
       width: 100%;
-      justify-content: space-evenly;
+      justify-content: start;
     }
 
     .toolbar-section-label {
@@ -257,10 +265,10 @@ import { ViewModelService } from '../../core/services/view-model.service';
       grid-row: span 2;
       height: 50px;
       flex-direction: column !important;
-      justify-content: flex-end !important;
+      justify-content: center !important;
       min-width: 60px !important;
       width: auto !important;
-      padding: 0 6px 0 6px !important;
+      padding: 2px 6px !important;
     }
     .tb-btn-group.large .tb-btn.main-btn {
       flex-direction: column !important;
