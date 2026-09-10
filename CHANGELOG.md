@@ -95,6 +95,19 @@ values, decoded text, per-style fonts and real lineweights.
   which is precisely the mechanism that lets the client default apply to a fresh account.
 
 ### Fixed
+* **Changing the language did not change the editor.** Picking another language in Settings
+  updated `<html lang>` and the sign-in page, but the toolbar kept its English tool names and section
+  labels, and an active command's prompt did not follow either. On a cold load in a non-English
+  browser the editor was English for the whole session even though the right file had been fetched.
+  Two causes: `ToolbarComponent` translated its sections once, in a field initialiser, and
+  `CommandPromptService` re-resolved on an `effect()` that read `getActiveLang()` — a plain method,
+  not a signal, so the effect never re-ran. Neither reacted to the translation file *arriving*
+  either, and `translateOr` is synchronous, so whatever was rendered before `<lang>.json` landed
+  stayed. `ToolCatalogService` now exposes `translationRevision`, a signal bumped on Transloco's
+  `langChanges$` and every `translationLoadSuccess`; `getGrouped()` reads it, the toolbar's
+  `sections` is a `computed()` over it, and the prompt service's effect tracks it. The toolbar also
+  remembered the last-used sub-tool per group by object, which pinned the old language's label on
+  the split buttons; it now remembers the id and looks the tool up in the current sections.
 * **Assistant edits did not appear until the drawing was panned.** Recolouring, relayering or
   deleting through the assistant changed the entities but the canvas kept showing the old
   picture until the next pan or zoom forced a redraw. The AI tool hooks called `markDirty()`,
