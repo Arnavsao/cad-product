@@ -1,5 +1,8 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, Signal, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoService } from '@jsverse/transloco';
+import { merge } from 'rxjs';
+import { filter, scan } from 'rxjs/operators';
 import { translateOr } from '../../../../core/i18n/translate-or';
 
 export interface ToolMeta {
@@ -467,6 +470,28 @@ export class ToolCatalogService {
   private readonly transloco = inject(TranslocoService, { optional: true });
 
   /**
+   * Bumps whenever a translation result may have changed: on every language
+   * switch and every time a language file finishes loading.
+   *
+   * `translateOr` is synchronous, so anything computed from it is only as fresh
+   * as the moment it ran. Two things invalidate it after the fact: the user
+   * picking another language, and the *current* language's file arriving from
+   * the network (on a cold load the toolbar is built while `ja.json` is still
+   * in flight, and would otherwise stay English for the whole session).
+   * Reading this signal inside a `computed`/`effect` re-runs it in both cases.
+   * `getActiveLang()` is a plain method, not a signal, so it cannot do this job.
+   */
+  readonly translationRevision: Signal<number> = this.transloco
+    ? toSignal(
+        merge(
+          this.transloco.langChanges$,
+          this.transloco.events$.pipe(filter((e) => e.type === 'translationLoadSuccess')),
+        ).pipe(scan((n) => n + 1, 0)),
+        { initialValue: 0 },
+      )
+    : signal(0);
+
+  /**
    * Translate a tool title while preserving its keyboard alias.
    *
    * Titles are authored as `'Line (L)'`. The `(L)` is a shortcut the user
@@ -486,7 +511,12 @@ export class ToolCatalogService {
     return translateOr(this.transloco, `editor.toolSection.${slug}`, label);
   }
 
+  /**
+   * Reactive: reads {@link translationRevision}, so a `computed` built on this
+   * re-evaluates when the language changes or its file finishes loading.
+   */
   getGrouped(): ToolSection[] {
+    this.translationRevision();
     return SECTIONS
       .map((section) => ({
         ...section,

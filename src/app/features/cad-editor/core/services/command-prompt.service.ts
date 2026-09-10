@@ -38,9 +38,12 @@ export class CommandPromptService {
     // `sync()` is called every frame but returns early unless the
     // (command, phase) pair changed — which means a language switch mid-command
     // would leave the old language's prompt on screen until the user advanced a
-    // phase. Drop the cache and re-resolve the current phase instead.
+    // phase. Drop the cache and re-resolve the current phase instead. The
+    // revision signal also fires when the language *file* finishes loading,
+    // which is what refreshes a prompt first rendered before `<lang>.json`
+    // arrived. (`getActiveLang()` is not a signal and would never re-trigger.)
     effect(() => {
-      this.transloco?.getActiveLang();
+      this.catalog.translationRevision();
       const last = this.lastSynced;
       if (!last) return;
       this.lastSyncKey = '';

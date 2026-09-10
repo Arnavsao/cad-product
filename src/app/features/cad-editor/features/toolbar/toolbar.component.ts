@@ -1,4 +1,4 @@
-import { Component, inject , ChangeDetectionStrategy
+import { Component, inject , ChangeDetectionStrategy, computed
 } from '@angular/core';
 
 import { ToolManagerService } from '../../core/services/tool-manager.service';
@@ -15,7 +15,7 @@ import { ViewModelService } from '../../core/services/view-model.service';
   imports: [SafeHtmlPipe],
   template: `
     <div class="cad-toolbar-wrap">
-      @for (sec of sections; track sec) {
+      @for (sec of sections(); track sec.label) {
         <div class="toolbar-section">
           <div class="toolbar-section-buttons">
             @for (t of sec.tools; track t) {
@@ -382,7 +382,9 @@ export class ToolbarComponent {
   private catalog = inject(ToolCatalogService);
   protected doc = inject(DocumentService);
   protected vm = inject(ViewModelService);
-  protected sections = this.catalog.getGrouped();
+  // Re-translated when the language changes or its file finishes loading —
+  // see ToolCatalogService.translationRevision.
+  protected sections = computed(() => this.catalog.getGrouped());
 
   readonly hatchPatterns: string[] = (() => {
     const names = Object.keys(HATCH_PATTERNS);
@@ -393,7 +395,10 @@ export class ToolbarComponent {
   private largeTools = new Set(['line', 'polyline', 'circle', 'arc', 'erase', 'text', 'dimension', 'mleader', 'dimjogged']);
   private iconOnlyTools = new Set(['rect', 'ellipse', 'spline', 'point', 'table', 'image', 'symbol']);
 
-  private groupActiveTool = new Map<string, any>();
+  // Remembers the last sub-tool used per group by *id*, not by object: the tool
+  // objects are rebuilt with fresh titles whenever the language changes, and a
+  // cached object would keep showing the old language's label.
+  private groupActiveTool = new Map<string, string>();
 
   getDisplayTool(t: any): any {
     if (this.toolMgr.isActive(t.id)) {
@@ -402,12 +407,17 @@ export class ToolbarComponent {
     if (t.subTools) {
       for (const sub of t.subTools) {
         if (this.toolMgr.isActive(sub.id)) {
-          this.groupActiveTool.set(t.id, sub);
+          this.groupActiveTool.set(t.id, sub.id);
           return sub;
         }
       }
+      const lastId = this.groupActiveTool.get(t.id);
+      if (lastId) {
+        const last = t.subTools.find((sub: any) => sub.id === lastId);
+        if (last) return last;
+      }
     }
-    return this.groupActiveTool.get(t.id) || t;
+    return t;
   }
 
   isGroupActive(t: any): boolean {
