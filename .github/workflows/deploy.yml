@@ -122,8 +122,8 @@ jobs:
                    --query properties.configuration.ingress.fqdn -o tsv)
           echo "Deployed: https://${fqdn}"
 
-          # Generous budget: min-replicas is 0, so these are cold starts, and
-          # the API also runs `prisma migrate deploy` before it listens.
+          # Generous budget: a new revision still starts cold (image pull, and
+          # the API runs `prisma migrate deploy` before it listens).
           probe() {
             for i in $(seq 1 40); do
               curl -fsS --max-time 15 "$1" >/dev/null && { echo "✓ $2"; return 0; }

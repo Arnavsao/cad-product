@@ -3,7 +3,7 @@
 # Provision Azure infrastructure for CADO.
 #
 #   Frontend  Azure Static Web Apps (Free)     — deployed by GitHub Actions
-#   API       Azure Container Apps (Consumption, scale-to-zero)
+#   API       Azure Container Apps (Consumption, one warm replica)
 #   Images    ghcr.io (free)                   — built by GitHub Actions
 #   Database  Neon        (unchanged, external)
 #   Storage   R2 / S3     (unchanged, external)
@@ -144,9 +144,10 @@ run az provider register --namespace Microsoft.OperationalInsights --wait
 # ---------------------------------------------------------------------------
 
 # --- WEB app (nginx + Angular) ---------------------------------------------
-# The explicit HTTP scale rule matters: with --min-replicas 0 and no rule, KEDA
-# has no trigger to scale up on, so the app sits at zero replicas and ingress
-# answers 404 ("stopped or does not exist") for every request.
+# --min-replicas 1: one replica always stays warm. The static shell is what every
+# visit starts with, so a scale-from-zero here (image pull + nginx start, ~10 s)
+# would be the first thing a returning user waits on. The HTTP scale rule still
+# adds a second replica under load.
 say "Deploying $WEB_APP"
 if az containerapp show -g "$RESOURCE_GROUP" -n "$WEB_APP" >/dev/null 2>&1; then
   run az containerapp update -g "$RESOURCE_GROUP" -n "$WEB_APP" \
@@ -156,7 +157,7 @@ else
       --environment "$ENV_NAME" \
       --image "${GHCR_WEB_IMAGE}:${IMAGE_TAG}" \
       --target-port 80 --ingress external \
-      --min-replicas 0 --max-replicas 2 \
+      --min-replicas 1 --max-replicas 2 \
       --scale-rule-name http-requests --scale-rule-type http \
       --scale-rule-http-concurrency 40 \
       --cpu 0.25 --memory 0.5Gi \
@@ -238,10 +239,10 @@ done
 # To make it genuinely private, recreate the environment with
 # --infrastructure-subnet-resource-id and set --ingress internal here.
 #
-# --min-replicas 0 is the scale-to-zero the Consumption plan is for: an idle
-# API costs nothing. The trade-off is a cold start on the first request after
-# idle, made worse here because `start:prod` runs `prisma migrate deploy`
-# before listening. See README "Cold starts" for how to avoid that.
+# --min-replicas 1: the API never scales to zero. With 0 the first request after
+# an idle spell waited ~20 s for a replica (image pull, `prisma migrate deploy`,
+# Nest boot) and that request is almost always a sign-in. One warm replica on the
+# Consumption plan is billed at the idle rate; see README "Cold starts".
 say "Deploying $API_APP"
 if az containerapp show -g "$RESOURCE_GROUP" -n "$API_APP" >/dev/null 2>&1; then
   run az containerapp secret set -g "$RESOURCE_GROUP" -n "$API_APP" \
@@ -257,7 +258,7 @@ else
       --environment "$ENV_NAME" \
       --image "${GHCR_API_IMAGE}:${IMAGE_TAG}" \
       --target-port 3000 --ingress external \
-      --min-replicas 0 --max-replicas 2 \
+      --min-replicas 1 --max-replicas 2 \
       --scale-rule-name http-requests --scale-rule-type http \
       --scale-rule-http-concurrency 20 \
       --cpu 0.5 --memory 1.0Gi \
