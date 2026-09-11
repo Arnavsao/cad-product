@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { LocaleDatePipe, LocaleDateStyle } from '../../../shared/ui/pipes/locale-date.pipe';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
@@ -81,7 +81,7 @@ const LINKS: readonly FooterLink[] = [
   selector: 'app-about-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, TranslocoDirective, UiIconComponent, SiteHeadingComponent, SiteClosingComponent, SiteRevealDirective],
+  imports: [LocaleDatePipe, RouterLink, TranslocoDirective, UiIconComponent, SiteHeadingComponent, SiteClosingComponent, SiteRevealDirective],
   templateUrl: './about.page.html',
   styleUrl: './about.page.scss',
 })
@@ -93,10 +93,10 @@ export class AboutPage {
   protected readonly links = LINKS;
   protected readonly currentVersion = RELEASE_NOTES[0]?.version ?? '';
 
-  /** `DatePipe` format for an ISO date, or `null` for a label such as "Next". */
-  protected dateFormat(m: Milestone): string | null {
+  /** `localeDate` style for an ISO date, or `null` for a label such as "Next". */
+  protected dateFormat(m: Milestone): LocaleDateStyle | null {
     if (/^\d{4}-\d{2}-\d{2}$/.test(m.date)) return 'longDate';
-    if (/^\d{4}-\d{2}$/.test(m.date)) return 'MMMM y';
+    if (/^\d{4}-\d{2}$/.test(m.date)) return 'monthYear';
     return null;
   }
 

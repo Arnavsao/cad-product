@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   input
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 import type { ILibraryItem } from '../../core/models/library.model';
 import { LibraryService } from '../../core/services/library.service';
@@ -13,8 +14,9 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-library-card',
   standalone: true,
-  imports: [UiIconComponent],
+  imports: [UiIconComponent, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     <div
       class="lib-card"
       draggable="true"
@@ -52,7 +54,7 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
       <button
         class="lib-card-menu-btn"
         type="button"
-        title="More options"
+        [title]="t('editor.dialog.common.moreOptions')"
         (click)="$event.stopPropagation(); menuOpen.set(!menuOpen())"
       ><ui-icon name="more" [size]="14" /></button>
 
@@ -65,10 +67,11 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
             @if (item().category === 'Favorites') { <ui-icon name="star-filled" [size]="14" /> Unfavorite } @else { <ui-icon name="star" [size]="14" /> Favorite }
           </button>
           <div class="lib-dd-sep"></div>
-          <button class="lib-dd-item lib-dd-danger" (click)="emitAndClose('delete')"><ui-icon name="trash" [size]="14" /> Delete</button>
+          <button class="lib-dd-item lib-dd-danger" (click)="emitAndClose('delete')"><ui-icon name="trash" [size]="14" /> {{ t('editor.dialog.common.delete') }}</button>
         </div>
       }
     </div>
+    </ng-container>
   `,
   styles: [`
     :host { display: block; position: relative; }

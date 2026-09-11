@@ -18,6 +18,8 @@ export type CadThemeMode = CadThemeKind;
 
 /** Active theme id. */
 const STORAGE_KEY = 'cad.theme';
+/** Which account the remembered theme belongs to. @see ThemeService.applyRemote */
+const OWNER_KEY = 'cad.theme.owner';
 /** Ground only ('dark' | 'light') — read by index.html before first paint and
  *  by any host application that embeds the editor. */
 const LEGACY_KEY = 'theme';
@@ -175,13 +177,26 @@ export class ThemeService {
 
   /**
    * Apply the theme the account is stored with, unless the person has already
-   * picked one in this session.
+   * picked one in this browser.
    *
    * The same staleness problem as the language: `/me` echoes the full
    * preferences object and can answer after the user has changed the theme,
-   * which would snap it back to whatever the account last saved.
+   * which would snap it back to whatever the account last saved. And the same
+   * account rule: a *different* account signing in on this browser gets its
+   * own stored theme, because the remembered pick was someone else's.
    */
-  applyRemote(id: string | null | undefined): void {
+  applyRemote(id: string | null | undefined, owner?: string | null): void {
+    if (owner) {
+      const previous = readStorage(OWNER_KEY);
+      if (previous !== owner) {
+        if (previous) this.chosen = false;
+        try {
+          localStorage.setItem(OWNER_KEY, owner);
+        } catch {
+          /* storage-disabled */
+        }
+      }
+    }
     if (!id || this.chosen) return;
     if (!findTheme(id) || id === this.themeId()) return;
     this.themeId.set(id);

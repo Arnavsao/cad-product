@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { Router } from '@angular/router';
 import { AssignableOrgRole, OrgDetailDto, OrgInviteDto, OrgMemberDto, OrgRole } from '../../../core/api/api.models';
 import type { DeleteOrganizationDialogData } from '../components/organization-dialogs.component';
@@ -16,7 +17,7 @@ import { UiInputDirective } from '../../../shared/ui/input.directive';
 import type { UiMenuItem } from '../../../shared/ui/menu/ui-menu.component';
 import { UiMenuTriggerDirective } from '../../../shared/ui/menu/ui-menu-trigger.directive';
 import { UiSkeletonComponent } from '../../../shared/ui/skeleton.component';
-import { DatePipe } from '@angular/common';
+import { LocaleDatePipe } from '../../../shared/ui/pipes/locale-date.pipe';
 import { RelativeTimePipe } from '../../../shared/ui/pipes/relative-time.pipe';
 import { messageOf } from '../data/drawings-list.store';
 
@@ -71,11 +72,13 @@ function article(role: OrgRole): string {
     RelativeTimePipe,
     // `relativeTime` only formats past timestamps, so an invite expiry — which is
     // always in the future — needs a plain date.
-    DatePipe,
+    LocaleDatePipe,
+    TranslocoDirective,
   ],
   template: `
+    <ng-container *transloco="let t">
     <header class="pg__head">
-      <h1 class="pg__title">{{ org()?.name ?? 'Organization' }}</h1>
+      <h1 class="pg__title">{{ org()?.name ?? t('dashboard.org.title') }}</h1>
       @if (org(); as o) {
         <p class="pg__sub">{{ o.memberCount }} {{ o.memberCount === 1 ? 'member' : 'members' }} · {{ o.drawingCount }} drawings</p>
       }
@@ -84,8 +87,8 @@ function article(role: OrgRole): string {
     @if (!workspace.isOrg()) {
       <ui-empty-state
         icon="building"
-        heading="You're in your personal workspace"
-        description="Switch to an organization — or create one — to manage its members."
+        [heading]="t('dashboard.org.personalTitle')"
+        [description]="t('dashboard.org.personalDesc')"
       />
     } @else if (loading()) {
       <ui-skeleton [lines]="4" height="60px" radius="var(--ui-radius-lg)" />
@@ -93,17 +96,17 @@ function article(role: OrgRole): string {
       <div class="pg__error" role="alert">
         <ui-icon name="alert" [size]="18" />
         <div>
-          <p class="pg__error-title">This organization could not be loaded.</p>
+          <p class="pg__error-title">{{ t('dashboard.org.loadError') }}</p>
           <p class="pg__error-msg">{{ message }}</p>
         </div>
-        <button type="button" uiButton (click)="reload()"><ui-icon name="refresh" [size]="14" /> Retry</button>
+        <button type="button" uiButton (click)="reload()"><ui-icon name="refresh" [size]="14" /> {{ t('common.retry') }}</button>
       </div>
     } @else {
       <!-- ── settings ────────────────────────────────────────────────────── -->
       @if (canAdmin()) {
         <ui-card class="og__card">
           <header class="og__card-head">
-            <h2 class="og__h2">Organization settings</h2>
+            <h2 class="og__h2">{{ t('dashboard.org.settings') }}</h2>
           </header>
 
           <form class="og__invite-form" (submit)="saveName($event)">
@@ -111,7 +114,7 @@ function article(role: OrgRole): string {
               uiInput
               class="og__invite-input"
               type="text"
-              aria-label="Organization name"
+              [attr.aria-label]="t('dashboard.org.nameAria')"
               [attr.maxlength]="maxName"
               [value]="name()"
               [disabled]="busy() === 'name'"
@@ -124,17 +127,17 @@ function article(role: OrgRole): string {
               [loading]="busy() === 'name'"
               [disabled]="!nameChanged() || busy() === 'name'"
             >
-              Save name
+              {{ t('dashboard.org.saveName') }}
             </button>
           </form>
 
           @if (isOwner()) {
             <p class="og__muted">
-              Deleting the organization removes its drawings and folders for every member. This cannot be undone.
+              {{ t('dashboard.org.deleteWarning') }}
             </p>
             <button type="button" uiButton variant="danger" [disabled]="busy() === 'delete'" (click)="deleteOrg()">
               <ui-icon name="trash" [size]="14" />
-              Delete organization
+              {{ t('dashboard.org.deleteOrg') }}
             </button>
           }
         </ui-card>
@@ -143,7 +146,7 @@ function article(role: OrgRole): string {
       <!-- ── members ─────────────────────────────────────────────────────── -->
       <ui-card class="og__card">
         <header class="og__card-head">
-          <h2 class="og__h2">Members</h2>
+          <h2 class="og__h2">{{ t('dashboard.shell.nav.members') }}</h2>
         </header>
 
         <ul class="og__members">
@@ -160,7 +163,7 @@ function article(role: OrgRole): string {
                 <span class="og__member-name">
                   {{ displayName(member) }}
                   @if (member.userId === myUserId()) {
-                    <span class="og__you">You</span>
+                    <span class="og__you">{{ t('dashboard.org.you') }}</span>
                   }
                 </span>
                 <span class="og__member-mail">{{ member.email }}</span>
@@ -181,7 +184,7 @@ function article(role: OrgRole): string {
                   variant="ghost"
                   size="sm"
                   iconOnly
-                  aria-label="Member actions"
+                  [attr.aria-label]="t('dashboard.org.memberActions')"
                   [disabled]="busy() === member.userId"
                   [uiMenuTrigger]="menuFor(member)"
                   menuAlign="end"
@@ -201,7 +204,7 @@ function article(role: OrgRole): string {
       @if (canAdmin()) {
         <ui-card class="og__card">
           <header class="og__card-head">
-            <h2 class="og__h2">Invite people</h2>
+            <h2 class="og__h2">{{ t('dashboard.org.invitePeople') }}</h2>
           </header>
 
           <form class="og__invite-form" (submit)="invite($event)">
@@ -211,7 +214,7 @@ function article(role: OrgRole): string {
               class="og__invite-input"
               placeholder="name@company.com"
               autocomplete="off"
-              aria-label="Email address to invite"
+              [attr.aria-label]="t('dashboard.org.inviteEmailAria')"
               [value]="inviteEmail()"
               [disabled]="busy() === 'invite'"
               (input)="onInviteEmail($event)"
@@ -219,14 +222,14 @@ function article(role: OrgRole): string {
             <select
               uiInput
               class="og__invite-role"
-              aria-label="Role"
+              [attr.aria-label]="t('dashboard.org.roleAria')"
               [value]="inviteRole()"
               [disabled]="busy() === 'invite'"
               (change)="onInviteRole($event)"
             >
-              <option value="viewer">Viewer</option>
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
+              <option value="viewer">{{ t('dashboard.org.role.viewer') }}</option>
+              <option value="member">{{ t('dashboard.org.role.member') }}</option>
+              <option value="admin">{{ t('dashboard.org.role.admin') }}</option>
             </select>
             <button
               type="submit"
@@ -236,12 +239,12 @@ function article(role: OrgRole): string {
               [disabled]="!inviteValid() || busy() === 'invite'"
             >
               <ui-icon name="user-plus" [size]="14" />
-              Send invite
+              {{ t('dashboard.org.sendInvite') }}
             </button>
           </form>
 
           @if (!invites().length) {
-            <p class="og__muted og__muted--tight">No invitations are waiting to be accepted.</p>
+            <p class="og__muted og__muted--tight">{{ t('dashboard.org.noInvites') }}</p>
           } @else {
             <ul class="og__invites">
               @for (item of invites(); track item.id) {
@@ -249,11 +252,11 @@ function article(role: OrgRole): string {
                   <ui-icon name="message" [size]="15" />
                   <span class="og__invite-mail">{{ item.email }}</span>
                   <span class="og__role" [class.og__role--viewer]="item.role === 'viewer'">{{ item.role }}</span>
-                  <span class="og__joined">Expires {{ item.expiresAt | date: 'mediumDate' }}</span>
+                  <span class="og__joined">{{ t('dashboard.org.inviteExpires', { date: (item.expiresAt | localeDate: 'mediumDate') }) }}</span>
                   @if (item.token) {
                     <button type="button" uiButton variant="ghost" size="sm" (click)="copyInviteLink(item)">
                       <ui-icon name="link" [size]="14" />
-                      Copy invite link
+                      {{ t('dashboard.org.copyInviteLink') }}
                     </button>
                   }
                   <button
@@ -264,7 +267,7 @@ function article(role: OrgRole): string {
                     [disabled]="busy() === item.id"
                     (click)="revoke(item)"
                   >
-                    Revoke
+                    {{ t('dashboard.org.revoke') }}
                   </button>
                 </li>
               }
@@ -277,20 +280,20 @@ function article(role: OrgRole): string {
       @if (org()?.joinCode; as code) {
         <ui-card class="og__card">
           <header class="og__card-head">
-            <h2 class="og__h2">Join code</h2>
+            <h2 class="og__h2">{{ t('dashboard.org.joinCode') }}</h2>
           </header>
           <p class="og__muted">
-            Anyone with this code can join as a member. Rotate it if it has been shared too widely.
+            {{ t('dashboard.org.joinCodeHint') }}
           </p>
           <div class="og__code-row">
-            <input uiInput class="og__code" type="text" readonly [value]="code" aria-label="Join code" />
+            <input uiInput class="og__code" type="text" readonly [value]="code" [attr.aria-label]="t('dashboard.org.joinCode')" />
             <button type="button" uiButton variant="secondary" (click)="copyCode(code)">
               <ui-icon name="copy" [size]="14" />
-              Copy
+              {{ t('dashboard.org.copy') }}
             </button>
             <button type="button" uiButton variant="secondary" [disabled]="busy() === 'code'" (click)="rotateCode()">
               <ui-icon name="refresh" [size]="14" />
-              Rotate
+              {{ t('dashboard.org.rotate') }}
             </button>
           </div>
         </ui-card>
@@ -299,10 +302,10 @@ function article(role: OrgRole): string {
       <!-- ── danger zone ─────────────────────────────────────────────────── -->
       <ui-card class="og__card">
         <header class="og__card-head">
-          <h2 class="og__h2">Leave organization</h2>
+          <h2 class="og__h2">{{ t('dashboard.org.leaveOrg') }}</h2>
         </header>
         <p class="og__muted">
-          You will lose access to this organization's drawings. Anything you created stays with the organization.
+          {{ t('dashboard.org.leaveHint') }}
         </p>
         <button type="button" uiButton variant="danger" [disabled]="busy() === 'leave'" (click)="leave()">
           <ui-icon name="log-out" [size]="14" />
@@ -310,6 +313,7 @@ function article(role: OrgRole): string {
         </button>
       </ui-card>
     }
+    </ng-container>
   `,
   styles: [
     `

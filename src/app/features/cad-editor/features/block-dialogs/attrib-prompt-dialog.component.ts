@@ -2,18 +2,20 @@ import { Component, inject , ChangeDetectionStrategy
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { AttribPromptDialogService } from './attrib-prompt-dialog.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-attrib-prompt-dialog',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     @if (dialog.isOpen()) {
       <div class="attrib-overlay" (click)="dialog.cancel()">
         <div class="attrib-dialog" (click)="$event.stopPropagation()">
-          <h3>Block Attributes — {{ dialog.blockName() }}</h3>
+          <h3>{{ t('editor.dialog.attribPrompt.title', { block: dialog.blockName() }) }}</h3>
           <div class="attrib-fields">
             @for (def of promptDefs(); track def.tag) {
               <label class="attrib-field">
@@ -27,12 +29,13 @@ import { AttribPromptDialogService } from './attrib-prompt-dialog.service';
               }
             </div>
             <div class="attrib-actions">
-              <button class="btn primary" type="button" (click)="onOk()">OK</button>
-              <button class="btn" type="button" (click)="dialog.cancel()">Cancel</button>
+              <button class="btn primary" type="button" (click)="onOk()">{{ t('editor.dialog.common.ok') }}</button>
+              <button class="btn" type="button" (click)="dialog.cancel()">{{ t('editor.dialog.common.cancel') }}</button>
             </div>
           </div>
         </div>
       }
+    </ng-container>
     `,
   styles: [`
     .attrib-overlay {

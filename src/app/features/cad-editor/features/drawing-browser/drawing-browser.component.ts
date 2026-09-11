@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { FormsModule } from '@angular/forms';
 
 import { DrawingsApiService } from '../../../../core/api/drawings-api.service';
@@ -64,40 +65,41 @@ const SHARED = 'shared';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-drawing-browser',
   standalone: true,
-  imports: [UiIconComponent, FormsModule, RelativeTimePipe, FileSizePipe],
+  imports: [UiIconComponent, FormsModule, RelativeTimePipe, FileSizePipe, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     <div class="db-overlay" (click)="onOverlayClick($event)">
       <div class="db-modal" (click)="$event.stopPropagation()">
 
         <header class="db-header">
           <h2>{{ svc.mode() === 'save' ? 'Save Drawing As' : 'My Drawings' }}</h2>
-          <button type="button" class="db-x" (click)="close()" title="Close (Esc)"><ui-icon name="close" [size]="16" /></button>
+          <button type="button" class="db-x" (click)="close()" [title]="t('editor.dialog.common.closeEsc')"><ui-icon name="close" [size]="16" /></button>
         </header>
 
         @if (svc.mode() === 'save') {
           <div class="db-saverow">
-            <label for="db-name">Name</label>
+            <label for="db-name">{{ t('editor.dialog.common.name') }}</label>
             <input
               id="db-name"
               type="text"
               class="db-input"
               [(ngModel)]="saveName"
               (keydown.enter)="confirmSave()"
-              placeholder="Drawing name"
+              [placeholder]="t('editor.dialog.drawingBrowser.namePlaceholder')"
               autocomplete="off"
               spellcheck="false">
-            <label for="db-workspace">Workspace</label>
+            <label for="db-workspace">{{ t('editor.dialog.drawingBrowser.workspace') }}</label>
             <select
               id="db-workspace"
               class="db-input select"
               [ngModel]="saveOrgId()"
               (ngModelChange)="onSaveWorkspaceChange($event)">
-              <option [ngValue]="null">Personal</option>
+              <option [ngValue]="null">{{ t('editor.dialog.drawingBrowser.personal') }}</option>
               @for (o of savableOrgs(); track o.id) {
                 <option [ngValue]="o.id">{{ o.name }}</option>
               }
             </select>
-            <label for="db-folder">Folder</label>
+            <label for="db-folder">{{ t('editor.dialog.drawingBrowser.folder') }}</label>
             <select id="db-folder" class="db-input select" [(ngModel)]="saveFolderId">
               <option [ngValue]="null">{{ saveOrgId() === null ? 'My Drawings' : 'Workspace root' }}</option>
               @for (f of folders(); track f.id) {
@@ -108,19 +110,18 @@ const SHARED = 'shared';
               type="button"
               class="db-btn primary"
               [disabled]="persist.busy() || !saveName.trim()"
-              (click)="confirmSave()">Save</button>
+              (click)="confirmSave()">{{ t('editor.dialog.common.save') }}</button>
           </div>
         }
 
         @if (recovery().length) {
           <section class="db-recovery">
             <div class="db-recovery-head">
-              <span class="db-recovery-title">Unsaved work recovered</span>
-              <button type="button" class="db-link" (click)="discardRecovery()">Discard all</button>
+              <span class="db-recovery-title">{{ t('editor.dialog.drawingBrowser.recoveredTitle') }}</span>
+              <button type="button" class="db-link" (click)="discardRecovery()">{{ t('editor.dialog.drawingBrowser.discardAll') }}</button>
             </div>
             <p class="db-recovery-note">
-              These drawings were autosaved in this browser but never saved to your account —
-              probably from a tab that closed unexpectedly.
+              {{ t('editor.dialog.drawingBrowser.recoveryNote') }}
             </p>
             @for (r of recovery(); track r.id) {
               <div class="db-row recovery">
@@ -128,7 +129,7 @@ const SHARED = 'shared';
                 <span class="db-meta">{{ r.updatedAt | relativeTime }}</span>
                 <span class="db-meta">{{ r.byteSize | fileSize }}</span>
                 <span class="db-actions">
-                  <button type="button" class="db-btn" [disabled]="persist.busy()" (click)="restore(r)">Restore</button>
+                  <button type="button" class="db-btn" [disabled]="persist.busy()" (click)="restore(r)">{{ t('editor.dialog.drawingBrowser.restore') }}</button>
                 </span>
               </div>
             }
@@ -141,20 +142,20 @@ const SHARED = 'shared';
             class="db-input search"
             [ngModel]="query()"
             (ngModelChange)="onQueryChange($event)"
-            placeholder="Search your drawings…"
+            [placeholder]="t('editor.dialog.drawingBrowser.searchPlaceholder')"
             autocomplete="off"
             spellcheck="false">
           @if (svc.mode() !== 'save') {
             <select
               class="db-input select"
-              aria-label="Where to look"
+              [attr.aria-label]="t('editor.dialog.drawingBrowser.whereToLook')"
               [ngModel]="browseTarget()"
               (ngModelChange)="onBrowseChange($event)">
-              <option value="">Personal</option>
+              <option value="">{{ t('editor.dialog.drawingBrowser.personal') }}</option>
               @for (o of workspace.organizations(); track o.id) {
                 <option [value]="o.id">{{ o.name }}</option>
               }
-              <option value="shared">Shared with me</option>
+              <option value="shared">{{ t('editor.dialog.drawingBrowser.sharedWithMe') }}</option>
             </select>
           }
           <button type="button" class="db-btn" (click)="newDrawing()">+ New drawing</button>
@@ -162,11 +163,11 @@ const SHARED = 'shared';
 
         <div class="db-list">
           @if (loading()) {
-            <div class="db-empty">Loading…</div>
+            <div class="db-empty">{{ t('editor.dialog.drawingBrowser.loading') }}</div>
           } @else if (error(); as msg) {
             <div class="db-empty">
               {{ msg }}
-              <div><button type="button" class="db-btn" (click)="refresh()">Retry</button></div>
+              <div><button type="button" class="db-btn" (click)="refresh()">{{ t('common.retry') }}</button></div>
             </div>
           } @else if (!drawings().length) {
             <div class="db-empty">
@@ -175,7 +176,7 @@ const SHARED = 'shared';
               } @else if (browsingShared()) {
                 Nothing has been shared with you yet.
               } @else {
-                No drawings in this workspace yet. Use <strong>Save</strong> (Ctrl+S) to keep your work.
+                {{ t('editor.dialog.drawingBrowser.emptyWorkspace') }}
               }
             </div>
           } @else {
@@ -190,7 +191,7 @@ const SHARED = 'shared';
                 <span class="db-meta">{{ d.updatedAt | relativeTime }}</span>
                 <span class="db-meta">{{ d.byteSize | fileSize }}</span>
                 <span class="db-actions">
-                  <button type="button" class="db-btn" [disabled]="persist.busy()" (click)="open(d)">Open</button>
+                  <button type="button" class="db-btn" [disabled]="persist.busy()" (click)="open(d)">{{ t('editor.dialog.drawingBrowser.open') }}</button>
                 </span>
               </div>
             }
@@ -200,11 +201,12 @@ const SHARED = 'shared';
         <footer class="db-footer">
           <span>{{ drawings().length }} drawing{{ drawings().length === 1 ? '' : 's' }}{{ hasMore() ? '+' : '' }}</span>
           <span class="db-spacer"></span>
-          <button type="button" class="db-btn" (click)="close()">Close</button>
+          <button type="button" class="db-btn" (click)="close()">{{ t('editor.dialog.common.close') }}</button>
         </footer>
 
       </div>
     </div>
+    </ng-container>
   `,
   styles: [`
     .db-overlay {

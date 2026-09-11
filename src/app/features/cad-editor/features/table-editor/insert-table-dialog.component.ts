@@ -1,5 +1,6 @@
 import { Component, effect , ChangeDetectionStrategy
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 import { FormsModule } from '@angular/forms';
 import { InsertTableDialogService, ITableConfig } from './insert-table-dialog.service';
@@ -9,19 +10,20 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-insert-table-dialog',
   standalone: true,
-  imports: [UiIconComponent, FormsModule],
+  imports: [UiIconComponent, FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     @if (svc.isOpen()) {
       <div class="dialog-overlay">
         <div class="dialog">
           <div class="dialog-header">
-            <span>Insert Table</span>
+            <span>{{ t('editor.dialog.insertTable.title') }}</span>
             <button class="close-btn" (click)="cancel()"><ui-icon name="close" [size]="16" /></button>
           </div>
           <div class="dialog-body">
             <div class="col-left">
               <fieldset>
-                <legend>Table Style</legend>
+                <legend>{{ t('editor.dialog.insertTable.tableStyle') }}</legend>
                 <div class="form-row">
                   <select disabled><option>Standard</option></select>
                   <button class="btn-icon" disabled>...</button>
@@ -29,86 +31,86 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
               </fieldset>
 
               <fieldset>
-                <legend>Column & Row settings</legend>
+                <legend>{{ t('editor.dialog.insertTable.columnRowSettings') }}</legend>
                 <div class="grid-2x2">
                   <div class="form-group">
-                    <label>Columns:</label>
+                    <label>{{ t('editor.dialog.insertTable.columns') }}</label>
                     <input type="number" [(ngModel)]="config.cols" min="1" max="50">
                   </div>
                   <div class="form-group">
-                    <label>Column width:</label>
+                    <label>{{ t('editor.dialog.insertTable.columnWidth') }}</label>
                     <input type="number" [(ngModel)]="config.colWidth" min="1" step="0.5">
                   </div>
                   <div class="form-group">
-                    <label>Data rows:</label>
+                    <label>{{ t('editor.dialog.insertTable.dataRows') }}</label>
                     <input type="number" [(ngModel)]="config.rows" min="1" max="100">
                   </div>
                   <div class="form-group">
-                    <label>Row height:</label>
+                    <label>{{ t('editor.dialog.insertTable.rowHeight') }}</label>
                     <input type="number" [(ngModel)]="config.rowHeight" min="1" step="0.5">
                   </div>
                 </div>
               </fieldset>
               <fieldset>
-                <legend>Set cell styles</legend>
+                <legend>{{ t('editor.dialog.insertTable.setCellStyles') }}</legend>
                 <div class="form-group-row">
-                  <label>First row cell style:</label>
+                  <label>{{ t('editor.dialog.insertTable.firstRowStyle') }}</label>
                   <select class="cell-style-select" [(ngModel)]="config.firstRowStyle">
-                    <option value="Title">Title</option>
-                    <option value="Header">Header</option>
-                    <option value="Data">Data</option>
+                    <option value="Title">{{ t('editor.dialog.insertTable.cellTitle') }}</option>
+                    <option value="Header">{{ t('editor.dialog.insertTable.cellHeader') }}</option>
+                    <option value="Data">{{ t('editor.dialog.insertTable.cellData') }}</option>
                   </select>
                 </div>
                 <div class="form-group-row">
-                  <label>Second row cell style:</label>
+                  <label>{{ t('editor.dialog.insertTable.secondRowStyle') }}</label>
                   <select class="cell-style-select" [(ngModel)]="config.secondRowStyle">
-                    <option value="Title">Title</option>
-                    <option value="Header">Header</option>
-                    <option value="Data">Data</option>
+                    <option value="Title">{{ t('editor.dialog.insertTable.cellTitle') }}</option>
+                    <option value="Header">{{ t('editor.dialog.insertTable.cellHeader') }}</option>
+                    <option value="Data">{{ t('editor.dialog.insertTable.cellData') }}</option>
                   </select>
                 </div>
                 <div class="form-group-row">
-                  <label>All other row cell styles:</label>
+                  <label>{{ t('editor.dialog.insertTable.otherRowStyle') }}</label>
                   <select class="cell-style-select" [(ngModel)]="config.otherRowStyle">
-                    <option value="Title">Title</option>
-                    <option value="Header">Header</option>
-                    <option value="Data">Data</option>
+                    <option value="Title">{{ t('editor.dialog.insertTable.cellTitle') }}</option>
+                    <option value="Header">{{ t('editor.dialog.insertTable.cellHeader') }}</option>
+                    <option value="Data">{{ t('editor.dialog.insertTable.cellData') }}</option>
                   </select>
                 </div>
               </fieldset>
             </div>
             <div class="col-right">
               <fieldset class="preview-fieldset">
-                <legend>Preview</legend>
+                <legend>{{ t('editor.dialog.common.preview') }}</legend>
                 <div class="preview-container">
                   <div class="preview-canvas">
                     <div class="preview-table" [style]="getPreviewStyle()">
                     <!-- First Row -->
                     @if (config.firstRowStyle === 'Title') {
-                      <div class="preview-cell title" style="grid-column: span 3">Title</div>
+                      <div class="preview-cell title" style="grid-column: span 3">{{ t('editor.dialog.insertTable.cellTitle') }}</div>
                     } @else if (config.firstRowStyle === 'Header') {
-                      <div class="preview-cell header">Header</div><div class="preview-cell header">Header</div><div class="preview-cell header">Header</div>
+                      <div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div><div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div><div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div>
                     } @else {
-                      <div class="preview-cell data">Data</div><div class="preview-cell data">Data</div><div class="preview-cell data">Data</div>
+                      <div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div><div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div><div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div>
                     }
                     
                     <!-- Second Row -->
                     @if (config.secondRowStyle === 'Title') {
-                      <div class="preview-cell title" style="grid-column: span 3">Title</div>
+                      <div class="preview-cell title" style="grid-column: span 3">{{ t('editor.dialog.insertTable.cellTitle') }}</div>
                     } @else if (config.secondRowStyle === 'Header') {
-                      <div class="preview-cell header">Header</div><div class="preview-cell header">Header</div><div class="preview-cell header">Header</div>
+                      <div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div><div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div><div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div>
                     } @else {
-                      <div class="preview-cell data">Data</div><div class="preview-cell data">Data</div><div class="preview-cell data">Data</div>
+                      <div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div><div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div><div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div>
                     }
 
                     <!-- Data Rows (Fixed 4 rows for preview) -->
                     @for (_ of getArray(4); track _) {
                       @if (config.otherRowStyle === 'Title') {
-                        <div class="preview-cell title" style="grid-column: span 3">Title</div>
+                        <div class="preview-cell title" style="grid-column: span 3">{{ t('editor.dialog.insertTable.cellTitle') }}</div>
                       } @else if (config.otherRowStyle === 'Header') {
-                        <div class="preview-cell header">Header</div><div class="preview-cell header">Header</div><div class="preview-cell header">Header</div>
+                        <div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div><div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div><div class="preview-cell header">{{ t('editor.dialog.insertTable.cellHeader') }}</div>
                       } @else {
-                        <div class="preview-cell data">Data</div><div class="preview-cell data">Data</div><div class="preview-cell data">Data</div>
+                        <div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div><div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div><div class="preview-cell data">{{ t('editor.dialog.insertTable.cellData') }}</div>
                       }
                     }
                   </div>
@@ -118,13 +120,14 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
             </div>
           </div>
           <div class="dialog-footer">
-            <button class="btn primary-btn" (click)="commit()">OK</button>
-            <button class="btn" (click)="cancel()">Cancel</button>
-            <button class="btn" disabled>Help</button>
+            <button class="btn primary-btn" (click)="commit()">{{ t('editor.dialog.common.ok') }}</button>
+            <button class="btn" (click)="cancel()">{{ t('editor.dialog.common.cancel') }}</button>
+            <button class="btn" disabled>{{ t('editor.dialog.common.help') }}</button>
           </div>
         </div>
       </div>
     }
+    </ng-container>
     `,
   styles: [`
     .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 2000; display: flex; align-items: center; justify-content: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #000; }

@@ -164,7 +164,7 @@
           <span class="ab__tl-dot" aria-hidden="true"></span>
           <div class="ab__tl-meta">
             @if (dateFormat(m); as fmt) {
-              <time class="ab__tl-date" [attr.datetime]="m.date">{{ m.date | date: fmt }}</time>
+              <time class="ab__tl-date" [attr.datetime]="m.date">{{ m.date | localeDate: fmt }}</time>
             } @else if (m.dateLabelKey) {
               <span class="ab__tl-date">{{ t(m.dateLabelKey) }}</span>
             }

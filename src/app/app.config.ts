@@ -1,5 +1,6 @@
 import { ApplicationConfig, ErrorHandler, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
 import {
+  TitleStrategy,
   provideRouter,
   withComponentInputBinding,
   withInMemoryScrolling,
@@ -13,6 +14,7 @@ import { GlobalErrorHandler } from './core/errors/global-error.handler';
 import { AUTH_TOKEN_PROVIDER } from './core/config/auth-token.provider';
 import { SupabaseAuthTokenProvider } from './core/auth/supabase-token.provider';
 import { SelectivePreloadStrategy } from './core/routing/selective-preload.strategy';
+import { TranslatedTitleStrategy } from './core/routing/translated-title.strategy';
 import { provideI18n } from './core/i18n/provide-i18n';
 
 export const appConfig: ApplicationConfig = {
@@ -37,6 +39,9 @@ export const appConfig: ApplicationConfig = {
     // the translation loader is an HttpClient consumer.
     ...provideI18n(),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
+    // Route `title`s are translation keys; see the strategy for the two
+    // surfaces (site, editor) that manage their own tab title.
+    { provide: TitleStrategy, useClass: TranslatedTitleStrategy },
     // Bearer tokens come from the Supabase session. Embedding hosts may override this provider.
     { provide: AUTH_TOKEN_PROVIDER, useExisting: SupabaseAuthTokenProvider },
   ],

@@ -73,6 +73,7 @@
   "dashboard.org.expires": "Expires {{date}}",
   "dashboard.org.inviteCreated": "Invitation created for {{email}}.",
   "dashboard.org.inviteEmailAria": "Email address to invite",
+  "dashboard.org.inviteExpires": "Expires {{date}}",
   "dashboard.org.inviteLinkCopied": "Invite link copied — send it to them yourself.",
   "dashboard.org.invitePeople": "Invite people",
   "dashboard.org.inviteRevoked": "Invitation to {{email}} was revoked.",

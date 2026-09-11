@@ -126,6 +126,44 @@ values, decoded text, per-style fonts and real lineweights.
   certain of, but the first native review is still outstanding. English is the reference.
 
 ### Fixed
+* **Switching language left the previous language on screen in a dozen places.** Everything
+  rendered through the `*transloco` directive followed the switch; everything resolved in
+  TypeScript did not. Text was computed once — in a field initialiser, a `computed()` that read
+  `getActiveLang()` (a plain method, not a signal), or a `signal()` seeded at construction — and
+  never again. The command-line placeholder, the Properties palette heading, the Page Setup layout
+  name, a shared drawing's owner name, the site's typed command monitor and the browser tab were
+  all stuck until a reload.
+
+  There is now one primitive for this. `LanguageService.revision` bumps on every language switch
+  *and* every finished translation load (a cold load builds menus before `ja.json` arrives, so the
+  second event matters as much as the first); `LanguageService.t` is `translate()` as a signal on
+  top of it, and `injectTranslateFn()` / `injectTranslationRevision()` in `core/i18n` give the same
+  to code that may run without a Transloco provider. Every code-side translation reads one of
+  them. The four local copies of the same idea (`ToolCatalogService`, the dashboard shell, the
+  drawings page, the account button) now share the core implementation.
+
+  Browser-tab titles were English in every language: route `title`s were literal strings. They
+  are translation keys now, resolved by `TranslatedTitleStrategy`, which re-applies on a language
+  change — but only while the tab still shows the title it wrote, so the editor's drawing name and
+  the site shell's own titles are never clobbered.
+
+  Dates followed the browser, not the UI language. Angular's `DatePipe` formats with `LOCALE_ID`,
+  fixed at bootstrap to `en-US`, so a Japanese dashboard still read "Sep 11, 2026". `localeDate`
+  (`shared/ui/pipes`) formats with `Intl` in the active language and needs no locale-data files;
+  every `| date` in the app now uses it, and the two `toLocaleDateString()` / `Intl.NumberFormat`
+  calls with no locale read `<html lang>` instead.
+
+  Signing in as a different account on the same browser kept the previous person's language and
+  theme, because the remembered choice outranked the account. The choice is now tagged with the
+  account that made it (`cad.locale.owner`, `cad.theme.owner`); another account's preferences win.
+
+  Ten components — the organization page and nine editor dialogs (block insert/create/attributes,
+  table insert and overlay, layout manager, drawing browser, library panel/card/save) — had their
+  strings extracted to `en.json` but their templates were never wired to the keys, so they were
+  English in every language despite the keys existing in all fourteen files. Wired now; one
+  leftover literal ("Expires …") became a key. A regex sweep for literal text nodes and attributes
+  across the app is what found them, and found nothing else.
+
 * **Picking a language in Settings snapped straight back to English, and never survived a reload.**
   Two defects stacked. The server never stored the language: `UpdatePreferencesDto` validated
   `locale` against the fourteen shipped codes, and `locale-registry.spec.ts` even proved it

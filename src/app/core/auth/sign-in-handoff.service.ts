@@ -41,7 +41,15 @@ export class SignInHandoffService {
   /** True while the branded sign-in overlay should cover the app. */
   readonly active = this.visible.asReadonly();
 
-  private shownAt = 0;
+  /**
+   * False until the minimum hold has elapsed. Tracked with a timer rather than
+   * by comparing `Date.now()` readings so that the two deadlines share one clock
+   * — which also keeps the service testable under `jasmine.clock()`, as this app
+   * is zoneless and has no `fakeAsync`.
+   */
+  private minElapsed = false;
+  /** Set when `end()` arrives before the minimum hold is up. */
+  private endPending = false;
   private minTimer: ReturnType<typeof setTimeout> | null = null;
   private maxTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -49,11 +57,19 @@ export class SignInHandoffService {
   begin(): void {
     if (this.visible()) return;
 
-    // A pending minimum-hold from a previous handoff would otherwise clear this
-    // one early.
+    // A pending hold from a previous handoff would otherwise clear this one early.
     this.clearTimers();
-    this.shownAt = Date.now();
+    this.minElapsed = false;
+    this.endPending = false;
     this.visible.set(true);
+
+    this.minTimer = setTimeout(() => {
+      this.minTimer = null;
+      this.minElapsed = true;
+      // The work finished while the loader was still serving its minimum.
+      if (this.endPending) this.clear();
+    }, SignInHandoffService.MIN_VISIBLE_MS);
+
     this.maxTimer = setTimeout(() => this.clear(), SignInHandoffService.MAX_VISIBLE_MS);
   }
 
@@ -63,18 +79,20 @@ export class SignInHandoffService {
    * may settle its first load repeatedly.
    */
   end(): void {
-    if (!this.visible() || this.minTimer !== null) return;
+    if (!this.visible()) return;
 
-    const remaining = SignInHandoffService.MIN_VISIBLE_MS - (Date.now() - this.shownAt);
-    if (remaining <= 0) {
+    if (this.minElapsed) {
       this.clear();
       return;
     }
-    this.minTimer = setTimeout(() => this.clear(), remaining);
+    // Cleared by the minimum-hold timer when it fires.
+    this.endPending = true;
   }
 
   private clear(): void {
     this.clearTimers();
+    this.minElapsed = false;
+    this.endPending = false;
     this.visible.set(false);
   }
 

@@ -8,6 +8,7 @@ import { NotificationService } from '../../../core/services/notification.service
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { UiSkeletonComponent } from '../../../shared/ui/skeleton.component';
+import { injectTranslateFn } from '../../../core/i18n/translate-fn';
 
 /**
  * `/shared/:token` — the landing page of a share link.
@@ -91,6 +92,7 @@ export class SharedLinkPage {
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
   private readonly transloco = inject(TranslocoService);
+  private readonly t = injectTranslateFn();
 
   protected readonly link = signal<SharedLinkDto | null>(null);
   protected readonly loading = signal(true);
@@ -100,7 +102,7 @@ export class SharedLinkPage {
   protected readonly ownerName = computed(() => {
     const owner = this.link()?.owner;
     const full = [owner?.firstName, owner?.lastName].filter(Boolean).join(' ').trim();
-    return full || this.transloco.translate('dashboard.sharedLink.someone');
+    return full || this.t()('dashboard.sharedLink.someone');
   });
 
   constructor() {

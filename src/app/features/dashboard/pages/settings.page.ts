@@ -517,7 +517,7 @@ export class SettingsPage {
       return { key: b.status === 'cancelled' ? 'dashboard.settings.planHint.ended' : 'dashboard.settings.planHint.free' };
     }
     const when = b.currentPeriodEnd
-      ? new Date(b.currentPeriodEnd).toLocaleDateString(this.transloco.getActiveLang())
+      ? new Date(b.currentPeriodEnd).toLocaleDateString(this.language.localeCode())
       : null;
     const dated = (key: string, fallback: string) => (when ? { key, params: { date: when } } : { key: fallback });
     if (b.status === 'trialing') return dated('dashboard.settings.planHint.trialEnds', 'dashboard.settings.planHint.trial');

@@ -19,8 +19,8 @@ import {
   ChangeDetectionStrategy
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
-import { translateOr } from '../../../../core/i18n/translate-or';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { injectTranslationRevision, injectTranslocoOptional, translateOr } from '../../../../core/i18n/translate-or';
 import { PageSetupDialogService } from './page-setup-dialog.service';
 import { LayoutManagerService } from '../../core/services/layout-manager.service';
 import {
@@ -299,7 +299,8 @@ export class PageSetupDialogComponent implements OnInit {
   protected dialogSvc   = inject(PageSetupDialogService);
   protected layoutMgr   = inject(LayoutManagerService);
   // Optional: embedded hosts and specs may construct the dialog without Transloco.
-  private readonly transloco = inject(TranslocoService, { optional: true });
+  private readonly transloco = injectTranslocoOptional();
+  private readonly translationRevision = injectTranslationRevision();
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
@@ -341,6 +342,7 @@ export class PageSetupDialogComponent implements OnInit {
   customScaleValue = 100;
 
   readonly layoutName = computed(() => {
+    this.translationRevision();
     const id = this.dialogSvc.targetLayoutId();
     return this.layoutMgr.layouts().find((l) => l.id === id)?.name
       ?? translateOr(this.transloco, 'editor.dialog.pageSetup.layoutFallback', 'Layout');

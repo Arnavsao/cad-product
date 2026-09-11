@@ -1,5 +1,6 @@
 import { Component, effect, inject, signal , ChangeDetectionStrategy
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { FormsModule } from '@angular/forms';
 import { InsertBlockDialogService, IInsertBlockParams } from './insert-block-dialog.service';
 
@@ -7,15 +8,16 @@ import { InsertBlockDialogService, IInsertBlockParams } from './insert-block-dia
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-insert-block-dialog',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     @if (svc.isOpen()) {
       <div class="block-dialog-overlay" (click)="svc.cancel()">
         <div class="block-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="insert-block-title" (click)="$event.stopPropagation()">
-          <div id="insert-block-title" class="title">Insert Block</div>
+          <div id="insert-block-title" class="title">{{ t('editor.dialog.insertBlock.title') }}</div>
 
           <div class="form-grid">
-            <label>Block</label>
+            <label>{{ t('editor.dialog.insertBlock.block') }}</label>
             <div class="field">
               <select [(ngModel)]="config.blockName" class="sel">
                 @for (n of filteredNames(); track n) {
@@ -24,33 +26,33 @@ import { InsertBlockDialogService, IInsertBlockParams } from './insert-block-dia
               </select>
             </div>
 
-            <label>Filter</label>
+            <label>{{ t('editor.dialog.insertBlock.filter') }}</label>
             <div class="field">
-              <input type="text" [(ngModel)]="filter" placeholder="Search..." (ngModelChange)="onFilterChange()" />
+              <input type="text" [(ngModel)]="filter" [placeholder]="t('editor.dialog.insertBlock.searchPlaceholder')" (ngModelChange)="onFilterChange()" />
             </div>
 
-            <label>Scale X</label>
+            <label>{{ t('editor.dialog.insertBlock.scaleX') }}</label>
             <div class="field">
               <input type="number" [(ngModel)]="config.scaleX" step="0.1"
                      (ngModelChange)="onScaleXChange()" />
             </div>
 
-            <label>Scale Y</label>
+            <label>{{ t('editor.dialog.insertBlock.scaleY') }}</label>
             <div class="field">
               <input type="number" [(ngModel)]="config.scaleY" step="0.1"
                      [disabled]="config.uniformScale" />
             </div>
 
-            <label>Uniform</label>
+            <label>{{ t('editor.dialog.insertBlock.uniform') }}</label>
             <div class="field">
               <label class="checkbox">
                 <input type="checkbox" [(ngModel)]="config.uniformScale"
                        (ngModelChange)="onUniformChange()" />
-                Uniform Scale
+                {{ t('editor.dialog.insertBlock.uniformScale') }}
               </label>
             </div>
 
-            <label>Rotation</label>
+            <label>{{ t('editor.dialog.insertBlock.rotation') }}</label>
             <div class="field">
               <input type="number" [(ngModel)]="config.rotation" step="1" />
               <span class="suffix">°</span>
@@ -58,12 +60,13 @@ import { InsertBlockDialogService, IInsertBlockParams } from './insert-block-dia
           </div>
 
           <div class="actions">
-            <button class="btn primary" type="button" (click)="ok()" [disabled]="!config.blockName">OK</button>
-            <button class="btn" type="button" (click)="svc.cancel()">Cancel</button>
+            <button class="btn primary" type="button" (click)="ok()" [disabled]="!config.blockName">{{ t('editor.dialog.common.ok') }}</button>
+            <button class="btn" type="button" (click)="svc.cancel()">{{ t('editor.dialog.common.cancel') }}</button>
           </div>
         </div>
       </div>
     }
+    </ng-container>
   `,
   styles: [`
     .block-dialog-overlay {

@@ -95,13 +95,13 @@ export const routes: Routes = [
   },
   {
     path: 'sign-in',
-    title: 'Sign in · CADO',
+    title: 'auth.signIn.title',
     canActivate: [guestGuard],
     loadComponent: () => import('./features/auth/sign-in.page').then((m) => m.SignInPage),
   },
   {
     path: 'sign-up',
-    title: 'Create account · CADO',
+    title: 'auth.signUp.title',
     canActivate: [guestGuard],
     loadComponent: () => import('./features/auth/sign-up.page').then((m) => m.SignUpPage),
   },
@@ -110,7 +110,7 @@ export const routes: Routes = [
   // the very form they were sent here to use.
   {
     path: 'reset-password',
-    title: 'Reset password · CADO',
+    title: 'auth.reset.title',
     loadComponent: () => import('./features/auth/reset-password.page').then((m) => m.ResetPasswordPage),
   },
   // Every Supabase redirect (OAuth, email confirmation, recovery) lands here, so
@@ -118,13 +118,13 @@ export const routes: Routes = [
   // No guard: it runs mid-flow, when the session may or may not exist yet.
   {
     path: 'auth/callback',
-    title: 'Signing in · CADO',
+    title: 'auth.callback.completing',
     loadComponent: () => import('./features/auth/auth-callback.page').then((m) => m.AuthCallbackPage),
   },
 
   {
     path: 'onboarding',
-    title: 'Welcome · CADO',
+    title: 'app.title.welcome',
     canActivate: [authGuard, notOnboardedGuard],
     loadComponent: () => import('./features/onboarding/onboarding.page').then((m) => m.OnboardingPage),
   },
@@ -136,30 +136,30 @@ export const routes: Routes = [
     data: { preload: true },
     loadComponent: () => import('./features/dashboard/dashboard-shell.component').then((m) => m.DashboardShellComponent),
     children: [
-      { path: '', pathMatch: 'full', title: 'Recent · CADO',
+      { path: '', pathMatch: 'full', title: 'dashboard.shell.nav.recent',
         loadComponent: () => import('./features/dashboard/pages/recent.page').then((m) => m.RecentPage) },
-      { path: 'drawings', title: 'My Drawings · CADO',
+      { path: 'drawings', title: 'dashboard.shell.nav.drawings',
         loadComponent: () => import('./features/dashboard/pages/drawings.page').then((m) => m.DrawingsPage) },
-      { path: 'folders/:folderId', title: 'My Drawings · CADO',
+      { path: 'folders/:folderId', title: 'dashboard.shell.nav.drawings',
         loadComponent: () => import('./features/dashboard/pages/drawings.page').then((m) => m.DrawingsPage) },
       // Same component as My Drawings: `data.scope` is bound to its `scope`
       // input by `withComponentInputBinding()`, which is all that differs.
-      { path: 'shared', title: 'Shared with me · CADO', data: { scope: 'shared' },
+      { path: 'shared', title: 'dashboard.shell.nav.shared', data: { scope: 'shared' },
         loadComponent: () => import('./features/dashboard/pages/drawings.page').then((m) => m.DrawingsPage) },
-      { path: 'trash', title: 'Trash · CADO',
+      { path: 'trash', title: 'dashboard.shell.nav.trash',
         loadComponent: () => import('./features/dashboard/pages/trash.page').then((m) => m.TrashPage) },
-      { path: 'feedback', title: 'Provide Feedback · CADO',
+      { path: 'feedback', title: 'dashboard.shell.nav.feedback',
         loadComponent: () => import('./features/dashboard/pages/feedback.page').then((m) => m.FeedbackPage) },
       // `profile`, not `account`: /dashboard/settings/account is the Settings account pane.
-      { path: 'profile', title: 'Personal info · CADO',
+      { path: 'profile', title: 'dashboard.shell.nav.profile',
         loadComponent: () => import('./features/dashboard/pages/profile.page').then((m) => m.ProfilePage) },
       // No `:id`: the page manages whichever organization the workspace switcher
       // has active, so this URL and the rest of the shell can never disagree.
-      { path: 'organization', title: 'Members · CADO',
+      { path: 'organization', title: 'dashboard.shell.nav.members',
         loadComponent: () => import('./features/dashboard/pages/organization.page').then((m) => m.OrganizationPage) },
       // prefixMatcher: the Account pane lives at /dashboard/settings/account, and
       // existing links point there, so the page owns everything under `settings`.
-      { matcher: prefixMatcher('settings'), title: 'Settings · CADO',
+      { matcher: prefixMatcher('settings'), title: 'app.title.settings',
         loadComponent: () => import('./features/dashboard/pages/settings.page').then((m) => m.SettingsPage) },
     ],
   },
@@ -170,13 +170,13 @@ export const routes: Routes = [
   // a signed-out recipient comes back here after signing in.
   {
     path: 'join/:token',
-    title: 'Join organization · CADO',
+    title: 'app.title.joinOrganization',
     canActivate: [authGuard],
     loadComponent: () => import('./features/dashboard/pages/join.page').then((m) => m.JoinPage),
   },
   {
     path: 'shared/:token',
-    title: 'Shared drawing · CADO',
+    title: 'app.title.sharedDrawing',
     canActivate: [authGuard],
     loadComponent: () => import('./features/dashboard/pages/shared-link.page').then((m) => m.SharedLinkPage),
   },

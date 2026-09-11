@@ -1,8 +1,9 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, signal, viewChildren } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChildren } from '@angular/core';
 import { TranslocoService, TranslocoDirective } from '@jsverse/transloco';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { WORKFLOW } from '../data/site-content';
 import { MotionService } from '../motion/motion.service';
+import { LanguageService } from '../../../core/i18n/language.service';
 import { SiteRevealDirective } from '../motion/reveal.directive';
 
 /**
@@ -150,7 +151,18 @@ export class SiteWorkflowComponent implements AfterViewInit {
   protected readonly activeIndex = signal(0);
   protected readonly current = computed(() => this.steps[this.activeIndex()]);
   private readonly transloco = inject(TranslocoService);
+  private readonly language = inject(LanguageService);
   protected readonly typed = signal(this.transloco.translate(WORKFLOW[0].promptKey));
+
+  constructor() {
+    // The monitor's text is resolved when a step activates; a language switch
+    // afterwards would leave the previous language typed out until the reader
+    // scrolls to another step. Re-run the current step instead.
+    effect(() => {
+      if (this.language.revision() === 0) return;
+      untracked(() => this.activate(this.activeIndex()));
+    });
+  }
 
   private readonly motion = inject(MotionService);
   private readonly destroyRef = inject(DestroyRef);

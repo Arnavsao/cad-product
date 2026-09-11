@@ -14,6 +14,7 @@ import {
   signal,
   ChangeDetectionStrategy
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 import { FormsModule } from '@angular/forms';
 import { LayoutManagerDialogService } from './layout-manager-dialog.service';
@@ -26,17 +27,18 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-layout-manager-dialog',
   standalone: true,
-  imports: [UiIconComponent, FormsModule],
+  imports: [UiIconComponent, FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     @if (dialogSvc.isOpen()) {
       <div class="lm-overlay" (click)="onOverlayClick($event)">
-        <div class="lm-dialog" role="dialog" aria-modal="true" aria-label="Layout Manager">
+        <div class="lm-dialog" role="dialog" aria-modal="true" [attr.aria-label]="t('editor.dialog.layoutManager.title')">
 
           <!-- Header -->
           <div class="lm-header">
             <span class="lm-icon">📋</span>
-            <span class="lm-title">Layout Manager</span>
-            <button class="lm-close" type="button" (click)="close()" aria-label="Close"><ui-icon name="close" [size]="16" /></button>
+            <span class="lm-title">{{ t('editor.dialog.layoutManager.title') }}</span>
+            <button class="lm-close" type="button" (click)="close()" [attr.aria-label]="t('editor.dialog.common.close')"><ui-icon name="close" [size]="16" /></button>
           </div>
 
           <!-- Layout list -->
@@ -56,7 +58,7 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
                   {{ layout.pageSetup.orientation === 'landscape' ? '↔' : '↕' }}
                 </span>
                 @if (layoutMgr.activeLayoutId() === layout.id) {
-                  <span class="lm-item-badge">Active</span>
+                  <span class="lm-item-badge">{{ t('editor.dialog.layoutManager.active') }}</span>
                 }
               </div>
             }
@@ -64,35 +66,35 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
           <!-- Toolbar -->
           <div class="lm-toolbar">
-            <button class="lm-btn" type="button" (click)="createLayout()" title="New Layout">
-              ＋ New
+            <button class="lm-btn" type="button" (click)="createLayout()" [title]="t('editor.dialog.layoutManager.newLayout')">
+              ＋ {{ t('editor.dialog.layoutManager.new') }}
             </button>
             <button class="lm-btn" type="button"
               [disabled]="!selectedId() || isSelectedModel()"
-              (click)="startRename()" title="Rename">
-              ✏ Rename
+              (click)="startRename()" [title]="t('editor.dialog.common.rename')">
+              ✏ {{ t('editor.dialog.common.rename') }}
             </button>
             <button class="lm-btn" type="button"
               [disabled]="!selectedId() || isSelectedModel()"
-              (click)="duplicateSelected()" title="Duplicate">
-              ⊕ Duplicate
+              (click)="duplicateSelected()" [title]="t('editor.dialog.common.duplicate')">
+              ⊕ {{ t('editor.dialog.common.duplicate') }}
             </button>
             <button class="lm-btn" type="button"
               [disabled]="!selectedId() || isSelectedModel()"
-              (click)="openPageSetup()" title="Page Setup">
-              <ui-icon name="ruler" [size]="14" /> Page Setup
+              (click)="openPageSetup()" [title]="t('editor.dialog.common.pageSetup')">
+              <ui-icon name="ruler" [size]="14" /> {{ t('editor.dialog.common.pageSetup') }}
             </button>
             <button class="lm-btn lm-btn-danger" type="button"
               [disabled]="!selectedId() || isSelectedModel() || isOnlyLayout()"
-              (click)="deleteSelected()" title="Delete">
-              <ui-icon name="trash" [size]="14" /> Delete
+              (click)="deleteSelected()" [title]="t('editor.dialog.common.delete')">
+              <ui-icon name="trash" [size]="14" /> {{ t('editor.dialog.common.delete') }}
             </button>
           </div>
 
           <!-- Rename inline form -->
           @if (renaming()) {
             <div class="lm-rename-row">
-              <label class="lm-rename-label">New name:</label>
+              <label class="lm-rename-label">{{ t('editor.dialog.layoutManager.newName') }}</label>
               <input
                 class="lm-rename-input"
                 type="text"
@@ -102,8 +104,8 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
                 maxlength="40"
                 autofocus
               />
-              <button class="lm-btn lm-btn-sm" type="button" (click)="commitRename()">OK</button>
-              <button class="lm-btn lm-btn-sm" type="button" (click)="renaming.set(false)">Cancel</button>
+              <button class="lm-btn lm-btn-sm" type="button" (click)="commitRename()">{{ t('editor.dialog.common.ok') }}</button>
+              <button class="lm-btn lm-btn-sm" type="button" (click)="renaming.set(false)">{{ t('editor.dialog.common.cancel') }}</button>
             </div>
           }
 
@@ -116,14 +118,15 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
             <button class="lm-btn lm-btn-primary" type="button"
               [disabled]="!selectedId()"
               (click)="activate(selectedLayout())">
-              Set Active
+              {{ t('editor.dialog.layoutManager.setActive') }}
             </button>
-            <button class="lm-btn lm-btn-ghost" type="button" (click)="close()">Close</button>
+            <button class="lm-btn lm-btn-ghost" type="button" (click)="close()">{{ t('editor.dialog.common.close') }}</button>
           </div>
 
         </div>
       </div>
     }
+    </ng-container>
   `,
   styles: [`
     .lm-overlay {

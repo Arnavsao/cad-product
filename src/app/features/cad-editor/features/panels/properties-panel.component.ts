@@ -13,7 +13,7 @@ import { HATCH_PATTERNS } from '../../core/registries/hatch-patterns';
 import { ColorPickerComponent } from '../shared/color-picker/color-picker.component';
 import { UiIconComponent } from '../../../../shared/ui/icon.component';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { translateOr, injectTranslocoOptional } from '../../../../core/i18n/translate-or';
+import { injectTranslationRevision, injectTranslocoOptional, translateOr } from '../../../../core/i18n/translate-or';
 import { translateOrParams } from '../shared/translate-or-params';
 import { PROPERTY_LABEL_KEYS, PROPERTY_CATEGORY_KEYS } from './property-label-keys';
 
@@ -885,6 +885,7 @@ export class PropertiesPanelComponent {
   private cmds = inject(CommandStackService);
 
   private readonly transloco = injectTranslocoOptional();
+  private readonly translationRevision = injectTranslationRevision();
 
   readonly hatchPatternNames = Object.keys(HATCH_PATTERNS);
 
@@ -978,6 +979,7 @@ export class PropertiesPanelComponent {
   });
 
   entityTypeName = computed(() => {
+    this.translationRevision();
     const sel = this.filteredEntities();
     if (!sel.length) return translateOr(this.transloco, 'editor.ui.props.noSelection', 'No Selection');
     if (sel.length > 1) {

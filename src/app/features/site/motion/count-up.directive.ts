@@ -67,7 +67,8 @@ export class SiteCountUpDirective implements AfterViewInit {
   }
 
   private render(value: number): void {
-    const formatted = new Intl.NumberFormat(undefined, {
+    // Follows the UI language via <html lang>, so 12,480 reads 12.480 in German.
+    const formatted = new Intl.NumberFormat(document.documentElement.lang || undefined, {
       minimumFractionDigits: this.decimals(),
       maximumFractionDigits: this.decimals(),
     }).format(value);

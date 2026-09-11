@@ -912,7 +912,9 @@ export class PlotDialogComponent implements AfterViewInit, OnDestroy {
   }
 
   formatDate(iso: string): string {
-    try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+    // <html lang> is kept in step with the UI language by LanguageService; the
+    // editor stays free of a Transloco dependency by reading it from there.
+    try { return new Date(iso).toLocaleDateString(document.documentElement.lang || undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
     catch { return iso; }
   }
 

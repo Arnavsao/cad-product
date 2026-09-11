@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { LocaleDatePipe } from '../../shared/ui/pipes/locale-date.pipe';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
@@ -32,7 +32,7 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
   selector: 'app-whats-new-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, TranslocoDirective, UiIconComponent, SiteClosingComponent, SiteHeadingComponent],
+  imports: [LocaleDatePipe, TranslocoDirective, UiIconComponent, SiteClosingComponent, SiteHeadingComponent],
   template: `
     <div class="wn" *transloco="let t">
       <main class="wn__main">
@@ -48,7 +48,7 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
           <section class="wn__release">
             <header class="wn__release-head">
               <h2 class="wn__version">{{ release.version }}</h2>
-              <time class="wn__date" [attr.datetime]="release.date">{{ release.date | date: 'longDate' }}</time>
+              <time class="wn__date" [attr.datetime]="release.date">{{ release.date | localeDate: 'longDate' }}</time>
             </header>
             @if (release.summary) {
               <p class="wn__summary">{{ release.summary }}</p>

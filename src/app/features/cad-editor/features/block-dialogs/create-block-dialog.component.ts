@@ -1,5 +1,6 @@
 import { Component, effect, inject, signal , ChangeDetectionStrategy
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { FormsModule } from '@angular/forms';
 import { CreateBlockDialogService, ICreateBlockResult } from './create-block-dialog.service';
 
@@ -7,15 +8,16 @@ import { CreateBlockDialogService, ICreateBlockResult } from './create-block-dia
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-create-block-dialog',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     @if (svc.isOpen()) {
       <div class="block-dialog-overlay" (click)="svc.cancel()">
         <div class="block-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="create-block-title" (click)="$event.stopPropagation()">
-          <div id="create-block-title" class="title">Create Block</div>
+          <div id="create-block-title" class="title">{{ t('editor.dialog.createBlock.title') }}</div>
 
           <div class="form-grid">
-            <label>Name</label>
+            <label>{{ t('editor.dialog.common.name') }}</label>
             <div class="field">
               <input type="text" [(ngModel)]="name" (keydown.enter)="ok()"
                      [class.invalid]="nameError()" autofocus />
@@ -24,29 +26,30 @@ import { CreateBlockDialogService, ICreateBlockResult } from './create-block-dia
               }
             </div>
 
-            <label>Base Point</label>
+            <label>{{ t('editor.dialog.createBlock.basePoint') }}</label>
             <div class="field radio-group">
               <label class="radio">
-                <input type="radio" name="bp" value="pick" [(ngModel)]="basePointMode" /> Pick on screen
+                <input type="radio" name="bp" value="pick" [(ngModel)]="basePointMode" /> {{ t('editor.dialog.createBlock.pickOnScreen') }}
               </label>
               <label class="radio">
-                <input type="radio" name="bp" value="origin" [(ngModel)]="basePointMode" /> Use origin (0, 0)
+                <input type="radio" name="bp" value="origin" [(ngModel)]="basePointMode" /> {{ t('editor.dialog.createBlock.useOrigin') }}
               </label>
             </div>
 
-            <label>Description</label>
+            <label>{{ t('editor.dialog.common.description') }}</label>
             <div class="field">
-              <input type="text" [(ngModel)]="description" placeholder="Optional" />
+              <input type="text" [(ngModel)]="description" [placeholder]="t('editor.dialog.createBlock.optional')" />
             </div>
           </div>
 
           <div class="actions">
-            <button class="btn primary" type="button" (click)="ok()" [disabled]="!!nameError()">OK</button>
-            <button class="btn" type="button" (click)="svc.cancel()">Cancel</button>
+            <button class="btn primary" type="button" (click)="ok()" [disabled]="!!nameError()">{{ t('editor.dialog.common.ok') }}</button>
+            <button class="btn" type="button" (click)="svc.cancel()">{{ t('editor.dialog.common.cancel') }}</button>
           </div>
         </div>
       </div>
     }
+    </ng-container>
   `,
   styles: [`
     .block-dialog-overlay {

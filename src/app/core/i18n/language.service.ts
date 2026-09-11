@@ -1,9 +1,12 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, Signal, computed, effect, inject, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 import { DEFAULT_LOCALE, ILocale, LOCALES, findLocale, resolveLocale } from './locales';
+import { TranslateFn, translationRevision } from './translate-fn';
 
 /** Where the choice is remembered. Mirrors ThemeService's `cad.theme`. */
 const STORAGE_KEY = 'cad.locale';
+/** Which account the remembered choice belongs to. @see LanguageService.applyRemote */
+const OWNER_KEY = 'cad.locale.owner';
 
 function readStorage(key: string): string | null {
   try {
@@ -50,6 +53,22 @@ export class LanguageService {
   /** True while the active language's file has not been fetched yet. */
   readonly loading = signal<boolean>(false);
 
+  /**
+   * Bumps on every language switch and every finished translation load. Read
+   * it inside a `computed()`/`effect()` that translates in code, so the result
+   * follows the language instead of freezing at first evaluation.
+   */
+  readonly revision: Signal<number> = translationRevision(this.transloco);
+
+  /**
+   * `translate(key, params)` as a signal: a `computed()` that reads `t()` and
+   * builds a label re-evaluates when the language or its file changes.
+   */
+  readonly t: Signal<TranslateFn> = computed(() => {
+    this.revision();
+    return (key, params) => this.transloco.translate(key, params);
+  });
+
   constructor() {
     // Push the active language onto Transloco and the document. `lang` on <html>
     // is what lets the browser pick the right font and hyphenation for CJK, and
@@ -57,6 +76,10 @@ export class LanguageService {
     // a one-line change here.
     effect(() => {
       const locale = this.locale();
+      // Until this language's file has arrived, code-side translations return
+      // English (or the key) and the *transloco views keep the previous
+      // language. `loading` lets a picker show that the switch is in flight.
+      this.loading.set(!this.transloco.getTranslation(locale.code)?.['common.retry']);
       this.transloco.setActiveLang(locale.code);
       try {
         document.documentElement.lang = locale.code;
@@ -65,6 +88,11 @@ export class LanguageService {
       } catch {
         /* storage-disabled environments — the language still applies for this session */
       }
+    });
+
+    this.transloco.events$.subscribe((e) => {
+      if (e.type !== 'translationLoadSuccess' && e.type !== 'translationLoadFailure') return;
+      if (e.payload.langName === this.localeCode()) this.loading.set(false);
     });
 
     // Follow a language change made in another tab, the way ThemeService does.
@@ -104,7 +132,7 @@ export class LanguageService {
 
   /**
    * Apply the language the account is stored with, without overruling a choice
-   * the person has just made in this session.
+   * the person has made in this browser.
    *
    * `/me` and `PATCH /me/preferences` both echo the full preferences object,
    * and both can land *after* the picker has moved on: the settings page asks
@@ -117,10 +145,26 @@ export class LanguageService {
    * whether it takes 50 ms or 20 s, and picking a threshold would only move
    * the bug to slower connections — where it already hurts most.
    *
-   * The account still wins for someone who has never chosen: a new browser, or
-   * a first sign-in, takes the language their account is set to.
+   * `owner` is the account the preferences belong to. The remembered choice is
+   * tagged with the account that was signed in when it was made; when a
+   * *different* account signs in on this browser, its stored language wins,
+   * because the local choice was someone else's. Someone who has never chosen
+   * still gets their account's language, so a new browser or a first sign-in
+   * behaves as before.
    */
-  applyRemote(code: string | null | undefined): void {
+  applyRemote(code: string | null | undefined, owner?: string | null): void {
+    if (owner) {
+      const previous = readStorage(OWNER_KEY);
+      if (previous !== owner) {
+        // A new account on this browser: forget the previous person's pick.
+        if (previous) this.chosen = false;
+        try {
+          localStorage.setItem(OWNER_KEY, owner);
+        } catch {
+          /* storage-disabled */
+        }
+      }
+    }
     if (!code || this.chosen) return;
     if (!findLocale(code) || code === this.localeCode()) return;
     this.localeCode.set(code);

@@ -110,7 +110,7 @@ export class MeService {
   async completeOnboarding(req: CompleteOnboardingRequest): Promise<MeDto> {
     const me = await firstValueFrom(this.api.post<MeDto>('me/onboarding', req));
     this.me.set(me);
-    this.applyPreferences(me.preferences);
+    this.applyPreferences(me.preferences, me.user.id);
     return me;
   }
 
@@ -118,7 +118,7 @@ export class MeService {
   async updatePreferences(patch: Partial<PreferencesDto>): Promise<PreferencesDto> {
     const prefs = await firstValueFrom(this.api.patch<PreferencesDto>('me/preferences', patch));
     this.me.update((m) => (m ? { ...m, preferences: prefs } : m));
-    this.applyPreferences(prefs);
+    this.applyPreferences(prefs, this.me()?.user.id);
     return prefs;
   }
 
@@ -144,16 +144,16 @@ export class MeService {
    * which is the "language jumps back to English" bug. A server response
    * describes the past; a local choice is the present.
    */
-  applyPreferences(prefs: PreferencesDto): void {
-    this.theme.applyRemote(prefs.theme); // unknown ids are ignored by ThemeService
-    this.language.applyRemote(prefs.locale); // unknown codes are ignored by LanguageService
+  applyPreferences(prefs: PreferencesDto, owner?: string | null): void {
+    this.theme.applyRemote(prefs.theme, owner); // unknown ids are ignored by ThemeService
+    this.language.applyRemote(prefs.locale, owner); // unknown codes are ignored by LanguageService
     if (prefs.autosaveIntervalSec > 0) void this.applyAutosaveInterval(prefs.autosaveIntervalSec);
   }
 
   private async fetch(): Promise<MeDto> {
     const me = await firstValueFrom(this.api.get<MeDto>('me'));
     this.me.set(me);
-    this.applyPreferences(me.preferences);
+    this.applyPreferences(me.preferences, me.user.id);
     return me;
   }
 

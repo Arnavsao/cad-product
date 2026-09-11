@@ -2,6 +2,7 @@ import {
   Component, inject, signal, OnInit, effect,
   ChangeDetectionStrategy
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 import { FormsModule } from '@angular/forms';
 import { LibraryService } from '../../core/services/library.service';
@@ -12,15 +13,16 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-save-to-library-modal',
   standalone: true,
-  imports: [UiIconComponent, FormsModule],
+  imports: [UiIconComponent, FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     @if (modal.state().open) {
       <div class="lib-modal-overlay" (click)="onOverlayClick($event)">
-        <div class="lib-modal" role="dialog" aria-modal="true" aria-label="Save to Library">
+        <div class="lib-modal" role="dialog" aria-modal="true" [attr.aria-label]="t('editor.dialog.library.saveToLibrary')">
 
           <div class="lib-modal-header">
-            <span class="lib-modal-title">Save to Library</span>
-            <button class="lib-modal-close" type="button" (click)="close()" title="Close"><ui-icon name="close" [size]="16" /></button>
+            <span class="lib-modal-title">{{ t('editor.dialog.library.saveToLibrary') }}</span>
+            <button class="lib-modal-close" type="button" (click)="close()" [title]="t('editor.dialog.common.close')"><ui-icon name="close" [size]="16" /></button>
           </div>
 
           <div class="lib-modal-body">
@@ -29,7 +31,7 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
             <div class="lib-thumb-row">
               <div class="lib-thumb-preview">
                 @if (thumbnail()) {
-                  <img [src]="thumbnail()" alt="Preview" width="80" height="80" />
+                  <img [src]="thumbnail()" [alt]="t('editor.dialog.common.preview')" width="80" height="80" />
                 } @else {
                   <div class="lib-thumb-placeholder">⬡</div>
                 }
@@ -41,13 +43,13 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
             <!-- Name -->
             <div class="lib-field">
-              <label class="lib-label" for="lib-name">Component Name *</label>
+              <label class="lib-label" for="lib-name">{{ t('editor.dialog.library.componentName') }}</label>
               <input
                 id="lib-name"
                 class="lib-input"
                 type="text"
                 [(ngModel)]="name"
-                placeholder="e.g. North Arrow"
+                [placeholder]="t('editor.dialog.library.namePlaceholder')"
                 maxlength="80"
                 autofocus
               />
@@ -55,7 +57,7 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
             <!-- Category -->
             <div class="lib-field">
-              <label class="lib-label" for="lib-category">Category</label>
+              <label class="lib-label" for="lib-category">{{ t('editor.dialog.library.category') }}</label>
               <select id="lib-category" class="lib-input" [(ngModel)]="category">
                 @for (cat of library.categories(); track cat.name) {
                   <option [value]="cat.name">{{ cat.icon }} {{ cat.name }}</option>
@@ -65,32 +67,32 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
             <!-- Description -->
             <div class="lib-field">
-              <label class="lib-label" for="lib-desc">Description (optional)</label>
+              <label class="lib-label" for="lib-desc">{{ t('editor.dialog.library.descriptionOptional') }}</label>
               <textarea
                 id="lib-desc"
                 class="lib-input lib-textarea"
                 [(ngModel)]="description"
-                placeholder="What is this component for?"
+                [placeholder]="t('editor.dialog.library.descriptionPlaceholder')"
                 rows="2"
               ></textarea>
             </div>
 
             <!-- Tags -->
             <div class="lib-field">
-              <label class="lib-label" for="lib-tags">Tags (comma-separated)</label>
+              <label class="lib-label" for="lib-tags">{{ t('editor.dialog.library.tags') }}</label>
               <input
                 id="lib-tags"
                 class="lib-input"
                 type="text"
                 [(ngModel)]="tagsRaw"
-                placeholder="north arrow, orientation, symbol"
+                [placeholder]="t('editor.dialog.library.tagsPlaceholder')"
               />
             </div>
 
           </div>
 
           <div class="lib-modal-footer">
-            <button class="lib-btn lib-btn-secondary" type="button" (click)="close()">Cancel</button>
+            <button class="lib-btn lib-btn-secondary" type="button" (click)="close()">{{ t('editor.dialog.common.cancel') }}</button>
             <button
               class="lib-btn lib-btn-primary"
               type="button"
@@ -104,6 +106,7 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
         </div>
       </div>
     }
+    </ng-container>
   `,
   styles: [`
     .lib-modal-overlay {

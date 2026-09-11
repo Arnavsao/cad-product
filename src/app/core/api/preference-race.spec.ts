@@ -14,7 +14,8 @@ const preferences = (locale: string, theme = 'monokai') => ({
 });
 
 const meDto = (locale: string, theme?: string) => ({
-  id: 'u1', email: 'a@b.c', name: 'A', avatarUrl: null, onboarded: true,
+  user: { id: 'u1', authId: 'auth-1', email: 'a@b.c', firstName: 'A', lastName: null, imageUrl: null, createdAt: '2026-09-01T00:00:00.000Z' },
+  onboarded: true,
   preferences: preferences(locale, theme),
   billing: { plan: 'free', status: 'active', currentPeriodEnd: null, cancelAtPeriodEnd: false, trialEndsAt: null, manageable: false },
   workspaces: [], usage: null,
@@ -115,6 +116,30 @@ describe('a stale preferences response never overrules a newer choice', () => {
     await loading;
 
     expect(language.localeCode()).toBe('de');
+    localHttp.verify();
+  });
+
+  it('lets a different account signing in on this browser bring its own language', async () => {
+    // The remembered choice is tagged with the account that made it. If the
+    // next person to sign in on this browser is someone else, their account's
+    // language must win — the pick in storage was not theirs.
+    localStorage.setItem('cad.locale', 'de');
+    localStorage.setItem('cad.locale.owner', 'user-A');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection(), provideHttpClient(), provideHttpClientTesting(), provideI18nTesting()],
+    });
+    const localHttp = TestBed.inject(HttpTestingController);
+    const me = TestBed.inject(MeService);
+    const language = TestBed.inject(LanguageService);
+    expect(language.localeCode()).toBe('de');
+
+    const loading = me.load();
+    localHttp.expectOne(`${environment.apiUrl}/me`).flush({ data: { ...meDto('ja'), user: { ...meDto('ja').user, id: 'user-B' } } });
+    await loading;
+
+    expect(language.localeCode()).toBe('ja');
+    expect(localStorage.getItem('cad.locale.owner')).toBe('user-B');
     localHttp.verify();
   });
 

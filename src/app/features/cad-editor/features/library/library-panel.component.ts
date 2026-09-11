@@ -1,5 +1,6 @@
 import { Component, inject, signal , ChangeDetectionStrategy
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 import { FormsModule } from '@angular/forms';
 import { LibraryService } from '../../core/services/library.service';
@@ -13,8 +14,9 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-library-panel',
   standalone: true,
-  imports: [UiIconComponent, FormsModule, LibraryCardComponent],
+  imports: [UiIconComponent, FormsModule, LibraryCardComponent, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     <div class="lib-panel">
 
       <!-- Search bar -->
@@ -25,7 +27,7 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
             id="lib-search-input"
             class="lib-search-input"
             type="text"
-            placeholder="Search library…"
+            [placeholder]="t('editor.dialog.library.searchPlaceholder')"
             [(ngModel)]="searchQuery"
             (ngModelChange)="library.searchQuery.set($event)"
           />
@@ -41,7 +43,7 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
           class="lib-cat-pill"
           [class.active]="!library.activeCategory()"
           (click)="library.activeCategory.set(null)"
-        >All</button>
+        >{{ t('editor.dialog.library.all') }}</button>
         @for (cat of library.categories(); track cat.name) {
           @if (itemsByCategory(cat.name) > 0 || !library.searchQuery()) {
             <button
@@ -69,12 +71,12 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
         } @else {
           <div class="lib-empty">
             @if (library.items().length === 0) {
-              <div class="lib-empty-title">Library is empty</div>
-              <div class="lib-empty-hint">Select entities, right-click and choose<br><strong>Add to Library</strong> to save your first component.</div>
+              <div class="lib-empty-title">{{ t('editor.dialog.library.emptyTitle') }}</div>
+              <div class="lib-empty-hint" [innerHTML]="t('editor.dialog.library.emptyHint', { action: '<strong>' + t('editor.dialog.library.addToLibrary') + '</strong>' })"></div>
             } @else {
               <div class="lib-empty-icon">⌕</div>
-              <div class="lib-empty-title">No results</div>
-              <div class="lib-empty-hint">Try a different search term or category.</div>
+              <div class="lib-empty-title">{{ t('editor.dialog.library.noResults') }}</div>
+              <div class="lib-empty-hint">{{ t('editor.dialog.library.noResultsHint') }}</div>
             }
           </div>
         }
@@ -84,7 +86,7 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
       @if (renamingItem()) {
         <div class="lib-rename-overlay" (click)="cancelRename()">
           <div class="lib-rename-box" (click)="$event.stopPropagation()">
-            <div class="lib-rename-title">Rename Component</div>
+            <div class="lib-rename-title">{{ t('editor.dialog.library.renameComponent') }}</div>
             <input
               class="lib-rename-input"
               type="text"
@@ -95,14 +97,15 @@ import { UiIconComponent } from '../../../../shared/ui/icon.component';
               #renameInput
             />
             <div class="lib-rename-actions">
-              <button class="lib-btn lib-btn-sm lib-btn-secondary" (click)="cancelRename()">Cancel</button>
-              <button class="lib-btn lib-btn-sm lib-btn-primary" (click)="confirmRename()">Rename</button>
+              <button class="lib-btn lib-btn-sm lib-btn-secondary" (click)="cancelRename()">{{ t('editor.dialog.common.cancel') }}</button>
+              <button class="lib-btn lib-btn-sm lib-btn-primary" (click)="confirmRename()">{{ t('editor.dialog.common.rename') }}</button>
             </div>
           </div>
         </div>
       }
 
     </div>
+    </ng-container>
   `,
   styles: [`
     :host {

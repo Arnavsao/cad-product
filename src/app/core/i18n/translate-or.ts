@@ -1,5 +1,6 @@
-import { inject } from '@angular/core';
+import { Signal, inject } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
+import { translationRevision } from './translate-fn';
 
 /**
  * Translate `key`, falling back to `english` when no translation exists.
@@ -58,4 +59,19 @@ export function injectTranslocoOptional(): TranslocoService | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * {@link translationRevision} for code that injected Transloco optionally.
+ *
+ * Read it inside any `computed()` or `effect()` that calls `translateOr`, or
+ * the value it produced is frozen at the moment it first ran: the toolbar,
+ * the command-line placeholder and the Properties palette's heading all did
+ * exactly that and kept the previous language on screen after a switch.
+ *
+ * Without a Transloco provider the signal never changes, which is right —
+ * there is nothing to re-translate into.
+ */
+export function injectTranslationRevision(): Signal<number> {
+  return translationRevision(injectTranslocoOptional());
 }

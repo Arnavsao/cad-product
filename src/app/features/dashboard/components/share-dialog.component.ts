@@ -1,5 +1,5 @@
 import { A11yModule } from '@angular/cdk/a11y';
-import { DatePipe } from '@angular/common';
+import { LocaleDatePipe } from '../../../shared/ui/pipes/locale-date.pipe';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import {
@@ -75,7 +75,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   selector: 'app-share-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, A11yModule, DatePipe, UiButtonDirective, UiIconComponent, UiInputDirective, UiSkeletonComponent],
+  imports: [TranslocoDirective, A11yModule, LocaleDatePipe, UiButtonDirective, UiIconComponent, UiInputDirective, UiSkeletonComponent],
   template: `
     <div class="ui-dialog sh" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus *transloco="let t">
       <header class="ui-dialog__header">
@@ -123,7 +123,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                     <span class="sh__who-sub">
                       {{ share.targetEmail }}
                       @if (share.expiresAt) {
-                        · {{ t('dashboard.components.share.until', { date: (share.expiresAt | date: 'mediumDate') }) }}
+                        · {{ t('dashboard.components.share.until', { date: (share.expiresAt | localeDate: 'mediumDate') }) }}
                       }
                     </span>
                   </span>
@@ -205,7 +205,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                     <span class="sh__who-sub">
                       {{ t('dashboard.components.share.everyMember') }}
                       @if (share.expiresAt) {
-                        · {{ t('dashboard.components.share.until', { date: (share.expiresAt | date: 'mediumDate') }) }}
+                        · {{ t('dashboard.components.share.until', { date: (share.expiresAt | localeDate: 'mediumDate') }) }}
                       }
                     </span>
                   </span>
@@ -295,7 +295,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                       </span>
                       <span class="sh__who-sub">
                         @if (link.expiresAt) {
-                          {{ t('dashboard.components.share.expires', { date: (link.expiresAt | date: 'mediumDate') }) }}
+                          {{ t('dashboard.components.share.expires', { date: (link.expiresAt | localeDate: 'mediumDate') }) }}
                         } @else {
                           {{ t('dashboard.components.share.neverExpires') }}
                         }

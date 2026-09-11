@@ -1,5 +1,6 @@
 import { Component, effect, ViewChild, ElementRef, HostListener, AfterViewChecked, OnDestroy , ChangeDetectionStrategy
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 import { FormsModule } from '@angular/forms';
 import { TableEditorService } from './table-editor.service';
@@ -29,8 +30,9 @@ interface ICellEditState extends IRect {
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-table-editor-overlay',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     @if (svc.state(); as s) {
       <!--
       Hitbox: covers the exact table bounding box in absolute canvas coords.
@@ -93,10 +95,10 @@ interface ICellEditState extends IRect {
           }
 
           <!-- Plus buttons for adding rows/columns -->
-          <div class="te-add-col" (click)="addColumn($event)" title="Add Column">
+          <div class="te-add-col" (click)="addColumn($event)" [title]="t('editor.dialog.tableEditor.addColumn')">
             <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           </div>
-          <div class="te-add-row" (click)="addRow($event)" title="Add Row">
+          <div class="te-add-row" (click)="addRow($event)" [title]="t('editor.dialog.tableEditor.addRow')">
             <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           </div>
         </div>
@@ -108,6 +110,7 @@ interface ICellEditState extends IRect {
           </div>
         }
       }
+    </ng-container>
     `,
   styles: [`
     :host {

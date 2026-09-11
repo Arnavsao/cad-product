@@ -1,9 +1,5 @@
-import { Injectable, Signal, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { TranslocoService } from '@jsverse/transloco';
-import { merge } from 'rxjs';
-import { filter, scan } from 'rxjs/operators';
-import { translateOr } from '../../../../core/i18n/translate-or';
+import { Injectable, Signal } from '@angular/core';
+import { injectTranslationRevision, injectTranslocoOptional, translateOr } from '../../../../core/i18n/translate-or';
 
 export interface ToolMeta {
   id: string;
@@ -467,7 +463,7 @@ export class ToolCatalogService {
   // Optional: the editor is embeddable in hosts that never call provideI18n(),
   // and specs construct this service without a Transloco provider. Both must
   // keep working, in English.
-  private readonly transloco = inject(TranslocoService, { optional: true });
+  private readonly transloco = injectTranslocoOptional();
 
   /**
    * Bumps whenever a translation result may have changed: on every language
@@ -481,15 +477,7 @@ export class ToolCatalogService {
    * Reading this signal inside a `computed`/`effect` re-runs it in both cases.
    * `getActiveLang()` is a plain method, not a signal, so it cannot do this job.
    */
-  readonly translationRevision: Signal<number> = this.transloco
-    ? toSignal(
-        merge(
-          this.transloco.langChanges$,
-          this.transloco.events$.pipe(filter((e) => e.type === 'translationLoadSuccess')),
-        ).pipe(scan((n) => n + 1, 0)),
-        { initialValue: 0 },
-      )
-    : signal(0);
+  readonly translationRevision: Signal<number> = injectTranslationRevision();
 
   /**
    * Translate a tool title while preserving its keyboard alias.

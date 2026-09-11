@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject, signal, computed , ChangeDetectionStrategy
+import { Component, ElementRef, ViewChild, inject, signal, computed, effect, untracked, ChangeDetectionStrategy
 } from '@angular/core';
 
 import { ToolManagerService } from '../../core/services/tool-manager.service';
@@ -7,7 +7,7 @@ import { CommandRegistryService } from '../../core/services/command-registry.ser
 import { CommandPromptService } from '../../core/services/command-prompt.service';
 import type { ICommandOption } from '../../core/models/command-prompt.model';
 import { SafeHtmlPipe } from '../../shared/components/safe-html.pipe';
-import { translateOr, injectTranslocoOptional } from '../../../../core/i18n/translate-or';
+import { translateOr, injectTranslocoOptional, injectTranslationRevision } from '../../../../core/i18n/translate-or';
 import { translateOrParams } from '../shared/translate-or-params';
 
 @Component({
@@ -246,6 +246,21 @@ export class CommandLineComponent {
   private cmdRegistry = inject(CommandRegistryService);
   private cmdPromptSvc = inject(CommandPromptService);
   private transloco = injectTranslocoOptional();
+  /** Re-runs code-side translations when the language (or its file) changes. */
+  private readonly translationRevision = injectTranslationRevision();
+
+  constructor() {
+    // Tool titles in an open autocomplete list were resolved when the user
+    // typed; a language switch mid-typing would leave them in the old language
+    // until the next keystroke. Re-run the search for the current query.
+    effect(() => {
+      this.translationRevision();
+      untracked(() => {
+        const q = this.query();
+        if (q.trim() && this.dropdownOpen()) this.matches.set(this.catalog.search(q));
+      });
+    });
+  }
 
   readonly prompt = signal('');
   readonly query = signal('');
@@ -261,6 +276,7 @@ export class CommandLineComponent {
 
   /** Placeholder reflects the current command phase when a tool is active. */
   readonly placeholder = computed(() => {
+    this.translationRevision();
     const state = this.cmdPromptSvc.state();
     if (!state) return translateOr(this.transloco, 'editor.ui.commandLine.placeholder', 'Type a command or tool name\u2026');
     const opts = (state.options ?? []).length
