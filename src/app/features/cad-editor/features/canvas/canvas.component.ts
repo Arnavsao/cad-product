@@ -13,6 +13,7 @@ import {
   output
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { ViewModelService, niceGridStep } from '../../core/services/view-model.service';
 import { DocumentService } from '../../core/services/document.service';
 import { ToolManagerService } from '../../core/services/tool-manager.service';
@@ -44,7 +45,7 @@ import { ViewportConfigType } from '../../core/models/viewport-config.model';
   selector: 'app-cad-canvas',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DynamicInputOverlayComponent],
+  imports: [FormsModule, DynamicInputOverlayComponent, TranslocoDirective],
   template: `
     <div class="cad-canvas-area" (click)="closeAllVpMenus()">
       <div #wrap
@@ -60,84 +61,86 @@ import { ViewportConfigType } from '../../core/models/viewport-config.model';
              re-enable the [+] / [Top] / [2D Wireframe] controls. The markup is gated
              rather than commented out because it contains its own HTML comments,
              which cannot nest inside another one. -->
+        <ng-container *transloco="let t">
         @if (showTileHeaderOverlay && layoutMgr.isModelSpace() && modelVps.tiles.length > 0) {
-          @for (t of modelVps.tiles; track t.id) {
+          @for (tile of modelVps.tiles; track tile.id) {
             <div class="tile-header-overlay"
-                 [style.left.px]="t.rect.x * (wrapRef.nativeElement?.clientWidth || 0) + 6"
-                 [style.top.px]="(t.rect.y + t.rect.h) * (wrapRef.nativeElement?.clientHeight || 0) - 28"
-                 [class.active]="t.active"
-                 (click)="onTileClick(t, $event)">
+                 [style.left.px]="tile.rect.x * (wrapRef.nativeElement?.clientWidth || 0) + 6"
+                 [style.top.px]="(tile.rect.y + tile.rect.h) * (wrapRef.nativeElement?.clientHeight || 0) - 28"
+                 [class.active]="tile.active"
+                 (click)="onTileClick(tile, $event)">
               
               <!-- [+] Viewport Config Dropdown -->
-              <div class="vp-control-btn" (click)="$event.stopPropagation(); toggleVpMenu(t.id)">
+              <div class="vp-control-btn" (click)="$event.stopPropagation(); toggleVpMenu(tile.id)">
                 [+]
-                @if (activeVpMenuId() === t.id) {
+                @if (activeVpMenuId() === tile.id) {
                   <div class="vp-dropdown-menu">
-                    <div class="menu-item" (click)="setTileConfig('Single')">1 Viewport (Single)</div>
-                    <div class="menu-item" (click)="setTileConfig('Two: Vertical')">2 Viewports (Vertical)</div>
-                    <div class="menu-item" (click)="setTileConfig('Two: Horizontal')">2 Viewports (Horizontal)</div>
-                    <div class="menu-item" (click)="setTileConfig('Four: Equal')">4 Viewports (Grid 2x2)</div>
+                    <div class="menu-item" (click)="setTileConfig('Single')">{{ t('editor.ui.canvas.tileConfigSingle') }}</div>
+                    <div class="menu-item" (click)="setTileConfig('Two: Vertical')">{{ t('editor.ui.canvas.tileConfigTwoVertical') }}</div>
+                    <div class="menu-item" (click)="setTileConfig('Two: Horizontal')">{{ t('editor.ui.canvas.tileConfigTwoHorizontal') }}</div>
+                    <div class="menu-item" (click)="setTileConfig('Four: Equal')">{{ t('editor.ui.canvas.tileConfigFour') }}</div>
                     <div class="menu-divider"></div>
-                    <div class="menu-item" (click)="openVportsDialog()">Viewports Configuration... (VPORTS)</div>
+                    <div class="menu-item" (click)="openVportsDialog()">{{ t('editor.ui.canvas.viewportsConfiguration') }}</div>
                   </div>
                 }
               </div>
 
               <!-- [Top] View Orientation Dropdown -->
-              <div class="vp-control-btn" (click)="$event.stopPropagation(); toggleViewMenu(t.id)">
-                [{{ t.viewName }}]
-                @if (activeViewMenuId() === t.id) {
+              <div class="vp-control-btn" (click)="$event.stopPropagation(); toggleViewMenu(tile.id)">
+                [{{ tile.viewName }}]
+                @if (activeViewMenuId() === tile.id) {
                   <div class="vp-dropdown-menu">
-                    <div class="menu-item" (click)="setTileView(t, 'Top')">Top</div>
-                    <div class="menu-item" (click)="setTileView(t, 'Bottom')">Bottom</div>
-                    <div class="menu-item" (click)="setTileView(t, 'Left')">Left</div>
-                    <div class="menu-item" (click)="setTileView(t, 'Right')">Right</div>
-                    <div class="menu-item" (click)="setTileView(t, 'Front')">Front</div>
-                    <div class="menu-item" (click)="setTileView(t, 'Back')">Back</div>
-                    <div class="menu-item" (click)="setTileView(t, 'SW Isometric')">SW Isometric</div>
-                    <div class="menu-item" (click)="setTileView(t, 'SE Isometric')">SE Isometric</div>
+                    <div class="menu-item" (click)="setTileView(tile, 'Top')">{{ t('editor.ui.canvas.viewTop') }}</div>
+                    <div class="menu-item" (click)="setTileView(tile, 'Bottom')">{{ t('editor.ui.canvas.viewBottom') }}</div>
+                    <div class="menu-item" (click)="setTileView(tile, 'Left')">{{ t('editor.ui.canvas.viewLeft') }}</div>
+                    <div class="menu-item" (click)="setTileView(tile, 'Right')">{{ t('editor.ui.canvas.viewRight') }}</div>
+                    <div class="menu-item" (click)="setTileView(tile, 'Front')">{{ t('editor.ui.canvas.viewFront') }}</div>
+                    <div class="menu-item" (click)="setTileView(tile, 'Back')">{{ t('editor.ui.canvas.viewBack') }}</div>
+                    <div class="menu-item" (click)="setTileView(tile, 'SW Isometric')">{{ t('editor.ui.canvas.viewSwIsometric') }}</div>
+                    <div class="menu-item" (click)="setTileView(tile, 'SE Isometric')">{{ t('editor.ui.canvas.viewSeIsometric') }}</div>
                   </div>
                 }
               </div>
 
               <!-- [2D Wireframe] Visual Style Dropdown -->
-              <div class="vp-control-btn" (click)="$event.stopPropagation(); toggleStyleMenu(t.id)">
-                [{{ t.visualStyle }}]
-                @if (activeStyleMenuId() === t.id) {
+              <div class="vp-control-btn" (click)="$event.stopPropagation(); toggleStyleMenu(tile.id)">
+                [{{ tile.visualStyle }}]
+                @if (activeStyleMenuId() === tile.id) {
                   <div class="vp-dropdown-menu">
-                    <div class="menu-item" (click)="setTileStyle(t, '2D Wireframe')">2D Wireframe</div>
-                    <div class="menu-item" (click)="setTileStyle(t, 'Conceptual')">Conceptual</div>
-                    <div class="menu-item" (click)="setTileStyle(t, 'Realistic')">Realistic</div>
-                    <div class="menu-item" (click)="setTileStyle(t, 'Shaded')">Shaded</div>
+                    <div class="menu-item" (click)="setTileStyle(tile, '2D Wireframe')">{{ t('editor.ui.canvas.style2dWireframe') }}</div>
+                    <div class="menu-item" (click)="setTileStyle(tile, 'Conceptual')">{{ t('editor.ui.canvas.styleConceptual') }}</div>
+                    <div class="menu-item" (click)="setTileStyle(tile, 'Realistic')">{{ t('editor.ui.canvas.styleRealistic') }}</div>
+                    <div class="menu-item" (click)="setTileStyle(tile, 'Shaded')">{{ t('editor.ui.canvas.styleShaded') }}</div>
                   </div>
                 }
               </div>
             </div>
           }
         }
+        </ng-container>
       </div>
 
       <!-- Floating canvas toolbar — matches original #canvas-toolbar -->
-      <div class="canvas-toolbar">
-        <button type="button" class="cv-btn" title="Undo (Ctrl+Z)" (click)="undoRequested.emit()">↩</button>
-        <button type="button" class="cv-btn" title="Redo (Ctrl+Y)" (click)="redoRequested.emit()">↪</button>
-        <button type="button" class="cv-btn" title="Zoom Extents" (click)="zoomExtents()">⛶</button>
-        <button type="button" class="cv-btn" title="Zoom In" (click)="zoomIn()">+</button>
-        <button type="button" class="cv-btn" title="Zoom Out" (click)="zoomOut()">−</button>
+      <div class="canvas-toolbar" *transloco="let t">
+        <button type="button" class="cv-btn" [title]="t('editor.ui.canvas.undo')" (click)="undoRequested.emit()">↩</button>
+        <button type="button" class="cv-btn" [title]="t('editor.ui.canvas.redo')" (click)="redoRequested.emit()">↪</button>
+        <button type="button" class="cv-btn" [title]="t('editor.ui.canvas.zoomExtents')" (click)="zoomExtents()">⛶</button>
+        <button type="button" class="cv-btn" [title]="t('editor.ui.canvas.zoomIn')" (click)="zoomIn()">+</button>
+        <button type="button" class="cv-btn" [title]="t('editor.ui.canvas.zoomOut')" (click)="zoomOut()">−</button>
         
         <!-- Viewports Split Selector -->
         @if (layoutMgr.isModelSpace()) {
-          <select class="cv-select" title="Viewport Layout" [ngModel]="modelVps.activeConfigName()" (ngModelChange)="modelVps.applyConfig($event)">
-            <option value="Single">1 View (Single)</option>
-            <option value="Two: Vertical">2 Views (Vertical)</option>
-            <option value="Two: Horizontal">2 Views (Horizontal)</option>
-            <option value="Three: Right">3 Views (Right)</option>
-            <option value="Three: Left">3 Views (Left)</option>
-            <option value="Four: Equal">4 Views (Grid 2x2)</option>
+          <select class="cv-select" [title]="t('editor.ui.canvas.viewportLayout')" [ngModel]="modelVps.activeConfigName()" (ngModelChange)="modelVps.applyConfig($event)">
+            <option value="Single">{{ t('editor.ui.canvas.layoutSingle') }}</option>
+            <option value="Two: Vertical">{{ t('editor.ui.canvas.layoutTwoVertical') }}</option>
+            <option value="Two: Horizontal">{{ t('editor.ui.canvas.layoutTwoHorizontal') }}</option>
+            <option value="Three: Right">{{ t('editor.ui.canvas.layoutThreeRight') }}</option>
+            <option value="Three: Left">{{ t('editor.ui.canvas.layoutThreeLeft') }}</option>
+            <option value="Four: Equal">{{ t('editor.ui.canvas.layoutFour') }}</option>
           </select>
         }
 
-        <select class="cv-select" title="Active Layer" [(ngModel)]="activeLayer" (ngModelChange)="onLayerChange($event)">
+        <select class="cv-select" [title]="t('editor.ui.canvas.activeLayer')" [(ngModel)]="activeLayer" (ngModelChange)="onLayerChange($event)">
           @for (layerName of layerNames(); track layerName) {
             <option [value]="layerName">{{ layerName }}</option>
           }

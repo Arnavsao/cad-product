@@ -14,6 +14,7 @@ import { DrawingPersistenceService } from '../../core/services/drawing-persisten
 import { AutosaveService } from '../../core/services/autosave.service';
 import { DocumentManagerService } from '../../core/services/document-manager.service';
 import type { StoredDrawing } from '../../core/models/stored-drawing.model';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
 /** Search keystrokes are cheap; `GET /drawings?q=` is not. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -63,14 +64,14 @@ const SHARED = 'shared';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-drawing-browser',
   standalone: true,
-  imports: [FormsModule, RelativeTimePipe, FileSizePipe],
+  imports: [UiIconComponent, FormsModule, RelativeTimePipe, FileSizePipe],
   template: `
     <div class="db-overlay" (click)="onOverlayClick($event)">
       <div class="db-modal" (click)="$event.stopPropagation()">
 
         <header class="db-header">
           <h2>{{ svc.mode() === 'save' ? 'Save Drawing As' : 'My Drawings' }}</h2>
-          <button type="button" class="db-x" (click)="close()" title="Close (Esc)">×</button>
+          <button type="button" class="db-x" (click)="close()" title="Close (Esc)"><ui-icon name="close" [size]="16" /></button>
         </header>
 
         @if (svc.mode() === 'save') {

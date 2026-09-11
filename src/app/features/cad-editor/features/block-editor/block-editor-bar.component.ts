@@ -1,21 +1,23 @@
 import {
   Component, inject, ChangeDetectionStrategy
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { BlockEditorService } from '../../core/services/block-editor.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-block-editor-bar',
   standalone: true,
+  imports: [TranslocoDirective],
   template: `
     @if (blockEditor.isActive()) {
-      <div class="bedit-bar">
+      <div class="bedit-bar" *transloco="let t">
         <span class="bedit-label">
           <!-- Editing Block: <strong>{{ blockEditor.editingBlockName() }}</strong> -->
         </span>
         <div class="bedit-actions">
-          <button class="bedit-btn save" type="button" (click)="blockEditor.save()">Save Block</button>
-          <button class="bedit-btn discard" type="button" (click)="blockEditor.discard()">Discard</button>
+          <button class="bedit-btn save" type="button" (click)="blockEditor.save()">{{ t('editor.ui.blockEditor.saveBlock') }}</button>
+          <button class="bedit-btn discard" type="button" (click)="blockEditor.discard()">{{ t('editor.ui.blockEditor.discard') }}</button>
         </div>
       </div>
     }

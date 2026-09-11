@@ -2,7 +2,9 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, e
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { OverlayModule } from '@angular/cdk/overlay';
-import { filter, map, startWith } from 'rxjs/operators';
+import { filter, map, scan, startWith } from 'rxjs/operators';
+import { merge } from 'rxjs';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { MeService } from '../../core/api/me.service';
 import { WorkspaceService } from '../../core/api/workspace.service';
@@ -45,18 +47,26 @@ const SEARCH_SECTIONS: ReadonlySet<DashboardSection> = new Set<DashboardSection>
 /** Anything above this shows as "9+" so the badge cannot stretch the button. */
 const BADGE_CAP = 9;
 
+/** A `UiMenuItem` whose label is a translation key, resolved at render time. */
+type MenuItemSpec = Omit<UiMenuItem, 'label'> & { labelKey: string };
+
 /**
  * Header help menu. `UiMenuItem` carries no href, so each id is routed in
  * `onHelpSelect`. Only What's New and About are wired up — Social / Community /
  * Contact Support were explicitly deferred, and a menu entry that does nothing is
  * worse than one that is absent.
  */
-const HELP_MENU: UiMenuItem[] = [
-  { id: 'whats-new', label: "What's New", icon: 'sparkle' },
-  { id: 'about', label: 'About', icon: 'help' },
-  { id: 'sep', label: '', separator: true },
-  { id: 'pricing', label: 'Plans & pricing', icon: 'tag' },
-  { id: 'feedback', label: 'Provide Feedback', icon: 'message' },
+const HELP_MENU: readonly MenuItemSpec[] = [
+  { id: 'whats-new', labelKey: 'dashboard.shell.help.whatsNew', icon: 'sparkle' },
+  { id: 'about', labelKey: 'dashboard.shell.help.about', icon: 'help' },
+  { id: 'sep', labelKey: '', separator: true },
+  { id: 'pricing', labelKey: 'dashboard.shell.help.pricing', icon: 'tag' },
+  { id: 'feedback', labelKey: 'dashboard.shell.nav.feedback', icon: 'message' },
+];
+
+const UPLOAD_MENU: readonly MenuItemSpec[] = [
+  { id: 'files', labelKey: 'dashboard.shell.uploadFiles', icon: 'file' },
+  { id: 'folder', labelKey: 'dashboard.shell.uploadFolder', icon: 'folder' },
 ];
 
 /**
@@ -83,6 +93,7 @@ const HELP_MENU: UiMenuItem[] = [
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    TranslocoDirective,
     RouterLink,
     RouterOutlet,
     AccountButtonComponent,
@@ -107,6 +118,7 @@ export class DashboardShellComponent {
   private readonly dialog = inject(UiDialogService);
   private readonly notify = inject(NotificationService);
   private readonly events = inject(DashboardEventsService);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly me = inject(MeService);
   protected readonly workspace = inject(WorkspaceService);
@@ -119,10 +131,35 @@ export class DashboardShellComponent {
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   private readonly folderInput = viewChild<ElementRef<HTMLInputElement>>('folderInput');
 
-  protected readonly uploadMenu: UiMenuItem[] = [
-    { id: 'files', label: 'Upload files…', icon: 'file' },
-    { id: 'folder', label: 'Upload folder…', icon: 'folder' },
-  ];
+  /**
+   * Bumps on every language switch and every finished translation load, so
+   * anything computed from the synchronous `translate()` re-runs — a cold load
+   * builds the menus while the language file may still be in flight.
+   */
+  private readonly translationRevision = toSignal(
+    merge(
+      this.transloco.langChanges$,
+      this.transloco.events$.pipe(filter((e) => e.type === 'translationLoadSuccess')),
+    ).pipe(scan((n) => n + 1, 0)),
+    { initialValue: 0 },
+  );
+
+  private menu(spec: readonly MenuItemSpec[]): UiMenuItem[] {
+    return spec.map(({ labelKey, ...item }) => ({
+      ...item,
+      label: labelKey ? this.transloco.translate(labelKey) : '',
+    }));
+  }
+
+  protected readonly uploadMenu = computed<UiMenuItem[]>(() => {
+    this.translationRevision();
+    return this.menu(UPLOAD_MENU);
+  });
+
+  protected readonly helpMenu = computed<UiMenuItem[]>(() => {
+    this.translationRevision();
+    return this.menu(HELP_MENU);
+  });
 
   /** Current URL, refreshed on every completed navigation. */
   private readonly url = toSignal(
@@ -157,16 +194,14 @@ export class DashboardShellComponent {
   /** Sections that show the in-content search bar above their content. */
   protected readonly searchSection = computed(() => SEARCH_SECTIONS.has(this.section()));
 
-  /** Context-aware placeholder text for the search input. */
-  protected readonly searchPlaceholder = computed(() => {
+  /** Context-aware placeholder text for the search input, as a translation key. */
+  protected readonly searchPlaceholderKey = computed(() => {
     switch (this.section()) {
-      case 'trash': return 'Search trash';
-      case 'shared': return 'Search shared drawings';
-      default: return 'Search drawings';
+      case 'trash': return 'dashboard.shell.searchTrash';
+      case 'shared': return 'dashboard.shell.searchShared';
+      default: return 'dashboard.shell.searchDrawings';
     }
   });
-
-  protected readonly helpMenu = HELP_MENU;
 
   /** `9+` past the cap so a large count cannot stretch the bell button. */
   protected readonly badgeLabel = computed(() => {
@@ -175,9 +210,10 @@ export class DashboardShellComponent {
   });
 
   protected readonly bellTitle = computed(() => {
+    this.translationRevision();
     const n = this.inbox.unreadCount();
-    if (!n) return 'Notifications';
-    return `Notifications — ${n} unread`;
+    if (!n) return this.transloco.translate('dashboard.shell.notifications');
+    return this.transloco.translate('dashboard.shell.notificationsUnread', { count: n });
   });
 
   /** Mirrors `?q=`; also the value of the search box. */
@@ -326,7 +362,7 @@ export class DashboardShellComponent {
     try {
       const folder = await this.dialog.open<FolderDto, NewFolderDialogData>(NewFolderDialogComponent, data).afterClosed;
       if (!folder) return;
-      this.notify.success(`Folder "${folder.name}" created.`);
+      this.notify.success(this.transloco.translate('dashboard.shell.folderCreated', { name: folder.name }));
       this.events.bump();
       if (this.section() !== 'drawings') await this.router.navigateByUrl('/dashboard/drawings');
     } finally {

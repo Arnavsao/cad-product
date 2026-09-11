@@ -9,16 +9,16 @@ import { snapshotEntity, moveFrozenHatch } from '../../tools/geometry-utils';
 
 /**
  * Per-grip dashed-guide render callback. Called by `GripManagerService.render`
- * for the ACTIVE grip only, every frame during drag â€” so entities can paint
+ * for the ACTIVE grip only, every frame during drag — so entities can paint
  * extension guides, alignment lines, or any other stretch-preview hints in
  * screen coordinates.
  *
  * Receives the live `ViewModelService` instance so the callback can convert
- * world â†’ screen via `vm.w2s`. The drag-start world point is exposed via
+ * world → screen via `vm.w2s`. The drag-start world point is exposed via
  * `getDragContext()` (see `IDragContext`) and is the source for "drag began
  * here" guide lines (e.g., dashed line from drag-start to current cursor).
  *
- * The render path always wraps the call in save/restore â€” guide callbacks
+ * The render path always wraps the call in save/restore — guide callbacks
  * don't need to manage ctx state themselves.
  */
 export type GripGuideRenderFn = (
@@ -36,7 +36,7 @@ export interface IGrip {
   /**
    * Optional dashed-guide painter shown only while THIS grip is being
    * dragged. Use it for extension lines from the opposite endpoint,
-   * alignment crosses, leader-style hint paths â€” anything that helps
+   * alignment crosses, leader-style hint paths — anything that helps
    * the user visualize the in-flight stretch.
    */
   renderGuides?: GripGuideRenderFn;
@@ -46,14 +46,14 @@ export interface IGrip {
  * Drag context exposed to grip closures.
  *
  * Why this exists: `GripManagerService.updateDrag()` calls `generate()` on
- * every mouse-move tick to refresh grip *positions* â€” but `generate()`
+ * every mouse-move tick to refresh grip *positions* — but `generate()`
  * recreates closures, which means any state held inside a closure
  * (drag-start cursor, original entity dimensions) is reset every tick.
  * That breaks delta-based grips (anything that needs "where did I start?").
  *
  * Instead, drag-start state lives on the GripManager and is mirrored into
  * this module-level singleton just before each `onDrag` call. Closures
- * read from it on every invocation â€” they hold no state of their own and
+ * read from it on every invocation — they hold no state of their own and
  * are safe to rebuild any number of times.
  *
  * `snapshot` is the entity field map captured at `beginDrag` (via
@@ -72,19 +72,19 @@ function getDragContext(): IDragContext | null {
 }
 
 /**
- * LINE grips â€” reference implementation of the universal stretch contract.
+ * LINE grips — reference implementation of the universal stretch contract.
  *
  *   - `line-start` / `line-end` : drag endpoint; shows a dashed extension
  *     guide from the OPPOSITE endpoint to the cursor while dragging.
  *   - `line-mid`               : translate the line; shows a dashed delta
  *     guide from drag-start to current cursor.
  *
- * All closures are stateless â€” they read drag-start data from
+ * All closures are stateless — they read drag-start data from
  * `getDragContext()` so they survive the per-tick `generate()` rebuild.
  *
  * Pattern other entities should follow:
  *   1. Mutate fields in `onDrag` using `getDragContext().snapshot` for
- *      "where did I start" data â€” never closure-stored.
+ *      "where did I start" data — never closure-stored.
  *   2. Optionally provide `renderGuides(ctx, vm)` to paint dashed
  *      extension/alignment hints in screen coords.
  *   3. The grip manager handles snap (via canvas), DI readout, undo via
@@ -111,7 +111,7 @@ function lineGrips(ent: any): IGrip[] {
   };
 
   return [
-    // â”€â”€â”€ Start endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Start endpoint ────────────────────────────────────────────────
     {
       key: 'line-start', entity: ent, type: 'endpoint',
       x: ent.x1, y: ent.y1,
@@ -125,7 +125,7 @@ function lineGrips(ent: any): IGrip[] {
         dashedLine(ctx, vm, { x: ent.x2, y: ent.y2 }, { x: ent.x1, y: ent.y1 });
       },
     },
-    // â”€â”€â”€ End endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── End endpoint ──────────────────────────────────────────────────
     {
       key: 'line-end', entity: ent, type: 'endpoint',
       x: ent.x2, y: ent.y2,
@@ -137,7 +137,7 @@ function lineGrips(ent: any): IGrip[] {
         dashedLine(ctx, vm, { x: ent.x1, y: ent.y1 }, { x: ent.x2, y: ent.y2 });
       },
     },
-    // â”€â”€â”€ Midpoint: translate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Midpoint: translate ───────────────────────────────────────────
     {
       key: 'line-mid', entity: ent, type: 'midpoint',
       x: (ent.x1 + ent.x2) / 2, y: (ent.y1 + ent.y2) / 2,
@@ -169,7 +169,7 @@ function lineGrips(ent: any): IGrip[] {
 }
 
 /**
- * CIRCLE grips â€” stateless closures + dashed guide rendering.
+ * CIRCLE grips — stateless closures + dashed guide rendering.
  *
  *   - `circle-center`        : translate; guide = dashed line from drag-start
  *   - 4 radius grips (N/E/S/W): set radius from cursor distance; guide =
@@ -211,7 +211,7 @@ function circleGrips(ent: any): IGrip[] {
     key: `circle-${key}`, entity: ent, type: 'radius',
     x: ent.cx + ent.r * kx, y: ent.cy + ent.r * ky,
     onDrag: (wx, wy) => {
-      // Direct radius assignment from cursor distance â€” no drag-start
+      // Direct radius assignment from cursor distance — no drag-start
       // needed (center stays where it is, radius is purely cursor-driven).
       ent.r = Math.max(0.01, Math.hypot(wx - ent.cx, wy - ent.cy));
       ent.refreshCaches();
@@ -224,7 +224,7 @@ function circleGrips(ent: any): IGrip[] {
       ctx.strokeStyle = getActiveCanvasPalette().osnapHint;
       ctx.lineWidth = 1;
       ctx.setLineDash([6, 4]);
-      // Radius line (center â†’ current angle direction)
+      // Radius line (center → current angle direction)
       ctx.beginPath();
       ctx.moveTo(c.x, c.y);
       ctx.lineTo(c.x + r * kx, c.y - r * ky); // -ky for canvas y-down
@@ -243,11 +243,11 @@ function circleGrips(ent: any): IGrip[] {
 }
 
 /**
- * ARC grips â€” stateless closures + sweep preview guides.
+ * ARC grips — stateless closures + sweep preview guides.
  *
  *   - `arc-center` : translate the arc (delta from drag-start)
  *   - `arc-start`  : rotate the start angle to the cursor + retune radius;
- *                    guide = dashed line centerâ†’cursor + faint arc preview
+ *                    guide = dashed line center→cursor + faint arc preview
  *   - `arc-end`    : same for end angle/radius
  *
  * Angles are stored in degrees on ArcEntity.
@@ -266,7 +266,7 @@ function arcGrips(ent: any): IGrip[] {
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
     ctx.moveTo(c.x, c.y);
-    // Canvas Y is down â†’ invert sin term.
+    // Canvas Y is down → invert sin term.
     ctx.lineTo(c.x + r * Math.cos(a), c.y - r * Math.sin(a));
     ctx.stroke();
     ctx.setLineDash([]);
@@ -275,7 +275,7 @@ function arcGrips(ent: any): IGrip[] {
   const sa = (ent.startAngle * Math.PI) / 180;
   const ea = (ent.endAngle * Math.PI) / 180;
   return [
-    // â”€â”€â”€ Center: translate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Center: translate ───────────────────────────────────────────
     {
       key: 'arc-center', entity: ent, type: 'center', x: ent.cx, y: ent.cy,
       onDrag: (wx, wy) => {
@@ -301,7 +301,7 @@ function arcGrips(ent: any): IGrip[] {
         ctx.setLineDash([]);
       },
     },
-    // â”€â”€â”€ Start endpoint: rotates startAngle + adjusts radius â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Start endpoint: rotates startAngle + adjusts radius ─────────
     {
       key: 'arc-start', entity: ent, type: 'endpoint',
       x: ent.cx + ent.r * Math.cos(sa), y: ent.cy + ent.r * Math.sin(sa),
@@ -314,7 +314,7 @@ function arcGrips(ent: any): IGrip[] {
         dashedRadius(ctx, vm, ent.startAngle);
       },
     },
-    // â”€â”€â”€ End endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── End endpoint ─────────────────────────────────────────────────
     {
       key: 'arc-end', entity: ent, type: 'endpoint',
       x: ent.cx + ent.r * Math.cos(ea), y: ent.cy + ent.r * Math.sin(ea),
@@ -331,24 +331,24 @@ function arcGrips(ent: any): IGrip[] {
 }
 
 /**
- * POLYLINE grips â€” covers both general polylines AND rectangles (a
+ * POLYLINE grips — covers both general polylines AND rectangles (a
  * closed 4-vertex polyline created via `makeRect`).
  *
- *   - Vertex grips (one per vertex) : drag â†’ stretch single vertex.
+ *   - Vertex grips (one per vertex) : drag → stretch single vertex.
  *     Guide rendering:
- *       â€¢ Closed 4-vert (rectangle): H + V dashed cross through the
+ *       • Closed 4-vert (rectangle): H + V dashed cross through the
  *         DIAGONALLY-OPPOSITE corner (anchored at drag-start position) so
  *         the user reads the new width/height visually.
- *       â€¢ General polyline: dashed segment-extension lines from the two
+ *       • General polyline: dashed segment-extension lines from the two
  *         neighboring vertices to the dragging vertex.
  *
- *   - Mid-segment grips : drag â†’ move both endpoints of the segment only
+ *   - Mid-segment grips : drag → move both endpoints of the segment only
  *     along the edge's perpendicular (resize that side; the edge stays
  *     parallel to itself). Guide = dashed line from drag-start to current
  *     cursor.
  *
  * Vertex onDrag uses direct assignment (cursor IS the new vertex position
- * â€” no drag-start delta needed). Mid-segment onDrag pulls drag-start data
+ * — no drag-start delta needed). Mid-segment onDrag pulls drag-start data
  * via `getDragContext()` and reads the snapshot's `pts[]` array.
  */
 function polylineGrips(ent: any): IGrip[] {
@@ -372,7 +372,7 @@ function polylineGrips(ent: any): IGrip[] {
         ctx.setLineDash([6, 4]);
         if (isRect) {
           // Rectangle vertex: H + V dashed cross through the opposite
-          // corner â€” exactly what AutoCAD shows during STRETCH on a
+          // corner — exactly what AutoCAD shows during STRETCH on a
           // rectangle so the user can read off the new width/height.
           const opposite = ent.pts[(idx + 2) % 4];
           const op = vm.w2s(opposite.x, opposite.y);
@@ -405,7 +405,7 @@ function polylineGrips(ent: any): IGrip[] {
     });
   }
 
-  // â”€â”€â”€ Mid-segment translate grips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Mid-segment translate grips ─────────────────────────────────────
   // For closed polylines we also generate the wrap-around segment so a
   // rectangle gets all four edge midpoints (not just three).
   const segCount = ent.closed ? N : N - 1;
@@ -423,7 +423,7 @@ function polylineGrips(ent: any): IGrip[] {
         // Resize-that-side behaviour: move BOTH segment endpoints only along
         // the edge's perpendicular (normal). The cursor's free 2-axis delta is
         // projected onto the normal so the edge slides in/out while staying
-        // parallel to itself â€” exactly like dragging an edge-midpoint grip on
+        // parallel to itself — exactly like dragging an edge-midpoint grip on
         // a rectangle in AutoCAD.
         const ex = snapPts[b].x - snapPts[a].x;
         const ey = snapPts[b].y - snapPts[a].y;
@@ -602,7 +602,7 @@ function insertGrips(ent: any): IGrip[] {
 }
 
 /**
- * XLINE grips â€” matches AutoCAD's construction-line grip model:
+ * XLINE grips — matches AutoCAD's construction-line grip model:
  *
  *   - `xline-base`      : blue square at the base point. Drag translates the
  *                         whole line (both base x/y shift by the cursor delta).
@@ -632,7 +632,7 @@ function xlineGrips(ent: any): IGrip[] {
     ctx.setLineDash([]);
   };
 
-  // Grip 1: base point â€” translate the whole line.
+  // Grip 1: base point — translate the whole line.
   const baseGrip: IGrip = {
     key: 'xline-base',
     entity: ent,
@@ -649,7 +649,7 @@ function xlineGrips(ent: any): IGrip[] {
     renderGuides: renderXLineGuide,
   };
 
-  // Grip 2: direction handle â€” rotate angle around base.
+  // Grip 2: direction handle — rotate angle around base.
   const dhX = ent.x + Math.cos(ent.angle) * DIR_L;
   const dhY = ent.y + Math.sin(ent.angle) * DIR_L;
   const dirGrip: IGrip = {
@@ -673,13 +673,13 @@ function xlineGrips(ent: any): IGrip[] {
 }
 
 /**
- * ELLIPSE grips â€” stateless closures + axis guide rendering.
+ * ELLIPSE grips — stateless closures + axis guide rendering.
  *
  *   - `ellipse-center`     : translate (delta from drag-start)
- *   - `ellipse-major`      : drag â†’ ellipse rotates so the major-axis
+ *   - `ellipse-major`      : drag → ellipse rotates so the major-axis
  *                            endpoint tracks the cursor; `rx` updates to
  *                            the cursor distance from center.
- *   - `ellipse-minor`      : drag â†’ project cursor onto the perpendicular
+ *   - `ellipse-minor`      : drag → project cursor onto the perpendicular
  *                            of the major axis; `ry` updates to that
  *                            projection's absolute length (rotation
  *                            stays fixed).
@@ -698,7 +698,7 @@ function ellipseGrips(ent: any): IGrip[] {
     const dx = Math.cos(angleRad) * halfLength * vm.scale;
     const dy = Math.sin(angleRad) * halfLength * vm.scale;
     ctx.beginPath();
-    ctx.moveTo(c.x - dx, c.y + dy);  // canvas y-down â†’ flip sin
+    ctx.moveTo(c.x - dx, c.y + dy);  // canvas y-down → flip sin
     ctx.lineTo(c.x + dx, c.y - dy);
     ctx.stroke();
   };
@@ -710,7 +710,7 @@ function ellipseGrips(ent: any): IGrip[] {
   const minorY = ent.cy + ent.ry * Math.sin(rot + Math.PI / 2);
 
   return [
-    // â”€â”€â”€ Center: translate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Center: translate ───────────────────────────────────────────
     {
       key: 'ellipse-center', entity: ent, type: 'center',
       x: ent.cx, y: ent.cy,
@@ -737,7 +737,7 @@ function ellipseGrips(ent: any): IGrip[] {
         ctx.setLineDash([]);
       },
     },
-    // â”€â”€â”€ Major-axis endpoint: rotates the ellipse + sets rx â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Major-axis endpoint: rotates the ellipse + sets rx ──────────
     {
       key: 'ellipse-major', entity: ent, type: 'endpoint',
       x: majorX, y: majorY,
@@ -761,7 +761,7 @@ function ellipseGrips(ent: any): IGrip[] {
         ctx.setLineDash([]);
       },
     },
-    // â”€â”€â”€ Minor-axis endpoint: sets ry; rotation unchanged â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Minor-axis endpoint: sets ry; rotation unchanged ────────────
     {
       key: 'ellipse-minor', entity: ent, type: 'endpoint',
       x: minorX, y: minorY,
@@ -789,20 +789,20 @@ function ellipseGrips(ent: any): IGrip[] {
 }
 
 /**
- * IMAGE grips (universal â€” same architecture as line/polyline/etc.):
+ * IMAGE grips (universal — same architecture as line/polyline/etc.):
  *
- *   - `image-center`         â€” translate entire image
- *   - 4 corners (tl/tr/bl/br)â€” free 2-axis resize; opposite corner stays fixed
- *   - 4 edges (t/b/l/r)      â€” single-axis resize; opposite edge stays fixed
+ *   - `image-center`         — translate entire image
+ *   - 4 corners (tl/tr/bl/br)— free 2-axis resize; opposite corner stays fixed
+ *   - 4 edges (t/b/l/r)      — single-axis resize; opposite edge stays fixed
  *
  * ImageEntity uses (x, y) = bottom-left, width grows +X, height grows +Y
- * (world Y is up). All closures are STATELESS â€” they read drag-start state
+ * (world Y is up). All closures are STATELESS — they read drag-start state
  * from `getDragContext()`. This is critical because `updateDrag()` calls
  * `generate()` on every mouse-move tick to refresh grip *positions*, which
  * recreates closures. Stateful closures would lose their drag-start data
  * after the first tick.
  *
- * The grip manager records `ModifyGeometryCmd(before, after)` on drag end â€”
+ * The grip manager records `ModifyGeometryCmd(before, after)` on drag end —
  * since `snapshotEntity` captures `width / height / x / y`, undo restores
  * cleanly. No image-side drag code anywhere.
  */
@@ -826,7 +826,7 @@ function imageGrips(ent: any): IGrip[] {
     ctx.setLineDash([]);
   };
 
-  // â”€â”€â”€ Center: translate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Center: translate ────────────────────────────────────────────────
   const center: IGrip = {
     key: 'image-center', entity: ent, type: 'center',
     x: ent.x + ent.width / 2, y: ent.y + ent.height / 2,
@@ -860,7 +860,7 @@ function imageGrips(ent: any): IGrip[] {
     },
   };
 
-  // â”€â”€â”€ Corner: free 2-axis resize anchored at opposite corner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Corner: free 2-axis resize anchored at opposite corner ───────────
   const corner = (kx: 0 | 1, ky: 0 | 1, label: string): IGrip => ({
     key: `image-${label}`, entity: ent, type: 'endpoint',
     x: ent.x + ent.width * kx, y: ent.y + ent.height * ky,
@@ -890,7 +890,7 @@ function imageGrips(ent: any): IGrip[] {
     renderGuides: (ctx, vm) => drawBoundary(ctx, vm),
   });
 
-  // â”€â”€â”€ Edge: single-axis resize anchored at opposite edge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Edge: single-axis resize anchored at opposite edge ───────────────
   const edge = (axis: 'x' | 'y', side: 0 | 1, label: string): IGrip => ({
     key: `image-${label}`, entity: ent, type: 'midpoint',
     x: axis === 'x'
@@ -936,15 +936,15 @@ function imageGrips(ent: any): IGrip[] {
 }
 
 /**
- * TABLE grips (universal â€” same architecture):
+ * TABLE grips (universal — same architecture):
  *
- *   - `table-move` (top-left)â€” translate entire table
- *   - 4 corners              â€” scale all colWidths AND/OR rowHeights
- *   - 4 edges (t/b/l/r)      â€” scale one dimension
+ *   - `table-move` (top-left)— translate entire table
+ *   - 4 corners              — scale all colWidths AND/OR rowHeights
+ *   - 4 edges (t/b/l/r)      — scale one dimension
  *
  * TableEntity (x, y) = top-left corner. Table extends +X (right) and -Y
  * (down, since world Y is up). colWidths[] / rowHeights[] are per-column /
- * per-row world-unit sizes â€” proportional scaling keeps the relative size
+ * per-row world-unit sizes — proportional scaling keeps the relative size
  * of each column/row, matching AutoCAD's "scale table" behavior.
  *
  * Internal per-column / per-row separator drag handles live INSIDE the
@@ -952,32 +952,32 @@ function imageGrips(ent: any): IGrip[] {
  * spec. This grip generator handles only the outer 9-grip set.
  */
 /**
- * TABLE grips (universal â€” stateless closures, reads drag-start from
+ * TABLE grips (universal — stateless closures, reads drag-start from
  * `getDragContext()` so it survives `generate()` rebuilds on every tick):
  *
- *   - `table-move` (top-left)â€” translate entire table
- *   - 4 corners (tr/bl/br)   â€” scale colWidths / rowHeights proportionally
- *   - 4 edges (t/b/l/r)      â€” scale one dimension
+ *   - `table-move` (top-left)— translate entire table
+ *   - 4 corners (tr/bl/br)   — scale colWidths / rowHeights proportionally
+ *   - 4 edges (t/b/l/r)      — scale one dimension
  *
  * TableEntity (x, y) = top-left corner; +X grows right, -Y grows down
  * (world Y is up). Proportional scaling reads `colWidths` / `rowHeights`
  * from the drag-start snapshot so the relative size of each column/row
- * stays constant â€” matching AutoCAD's "scale table" behavior.
+ * stays constant — matching AutoCAD's "scale table" behavior.
  *
  * Internal per-column / per-row separator handles live in the
  * TableEditorOverlay (visible only while editing), so they aren't
  * duplicated here.
  */
 /**
- * TABLE grips (universal â€” stateless closures, reads drag-start from
+ * TABLE grips (universal — stateless closures, reads drag-start from
  * `getDragContext()` so the closures survive the per-tick `generate()`
  * rebuild done in `updateDrag`).
  *
  * Layout (matches the user's spec):
- *   - `table-center`           â€” center grip â†’ translate entire table
- *   - 4 corners (tl/tr/bl/br)  â†’ proportional scale (anchor opposite corner)
- *   - Column-divider grips     â†’ individual column resize on top + bottom edges
- *   - Row-divider grips        â†’ individual row resize on left + right edges
+ *   - `table-center`           — center grip → translate entire table
+ *   - 4 corners (tl/tr/bl/br)  → proportional scale (anchor opposite corner)
+ *   - Column-divider grips     → individual column resize on top + bottom edges
+ *   - Row-divider grips        → individual row resize on left + right edges
  *
  * TableEntity (x, y) = top-left corner; +X grows right, -Y grows down
  * (world Y is up). All scaling reads `colWidths[]` / `rowHeights[]` from
@@ -1052,7 +1052,7 @@ function tableGrips(ent: any): IGrip[] {
   const totalW = (ent.colWidths as number[]).reduce((a, b) => a + b, 0);
   const totalH = (ent.rowHeights as number[]).reduce((a, b) => a + b, 0);
 
-  // â”€â”€â”€ Center: translate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Center: translate ────────────────────────────────────────────────
   grips.push({
     key: 'table-center', entity: ent, type: 'center',
     x: ent.x + totalW / 2, y: ent.y - totalH / 2,
@@ -1081,8 +1081,8 @@ function tableGrips(ent: any): IGrip[] {
     },
   });
 
-  // â”€â”€â”€ Corners: proportional scale, opposite corner stays fixed â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // kx âˆˆ {0,1}: 0=left, 1=right. ky âˆˆ {0,1}: 0=top, 1=bottom.
+  // ─── Corners: proportional scale, opposite corner stays fixed ─────────
+  // kx ∈ {0,1}: 0=left, 1=right. ky ∈ {0,1}: 0=top, 1=bottom.
   // TableEntity world Y is up, table grows down (-Y), so the bottom
   // corner is at y = ent.y - totalH.
   const corner = (kx: 0 | 1, ky: 0 | 1, label: string): IGrip => ({
@@ -1096,7 +1096,7 @@ function tableGrips(ent: any): IGrip[] {
       const dx = Math.abs(wx - oppX);
       const dy = Math.abs(wy - oppY);
       if (s.totalW < 1e-6 || s.totalH < 1e-6) return;
-      // Uniform proportional scale â€” the larger of the two axes drives.
+      // Uniform proportional scale — the larger of the two axes drives.
       const scale = Math.max(0.01, Math.max(dx / s.totalW, dy / s.totalH));
       for (let i = 0; i < s.cw.length; i++) ent.colWidths[i] = Math.max(1, s.cw[i] * scale);
       for (let i = 0; i < s.rh.length; i++) ent.rowHeights[i] = Math.max(1, s.rh[i] * scale);
@@ -1114,7 +1114,7 @@ function tableGrips(ent: any): IGrip[] {
   grips.push(corner(0, 1, 'bl'));
   grips.push(corner(1, 1, 'br'));
 
-  // â”€â”€â”€ Column-divider grips on top & bottom edges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Column-divider grips on top & bottom edges ───────────────────────
   // Each interior column boundary gets two grips (one top, one bottom).
   // Drag resizes the column to the LEFT of that boundary using the cursor
   // X delta from drag-start.
@@ -1186,7 +1186,7 @@ function tableGrips(ent: any): IGrip[] {
  *   - `hatch-center`       : present for every hatch. For associative hatches
  *                            this is display-only (the hatch is defined by its
  *                            host entities; dragging the center has no effect
- *                            â€” AutoCAD behaves the same way). For frozen
+ *                            — AutoCAD behaves the same way). For frozen
  *                            (non-associative) hatches it translates the entire
  *                            stored polygon via `moveFrozenHatch`.
  *
@@ -1196,7 +1196,7 @@ function tableGrips(ent: any): IGrip[] {
  *                            endpoint of the two adjacent frozen edges.
  *
  * The snapshot-based undo path works through the standard `ModifyGeometryCmd`
- * that GripManagerService commits at drag-end â€” `snapshotEntity` now captures
+ * that GripManagerService commits at drag-end — `snapshotEntity` now captures
  * `boundarySpec` + `boundaries` deep clones for HATCH entities.
  */
 function hatchGrips(ent: any): IGrip[] {
@@ -1354,7 +1354,7 @@ function hatchGrips(ent: any): IGrip[] {
 }
 
 /**
- * LEADER grips â€” match the AutoCAD multileader contract:
+ * LEADER grips — match the AutoCAD multileader contract:
  *   - `leader-tip`      : drag the arrow head (pts[0]).
  *   - `leader-bend-N`   : drag any intermediate vertex (pts[1..N-1]).
  *   - `leader-landing`  : drag the landing end. Cursor X relative to the
@@ -1362,7 +1362,7 @@ function hatchGrips(ent: any): IGrip[] {
  *                         `attachmentSide`; the text follows automatically
  *                         because `textInsertion()` is derived from the
  *                         landing end. So a single grip moves landing+text
- *                         together â€” the way AutoCAD's multileader behaves
+ *                         together — the way AutoCAD's multileader behaves
  *                         when text is not independently offset.
  *
  * Snapshot keys for the landing grip (`landingLength`, `attachmentSide`)
@@ -1390,7 +1390,7 @@ function leaderGrips(ent: any): IGrip[] {
     });
   }
 
-  // Landing endpoint â€” computed from the last vertex + landingLength along
+  // Landing endpoint — computed from the last vertex + landingLength along
   // attachmentSide. Drag rewrites both fields so the text moves with the
   // landing automatically (textInsertion() is derived).
   const last = ent.pts[ent.pts.length - 1];
@@ -1538,11 +1538,11 @@ function mleaderGrips(ent: any): IGrip[] {
 }
 
 /**
- * DIMENSION grips â€” matches AutoCAD's linear dimension grip model:
+ * DIMENSION grips — matches AutoCAD's linear dimension grip model:
  *
  *   `dim-p1`      : drag p1 (first extension-line origin).
  *   `dim-p2`      : drag p2 (second extension-line origin).
- *   `dim-line-mid`: drag the midpoint of the dimension line â€” moves
+ *   `dim-line-mid`: drag the midpoint of the dimension line — moves
  *                   `dimLinePoint` so the dim-line shifts toward/away
  *                   from the measured points (changes offset + side).
  *   `dim-text`    : drag text position. Moving across the dim-line
@@ -1557,7 +1557,7 @@ function mleaderGrips(ent: any): IGrip[] {
 function dimensionGrips(ent: any): IGrip[] {
   const out: IGrip[] = [];
 
-  // â”€â”€ Compute the working frame â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Compute the working frame ────────────────────────────────────────
   const dx  = ent.p2.x - ent.p1.x;
   const dy  = ent.p2.y - ent.p1.y;
   const len = Math.hypot(dx, dy);
@@ -1599,7 +1599,7 @@ function dimensionGrips(ent: any): IGrip[] {
   const flipGripX = textWx + flipDist * flipSign * ex;
   const flipGripY = textWy + flipDist * flipSign * ey;
 
-  // â”€â”€ Dashed guide helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Dashed guide helper ──────────────────────────────────────────────
   const dashedLine = (
     ctx: CanvasRenderingContext2D,
     vm: ViewModelService,
@@ -1617,7 +1617,7 @@ function dimensionGrips(ent: any): IGrip[] {
     ctx.setLineDash([]);
   };
 
-  // â”€â”€ p1 grip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── p1 grip ─────────────────────────────────────────────────────────
   out.push({
     key: 'dim-p1', entity: ent, type: 'extension-origin',
     x: ent.p1.x, y: ent.p1.y,
@@ -1630,7 +1630,7 @@ function dimensionGrips(ent: any): IGrip[] {
     renderGuides: (ctx, vm) => dashedLine(ctx, vm, ent.p2.x, ent.p2.y, ent.p1.x, ent.p1.y),
   });
 
-  // â”€â”€ p2 grip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── p2 grip ─────────────────────────────────────────────────────────
   out.push({
     key: 'dim-p2', entity: ent, type: 'extension-origin',
     x: ent.p2.x, y: ent.p2.y,
@@ -1642,7 +1642,7 @@ function dimensionGrips(ent: any): IGrip[] {
     renderGuides: (ctx, vm) => dashedLine(ctx, vm, ent.p1.x, ent.p1.y, ent.p2.x, ent.p2.y),
   });
 
-  // â”€â”€ Dim-line midpoint grip (changes offset / side) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Dim-line midpoint grip (changes offset / side) ───────────────────
   const dimMidX = (dimP1x + dimP2x) / 2;
   const dimMidY = (dimP1y + dimP2y) / 2;
   out.push({
@@ -1666,7 +1666,7 @@ function dimensionGrips(ent: any): IGrip[] {
     },
   });
 
-  // â”€â”€ Text drag grip â€” moving text also snaps flip side â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Text drag grip — moving text also snaps flip side ────────────────
   out.push({
     key: 'dim-text', entity: ent, type: 'text',
     x: textWx, y: textWy,
@@ -1711,7 +1711,7 @@ function dimensionGrips(ent: any): IGrip[] {
     renderGuides: (ctx, vm) => dashedLine(ctx, vm, midX, midY, textWx, textWy),
   });
 
-  // â”€â”€ Flip grip â€” click to toggle textFlipped â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Flip grip — click to toggle textFlipped ───────────────────────────
   // Uses onDrag with a near-zero motion threshold so a simple click fires it.
   out.push({
     key: 'dim-flip', entity: ent, type: 'endpoint',
@@ -1960,7 +1960,7 @@ export class GripManagerService {
   }
 
   /** Rebuild grip list from current selection. Entities on frozen/locked layers
-   *  do NOT contribute grips â€” matches AutoCAD's rule that locked-layer
+   *  do NOT contribute grips — matches AutoCAD's rule that locked-layer
    *  geometry can be selected but not grip-edited. */
   generate(): void {
     const out: IGrip[] = [];
@@ -2014,7 +2014,7 @@ export class GripManagerService {
   /**
    * World coord of the cursor at the first updateDrag tick of the active drag.
    * Exposed publicly so the canvas can pass it as the snap/ortho/polar anchor
-   * (snap.resolve + snap.render both expect a stable pivot â€” the grip's
+   * (snap.resolve + snap.render both expect a stable pivot — the grip's
    * current position would drift across ticks). Read-only consumers only.
    */
   dragStartWorld: { x: number; y: number } | null = null;
@@ -2026,7 +2026,7 @@ export class GripManagerService {
     this.snapshot = snapshotEntity(grip.entity);
     this.dragStartWorld = null;  // captured on the first updateDrag tick
 
-    // â”€â”€ Multi-Grip / Coincident Grip Merge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Multi-Grip / Coincident Grip Merge ───────────────────────────────
     // If the clicked grip wasn't already selected, it becomes the sole selection.
     const gripId = `${grip.entity.id}:${grip.key}`;
     if (!this.selectedGripIds.has(gripId)) {
@@ -2154,7 +2154,7 @@ export class GripManagerService {
     for (const [entity, before] of this.coincidentSnapshots) {
       const after = snapshotEntity(entity);
       const cmd = new ModifyGeometryCmd(entity, before, after, { markDirty: () => this.vm.markContentDirty() });
-      // Don't execute â€” geometry is already live. Just record for undo.
+      // Don't execute — geometry is already live. Just record for undo.
       this.cmds.record(cmd);
     }
     // Stop hiding the dragged entities and fold their committed geometry back
@@ -2231,7 +2231,7 @@ export class GripManagerService {
 
     if (!this.visible() || !this.grips.length) return;
 
-    // â”€â”€â”€ Stretch guides for the active grip (drawn BEHIND the grip dots) â”€â”€
+    // ─── Stretch guides for the active grip (drawn BEHIND the grip dots) ──
     // Each grip's optional `renderGuides` callback paints dashed extension
     // lines, alignment crosses, or any other stretch-preview hints. We only
     // paint the guides for the grip currently being dragged so the canvas
@@ -2248,7 +2248,7 @@ export class GripManagerService {
       ctx.restore();
     }
 
-    // â”€â”€â”€ Grip handles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Grip handles ────────────────────────────────────────────────────
     const SIZE = 8;
     const HALF = SIZE / 2;
     const palette = this.theme.canvas();
@@ -2308,16 +2308,16 @@ export class GripManagerService {
    * Dynamic-Input state shown under the cursor while a grip is being dragged.
    * Returns null when no drag is active. Pushed into DynamicInputService by
    * the canvas's syncDynamicInput so the same overlay used by drawing tools
-   * also serves grip-stretch readouts (Principle 1 â€” one DI engine for all).
+   * also serves grip-stretch readouts (Principle 1 — one DI engine for all).
    *
    * Fields:
    *   - Dist  : world-units distance from drag-start to current cursor
    *   - Angle : degrees CCW (atan2), normalized
-   *   - Î”X    : world-units cursor delta X
-   *   - Î”Y    : world-units cursor delta Y
+   *   - ΔX    : world-units cursor delta X
+   *   - ΔY    : world-units cursor delta Y
    *
    * The "current cursor" position is whatever was passed to the last
-   * updateDrag() call â€” i.e., the post-snap world point â€” so the readout
+   * updateDrag() call — i.e., the post-snap world point — so the readout
    * reflects what the geometry will commit to, not the raw cursor.
    */
   /** Entities currently being grip-dragged (primary + coincident). Empty when
@@ -2381,8 +2381,8 @@ export class GripManagerService {
       fields: [
         { key: 'dist', label: 'Dist', liveValue: fmt(dist), width: 70 },
         { key: 'angle', label: 'Angle', liveValue: fmt(angDeg), suffix: 'Â°', width: 60 },
-        { key: 'dx', label: 'Î”X', liveValue: fmt(dx), width: 70 },
-        { key: 'dy', label: 'Î”Y', liveValue: fmt(dy), width: 70 },
+        { key: 'dx', label: 'ΔX', liveValue: fmt(dx), width: 70 },
+        { key: 'dy', label: 'ΔY', liveValue: fmt(dy), width: 70 },
       ],
     };
   }

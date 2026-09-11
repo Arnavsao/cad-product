@@ -11,6 +11,11 @@ import { CommandStackService } from '../../core/services/command-stack.service';
 import { ModifyPropertiesCmd } from '../../core/models/command.model';
 import { HATCH_PATTERNS } from '../../core/registries/hatch-patterns';
 import { ColorPickerComponent } from '../shared/color-picker/color-picker.component';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { translateOr, injectTranslocoOptional } from '../../../../core/i18n/translate-or';
+import { translateOrParams } from '../shared/translate-or-params';
+import { PROPERTY_LABEL_KEYS, PROPERTY_CATEGORY_KEYS } from './property-label-keys';
 
 interface GroupedSchema {
   category: string;
@@ -23,9 +28,9 @@ interface GroupedSchema {
 const ENG_SYMBOLS: ReadonlyArray<string> = [
   '°', 'Ø', '±', '≈', '≠', '≤', '≥',
   '²', '³', '½', '¼', '¾',
-  'α', 'β', 'γ', 'θ', 'π', 'Σ', 'Î”', 'μ', 'Ω',
-  '→', 'â†', '↑', '↓',
-  'â„„', 'Ã—', 'Ã·',
+  'α', 'β', 'γ', 'θ', 'π', 'Σ', 'Δ', 'μ', 'Ω',
+  '→', '←', '↑', '↓',
+  '℄', '×', '÷',
 ];
 
 /** Standard DXF lineweight values in hundredths of mm. */
@@ -67,7 +72,7 @@ const LINETYPE_OPTIONS = [
 const ENTITY_ICONS: Record<string, string> = {
   LINE: '╱',
   ARC: '⌒',
-  CIRCLE: 'â—‹',
+  CIRCLE: '○',
   POLYLINE: '⌇',
   TEXT: 'T',
   MTEXT: 'T',
@@ -102,11 +107,11 @@ const ENTITY_NAMES: Record<string, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-properties-panel',
   standalone: true,
-  imports: [FormsModule, ColorPickerComponent],
+  imports: [UiIconComponent, FormsModule, ColorPickerComponent, TranslocoDirective],
   template: `
-    <div class="props-panel">
+    <div class="props-panel" *transloco="let t">
     
-      <!-- â”€â”€ Entity header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+      <!-- ── Entity header ─────────────────────────── -->
       @if (selectedEntities().length > 0) {
         <div class="entity-header">
           <div class="entity-icon-wrap">
@@ -132,15 +137,15 @@ const ENTITY_NAMES: Record<string, string> = {
             class="sym-toggle"
             [class.active]="paletteOpen()"
             [disabled]="!lastFocusedTextInput"
-            title="Insert engineering symbol"
+            [title]="t('editor.ui.props.insertSymbol')"
             (click)="togglePalette()"
           >Ω</button>
           <button
             type="button"
             class="drawer-close-btn"
-            title="Close panel"
+            [title]="t('editor.ui.props.closePanel')"
             (click)="closeDrawer.emit()"
-          >✕</button>
+          ><ui-icon name="close" [size]="14" /></button>
         </div>
       } @else {
         <div class="entity-header empty-header">
@@ -148,19 +153,19 @@ const ENTITY_NAMES: Record<string, string> = {
             <span class="entity-icon">◈</span>
           </div>
           <div class="entity-meta">
-            <div class="entity-type-name muted">No Selection</div>
+            <div class="entity-type-name muted">{{ t('editor.ui.props.noSelection') }}</div>
           </div>
           <button
             type="button"
             class="drawer-close-btn"
-            title="Close panel"
+            [title]="t('editor.ui.props.closePanel')"
             (click)="closeDrawer.emit()"
-          >✕</button>
+          ><ui-icon name="close" [size]="14" /></button>
         </div>
       }
     
     
-      <!-- â”€â”€ Symbol palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+      <!-- ── Symbol palette ───────────────────────── -->
       @if (paletteOpen()) {
         <div class="symbol-palette">
           @for (sym of symbols; track sym) {
@@ -174,15 +179,15 @@ const ENTITY_NAMES: Record<string, string> = {
         </div>
       }
     
-      <!-- â”€â”€ Property groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+      <!-- ── Property groups ───────────────────────── -->
       @if (selectedEntities().length > 0) {
         <div class="panel-body">
           @for (group of groups(); track group) {
             <div class="prop-group">
-              <!-- Group header â€” click to collapse -->
+              <!-- Group header — click to collapse -->
               <div class="group-hdr" (click)="toggleGroup(group.category)">
                 <span class="chevron">{{ isCollapsed(group.category) ? 'â–¶' : 'â–¼' }}</span>
-                <span class="group-label">{{ group.category }}</span>
+                <span class="group-label">{{ categoryLabel(group.category) }}</span>
               </div>
               <!-- Group rows -->
               <div class="group-rows" [class.hidden]="isCollapsed(group.category)">
@@ -198,10 +203,10 @@ const ENTITY_NAMES: Record<string, string> = {
                     @if (row.type !== 'action-button') {
                       <span
                         class="prop-label"
-                        [title]="row.label"
-                      >{{ row.label }}</span>
+                        [title]="rowLabel(row)"
+                      >{{ rowLabel(row) }}</span>
                     }
-                    <!-- â”€â”€ Value controls â”€â”€â”€ -->
+                    <!-- ── Value controls ─── -->
                     @switch (row.type) {
                       <!-- COLOR -->
                       @case ('color') {
@@ -217,7 +222,7 @@ const ENTITY_NAMES: Record<string, string> = {
                               type="button"
                               class="bylayer-btn"
                               (click)="setColorByLayer(row)"
-                              title="Reset to ByLayer"
+                              [title]="t('editor.ui.props.resetToByLayer')"
                             >BL</button>
                           }
                         </div>
@@ -300,7 +305,7 @@ const ENTITY_NAMES: Record<string, string> = {
                                 <option value="90">90°</option>
                                 <option value="180">180°</option>
                                 <option value="270">270°</option>
-                                <option value="custom">Custom...</option>
+                                <option value="custom">{{ t('editor.ui.props.rotationCustom') }}</option>
                               </select>
                               @if (isRotationCustom(row)) {
                                 <div class="num-cell">
@@ -344,7 +349,7 @@ const ENTITY_NAMES: Record<string, string> = {
                                 class="action-btn"
                                 [disabled]="!!row.readOnly"
                                 (click)="runAction(row)"
-                              >{{ row.label }}</button>
+                              >{{ rowLabel(row) }}</button>
                             }
                             <!-- TEXT (default) -->
                             @default {
@@ -373,11 +378,11 @@ const ENTITY_NAMES: Record<string, string> = {
                     <polyline points="2 12 12 17 22 12"></polyline>
                   </svg>
                 </div>
-                <p class="empty-hint">Select an entity<br>to view its properties</p>
+                <p class="empty-hint">{{ t('editor.ui.props.emptyHint') }}</p>
               </div>
             }
     
-            <!-- â”€â”€ Empty state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+            <!-- ── Empty state ───────────────────────────── -->
     
           </div>
     `,
@@ -879,11 +884,28 @@ export class PropertiesPanelComponent {
   private vm = inject(ViewModelService);
   private cmds = inject(CommandStackService);
 
+  private readonly transloco = injectTranslocoOptional();
+
   readonly hatchPatternNames = Object.keys(HATCH_PATTERNS);
+
+  /**
+   * The palette property name, translated. Falls back to the schema's own
+   * English when the label has no key yet (a newly added property).
+   */
+  rowLabel(row: IPropertySchema): string {
+    const key = PROPERTY_LABEL_KEYS[row.label];
+    return key ? translateOr(this.transloco, key, row.label) : row.label;
+  }
+
+  /** The group heading, translated. Same fallback rule as `rowLabel`. */
+  categoryLabel(category: string): string {
+    const key = PROPERTY_CATEGORY_KEYS[category];
+    return key ? translateOr(this.transloco, key, category) : category;
+  }
   readonly lineweightOptions = LINEWEIGHT_OPTIONS;
   readonly linetypeOptions = LINETYPE_OPTIONS;
 
-  /* â”€â”€ Computed selections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Computed selections ─────────────────────────────────── */
 
   readonly activeFilterType = signal<string | null>(null);
 
@@ -903,14 +925,18 @@ export class PropertiesPanelComponent {
     
     if (sel.length === 1) {
       const type = sel[0].type;
-      const name = ENTITY_NAMES[type] ?? type;
-      return [{ value: type, label: name }];
+      return [{ value: type, label: this.entityName(type) }];
     }
     
-    const options = [{ value: 'All', label: `All (${sel.length})` }];
+    const options = [{
+      value: 'All',
+      label: translateOrParams(this.transloco, 'editor.ui.props.filterAll', 'All ({{count}})', { count: sel.length }),
+    }];
     for (const [type, count] of counts.entries()) {
-      const name = ENTITY_NAMES[type] ?? type;
-      options.push({ value: type, label: `${name} (${count})` });
+      options.push({
+        value: type,
+        label: translateOrParams(this.transloco, 'editor.ui.props.filterType', '{{name}} ({{count}})', { name: this.entityName(type), count }),
+      });
     }
     return options;
   });
@@ -953,17 +979,26 @@ export class PropertiesPanelComponent {
 
   entityTypeName = computed(() => {
     const sel = this.filteredEntities();
-    if (!sel.length) return 'No Selection';
+    if (!sel.length) return translateOr(this.transloco, 'editor.ui.props.noSelection', 'No Selection');
     if (sel.length > 1) {
       const types = new Set(sel.map(e => e.type));
       if (types.size === 1) {
-        const t: string = types.values().next().value as string;
-        return ENTITY_NAMES[t] ?? t;
+        return this.entityName(types.values().next().value as string);
       }
-      return `${sel.length} Objects`;
+      return translateOrParams(this.transloco, 'editor.ui.props.objectCount', '{{count}} Objects', { count: sel.length });
     }
-    return ENTITY_NAMES[sel[0].type] ?? sel[0].type;
+    return this.entityName(sel[0].type);
   });
+
+  /**
+   * The DXF entity type as a drafter reads it ("Block Reference" for INSERT).
+   * An unmapped type falls through as its raw DXF name, which is an
+   * identifier and stays untranslated.
+   */
+  private entityName(type: string): string {
+    const english = ENTITY_NAMES[type];
+    return english ? translateOr(this.transloco, 'editor.ui.props.entity.' + type.toLowerCase(), english) : type;
+  }
 
   entityIcon = computed(() => {
     const sel = this.filteredEntities();
@@ -973,13 +1008,13 @@ export class PropertiesPanelComponent {
     return ENTITY_ICONS[sel[0].type] ?? 'â¬¡';
   });
 
-  /* â”€â”€ Layer names â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Layer names ─────────────────────────────────────────── */
 
   layerNames(): string[] {
     return Array.from(this.doc.activeFile.layers.keys());
   }
 
-  /* â”€â”€ Dropdown options â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Dropdown options ────────────────────────────────────── */
 
   optionsFor(row: IPropertySchema): string[] {
     if (row.options?.length) return this._withCurrentValue(row, row.options);
@@ -1016,7 +1051,7 @@ export class PropertiesPanelComponent {
     return map[lt] ?? lt;
   }
 
-  /* â”€â”€ Value accessors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Value accessors ─────────────────────────────────────── */
 
   getValue(row: IPropertySchema): unknown {
     const sel = this.filteredEntities();
@@ -1041,7 +1076,7 @@ export class PropertiesPanelComponent {
     return String(v ?? '');
   }
 
-  /* â”€â”€ Color helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Color helpers ───────────────────────────────────────── */
 
   private get _firstEntity(): any {
     return this.filteredEntities()[0] as any ?? null;
@@ -1054,7 +1089,7 @@ export class PropertiesPanelComponent {
       if (e.color) return e.color;
       const cn: number = e.colorNumber ?? 256;
       if (cn === 256) {
-        // ByLayer â€” resolve from layer
+        // ByLayer — resolve from layer
         const lay = this.doc.activeFile?.layers?.get(e.layer);
         return lay?.color ?? '#555';
       }
@@ -1152,7 +1187,7 @@ export class PropertiesPanelComponent {
     }
   }
 
-  /* â”€â”€ Setters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Setters ─────────────────────────────────────────────── */
 
   setValue(row: IPropertySchema, ev: Event): void {
     if (row.readOnly) return;
@@ -1190,7 +1225,7 @@ export class PropertiesPanelComponent {
     this.applyKey(row.key, row.value ?? null);
   }
 
-  /* â”€â”€ Collapsible groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Collapsible groups ──────────────────────────────────── */
 
   private readonly _collapsed = signal<Set<string>>(new Set());
 
@@ -1206,7 +1241,7 @@ export class PropertiesPanelComponent {
     return this._collapsed().has(cat);
   }
 
-  /* â”€â”€ Engineering symbol palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Engineering symbol palette ──────────────────────────── */
 
   readonly symbols = ENG_SYMBOLS;
   readonly paletteOpen = signal(false);
@@ -1272,7 +1307,7 @@ export class PropertiesPanelComponent {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  /* â”€â”€ Command dispatch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Command dispatch ────────────────────────────────────── */
 
   private applyKey(key: string, value: unknown): void {
     const sel = this.filteredEntities();

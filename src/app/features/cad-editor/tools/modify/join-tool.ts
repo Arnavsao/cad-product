@@ -1,21 +1,21 @@
 ﻿/**
- * JOIN tool â€” AutoCAD-grade interactive join for Lines and open Polylines.
+ * JOIN tool — AutoCAD-grade interactive join for Lines and open Polylines.
  *
  * Entry workflows:
- *   Pre-select: select â‰¥ 2 entities with the Select tool, then run JOIN.
+ *   Pre-select: select ≥ 2 entities with the Select tool, then run JOIN.
  *               Analysis and preview appear immediately on activate().
  *   Run-then-pick: activate JOIN with nothing selected, then click entities
  *               one by one. Each click re-analyses and updates the preview.
  *               Clicking a picked entity again removes it (toggle).
  *
  * Visual feedback (drawPreview):
- *   â€¢ Hover glow          â€” entity under cursor, not yet a candidate
- *   â€¢ 'selected' highlight â€” every entity in the candidate set
- *   â€¢ Dashed-orange path  â€” the resulting polyline for each valid chain
- *     with "â†¦ N â†’ 1" / "â†» N â†’ 1" badge
- *   â€¢ Red dashed outline  â€” rejected entities (branching / unsupported /
+ *   • Hover glow          — entity under cursor, not yet a candidate
+ *   • 'selected' highlight — every entity in the candidate set
+ *   • Dashed-orange path  — the resulting polyline for each valid chain
+ *     with "↦ N → 1" / "↻ N → 1" badge
+ *   • Red dashed outline  — rejected entities (branching / unsupported /
  *     closed / degenerate) with reason label (âŠ  reason)
- *   â€¢ Dim-orange dashed   â€” isolated entities (valid type, no neighbor yet)
+ *   • Dim-orange dashed   — isolated entities (valid type, no neighbor yet)
  *
  * Commit:
  *   Enter / Space / right-click commit. Produces one PolylineEntity per
@@ -27,7 +27,7 @@
  *
  * Arcs:
  *   Arcs are classified as 'unsupported-type' and shown in red. Joining arcs
- *   requires PolylineEntity bulge support â€” see Phase 2 in the plan.
+ *   requires PolylineEntity bulge support — see Phase 2 in the plan.
  */
 
 import { Injector } from '@angular/core';
@@ -51,7 +51,7 @@ export class JoinTool implements ITool {
   /** World-unit gap tolerance. Endpoints within this distance are merged. */
   readonly tolerance = JOIN_TOLERANCE;
 
-  /** Ordered pick list â€” index 0 is the "source" entity for property inheritance. */
+  /** Ordered pick list — index 0 is the "source" entity for property inheritance. */
   private candidates: Entity[] = [];
   /** Entity currently under the cursor (not yet in candidates). */
   private hovered: Entity | null = null;
@@ -65,7 +65,7 @@ export class JoinTool implements ITool {
   private get cmds()  { return this.injector.get(CommandStackService) as CommandStackService; }
   private get tools() { return this.injector.get(ToolManagerService) as ToolManagerService; }
 
-  // â”€â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
   activate(): void {
     this.candidates = [];
@@ -92,7 +92,7 @@ export class JoinTool implements ITool {
     this.reset();
   }
 
-  // â”€â”€â”€ Mouse events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Mouse events ──────────────────────────────────────────────────────────
 
   onMouseMove(_wx: number, _wy: number, sx: number, sy: number): void {
     const hit = hitTestAll(this.doc, this.vm, sx, sy);
@@ -123,7 +123,7 @@ export class JoinTool implements ITool {
     this.vm.markDirty();
   }
 
-  // â”€â”€â”€ Keyboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Keyboard ──────────────────────────────────────────────────────────────
 
   onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
@@ -158,7 +158,7 @@ export class JoinTool implements ITool {
     return null;
   }
 
-  // â”€â”€â”€ Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Preview ───────────────────────────────────────────────────────────────
 
   drawPreview(ctx: CanvasRenderingContext2D): void {
     // Build quick-lookup maps from the latest analysis.
@@ -169,7 +169,7 @@ export class JoinTool implements ITool {
       this.analysis?.rejected.map((r) => [r.entity, r.reason]) ?? [],
     );
 
-    // 1. Hover glow â€” entity under cursor that is NOT yet a candidate
+    // 1. Hover glow — entity under cursor that is NOT yet a candidate
     if (this.hovered && !this.candidates.includes(this.hovered)) {
       this.hovered.drawHovered(ctx, this.vm, this.doc, 'hover');
     }
@@ -210,7 +210,7 @@ export class JoinTool implements ITool {
         // Badge
         ctx.setLineDash([]);
         ctx.font = '11px monospace';
-        const tag = `${closed ? 'â†» ' : 'â†¦ '}${sourceEntities.length} â†’ 1`;
+        const tag = `${closed ? '↻ ' : '↦ '}${sourceEntities.length} → 1`;
         ctx.fillText(tag, p0.x + 6, p0.y - 6);
         ctx.setLineDash([8, 4]);
       }
@@ -222,12 +222,12 @@ export class JoinTool implements ITool {
       ctx.save();
       ctx.font      = '12px sans-serif';
       ctx.fillStyle = 'rgba(240,160,48,0.65)';
-      ctx.fillText('JOIN  â€”  click entities to select, Enter to commit', 14, 24);
+      ctx.fillText('JOIN  —  click entities to select, Enter to commit', 14, 24);
       ctx.restore();
     }
   }
 
-  // â”€â”€â”€ Commit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Commit ────────────────────────────────────────────────────────────────
 
   private commit(): void {
     if (!this.analysis?.validChains.length) {
@@ -289,7 +289,7 @@ export class JoinTool implements ITool {
     this.vm.markDirty();
   }
 
-  // â”€â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Internal helpers ───────────────────────────────────────────────────────
 
   private reanalyze(): void {
     if (this.candidates.length === 0) {

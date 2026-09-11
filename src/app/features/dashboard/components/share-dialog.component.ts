@@ -1,6 +1,7 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import {
   AccessLevel,
   MAX_LINK_EMAIL_MESSAGE,
@@ -30,12 +31,12 @@ export interface ShareDialogData {
   organizationId: string | null;
 }
 
-/** Expiries offered for a new link. */
-const EXPIRIES: readonly { value: string; days: ShareLinkExpiry; label: string }[] = [
-  { value: '7', days: 7, label: '7 days' },
-  { value: '30', days: 30, label: '30 days' },
-  { value: '90', days: 90, label: '90 days' },
-  { value: 'never', days: null, label: 'Never' },
+/** Expiries offered for a new link; the label key is resolved per language. */
+const EXPIRIES: readonly { value: string; days: ShareLinkExpiry; labelKey: string }[] = [
+  { value: '7', days: 7, labelKey: 'dashboard.components.share.expiryDays' },
+  { value: '30', days: 30, labelKey: 'dashboard.components.share.expiryDays' },
+  { value: '90', days: 90, labelKey: 'dashboard.components.share.expiryDays' },
+  { value: 'never', days: null, labelKey: 'dashboard.components.share.expiryNever' },
 ];
 
 /** Deliberately loose: the server is the authority on address validity. */
@@ -74,17 +75,19 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   selector: 'app-share-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, DatePipe, UiButtonDirective, UiIconComponent, UiInputDirective, UiSkeletonComponent],
+  imports: [TranslocoDirective, A11yModule, DatePipe, UiButtonDirective, UiIconComponent, UiInputDirective, UiSkeletonComponent],
   template: `
-    <div class="ui-dialog sh" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
+    <div class="ui-dialog sh" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus *transloco="let t">
       <header class="ui-dialog__header">
         <h2 [id]="titleId">
-          Share "{{ data.name }}"
+          {{ t('dashboard.components.share.title', { name: data.name }) }}
           @if (access(); as level) {
-            <span class="sh__access" [title]="'Your access: ' + level">{{ level }}</span>
+            <span class="sh__access" [title]="t('dashboard.components.share.yourAccess', { level: t('dashboard.components.share.accessLevel.' + level) })">
+              {{ t('dashboard.components.share.accessLevel.' + level) }}
+            </span>
           }
         </h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="close()">
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('dashboard.components.close')" (click)="close()">
           <ui-icon name="close" />
         </button>
       </header>
@@ -94,16 +97,16 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
           <ui-skeleton [lines]="4" height="34px" />
         } @else if (loadError(); as message) {
           <p class="sh__error" role="alert">{{ message }}</p>
-          <button type="button" uiButton size="sm" (click)="reload()"><ui-icon name="refresh" [size]="14" /> Retry</button>
+          <button type="button" uiButton size="sm" (click)="reload()"><ui-icon name="refresh" [size]="14" /> {{ t('common.retry') }}</button>
         } @else {
           @if (isFolder) {
-            <p class="sh__note">Everything inside this folder is shared with it, now and later.</p>
+            <p class="sh__note">{{ t('dashboard.components.share.folderNote') }}</p>
           }
 
           <!-- ── people ──────────────────────────────────────────────────── -->
-          <h3 class="sh__h3">People</h3>
+          <h3 class="sh__h3">{{ t('dashboard.components.share.people') }}</h3>
           @if (!people().length) {
-            <p class="sh__muted">Not shared with anyone yet.</p>
+            <p class="sh__muted">{{ t('dashboard.components.share.noPeople') }}</p>
           } @else {
             <ul class="sh__list">
               @for (share of people(); track share.id) {
@@ -120,20 +123,20 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                     <span class="sh__who-sub">
                       {{ share.targetEmail }}
                       @if (share.expiresAt) {
-                        · until {{ share.expiresAt | date: 'mediumDate' }}
+                        · {{ t('dashboard.components.share.until', { date: (share.expiresAt | date: 'mediumDate') }) }}
                       }
                     </span>
                   </span>
                   <select
                     uiInput
                     class="sh__perm"
-                    [attr.aria-label]="'Permission for ' + share.targetEmail"
+                    [attr.aria-label]="t('dashboard.components.share.permissionFor', { target: share.targetEmail })"
                     [value]="share.permission"
                     [disabled]="busy() === share.id"
                     (change)="onPermission(share, $event)"
                   >
-                    <option value="view">Can view</option>
-                    <option value="edit">Can edit</option>
+                    <option value="view">{{ t('dashboard.components.share.canView') }}</option>
+                    <option value="edit">{{ t('dashboard.components.share.canEdit') }}</option>
                   </select>
                   <button
                     type="button"
@@ -141,7 +144,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                     variant="ghost"
                     size="sm"
                     iconOnly
-                    [attr.aria-label]="'Stop sharing with ' + share.targetEmail"
+                    [attr.aria-label]="t('dashboard.components.share.stopSharingWith', { target: share.targetEmail })"
                     [disabled]="busy() === share.id"
                     (click)="remove(share)"
                   >
@@ -159,7 +162,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
               class="sh__add-input"
               placeholder="name@company.com"
               autocomplete="off"
-              aria-label="Email address to share with"
+              [attr.aria-label]="t('dashboard.components.share.emailAria')"
               [value]="email()"
               [invalid]="!!emailError()"
               [disabled]="busy() === 'person'"
@@ -168,13 +171,13 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
             <select
               uiInput
               class="sh__perm"
-              aria-label="Permission"
+              [attr.aria-label]="t('dashboard.components.share.permission')"
               [value]="emailPermission()"
               [disabled]="busy() === 'person'"
               (change)="emailPermission.set(permissionOf($event))"
             >
-              <option value="view">Can view</option>
-              <option value="edit">Can edit</option>
+              <option value="view">{{ t('dashboard.components.share.canView') }}</option>
+              <option value="edit">{{ t('dashboard.components.share.canEdit') }}</option>
             </select>
             <button
               type="submit"
@@ -183,7 +186,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
               [loading]="busy() === 'person'"
               [disabled]="!emailValid() || busy() === 'person'"
             >
-              Share
+              {{ t('dashboard.components.share.share') }}
             </button>
           </form>
           @if (emailError(); as message) {
@@ -191,7 +194,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
           }
 
           <!-- ── organizations ───────────────────────────────────────────── -->
-          <h3 class="sh__h3">Organizations</h3>
+          <h3 class="sh__h3">{{ t('dashboard.components.share.organizations') }}</h3>
           @if (orgShares().length) {
             <ul class="sh__list">
               @for (share of orgShares(); track share.id) {
@@ -200,22 +203,22 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                   <span class="sh__who">
                     <span class="sh__who-name">{{ share.targetOrganization?.name }}</span>
                     <span class="sh__who-sub">
-                      Every member
+                      {{ t('dashboard.components.share.everyMember') }}
                       @if (share.expiresAt) {
-                        · until {{ share.expiresAt | date: 'mediumDate' }}
+                        · {{ t('dashboard.components.share.until', { date: (share.expiresAt | date: 'mediumDate') }) }}
                       }
                     </span>
                   </span>
                   <select
                     uiInput
                     class="sh__perm"
-                    [attr.aria-label]="'Permission for ' + share.targetOrganization?.name"
+                    [attr.aria-label]="t('dashboard.components.share.permissionFor', { target: share.targetOrganization?.name })"
                     [value]="share.permission"
                     [disabled]="busy() === share.id"
                     (change)="onPermission(share, $event)"
                   >
-                    <option value="view">Can view</option>
-                    <option value="edit">Can edit</option>
+                    <option value="view">{{ t('dashboard.components.share.canView') }}</option>
+                    <option value="edit">{{ t('dashboard.components.share.canEdit') }}</option>
                   </select>
                   <button
                     type="button"
@@ -223,7 +226,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                     variant="ghost"
                     size="sm"
                     iconOnly
-                    [attr.aria-label]="'Stop sharing with ' + share.targetOrganization?.name"
+                    [attr.aria-label]="t('dashboard.components.share.stopSharingWith', { target: share.targetOrganization?.name })"
                     [disabled]="busy() === share.id"
                     (click)="remove(share)"
                   >
@@ -238,12 +241,12 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
               <select
                 uiInput
                 class="sh__add-input"
-                aria-label="Organization to share with"
+                [attr.aria-label]="t('dashboard.components.share.orgAria')"
                 [value]="orgId()"
                 [disabled]="busy() === 'org'"
                 (change)="onOrg($event)"
               >
-                <option value="">Choose an organization…</option>
+                <option value="">{{ t('dashboard.components.share.chooseOrg') }}</option>
                 @for (org of shareableOrgs(); track org.id) {
                   <option [value]="org.id">{{ org.name }}</option>
                 }
@@ -251,13 +254,13 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
               <select
                 uiInput
                 class="sh__perm"
-                aria-label="Permission"
+                [attr.aria-label]="t('dashboard.components.share.permission')"
                 [value]="orgPermission()"
                 [disabled]="busy() === 'org'"
                 (change)="orgPermission.set(permissionOf($event))"
               >
-                <option value="view">Can view</option>
-                <option value="edit">Can edit</option>
+                <option value="view">{{ t('dashboard.components.share.canView') }}</option>
+                <option value="edit">{{ t('dashboard.components.share.canEdit') }}</option>
               </select>
               <button
                 type="submit"
@@ -266,11 +269,11 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                 [loading]="busy() === 'org'"
                 [disabled]="!orgId() || busy() === 'org'"
               >
-                Share
+                {{ t('dashboard.components.share.share') }}
               </button>
             </form>
           } @else {
-            <p class="sh__muted">You are not in another organization to share this with.</p>
+            <p class="sh__muted">{{ t('dashboard.components.share.noOtherOrg') }}</p>
           }
           @if (orgError(); as message) {
             <p class="sh__error" role="alert">{{ message }}</p>
@@ -278,27 +281,29 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
           <!-- ── links (drawings only) ───────────────────────────────────── -->
           @if (!isFolder) {
-            <h3 class="sh__h3">Link</h3>
+            <h3 class="sh__h3">{{ t('dashboard.components.share.link') }}</h3>
             @if (!links().length) {
-              <p class="sh__muted">No link has been created yet.</p>
+              <p class="sh__muted">{{ t('dashboard.components.share.noLink') }}</p>
             } @else {
               <ul class="sh__list">
                 @for (link of links(); track link.id) {
                   <li class="sh__row">
                     <span class="sh__avatar sh__avatar--org" aria-hidden="true"><ui-icon name="link" [size]="14" /></span>
                     <span class="sh__who">
-                      <span class="sh__who-name">Anyone with the link can {{ link.permission }}</span>
+                      <span class="sh__who-name">
+                        {{ t(link.permission === 'edit' ? 'dashboard.components.share.linkCanEdit' : 'dashboard.components.share.linkCanView') }}
+                      </span>
                       <span class="sh__who-sub">
                         @if (link.expiresAt) {
-                          Expires {{ link.expiresAt | date: 'mediumDate' }}
+                          {{ t('dashboard.components.share.expires', { date: (link.expiresAt | date: 'mediumDate') }) }}
                         } @else {
-                          Never expires
+                          {{ t('dashboard.components.share.neverExpires') }}
                         }
                       </span>
                     </span>
                     <button type="button" uiButton size="sm" (click)="copyLink(link)">
                       <ui-icon name="copy" [size]="14" />
-                      Copy link
+                      {{ t('dashboard.components.share.copyLink') }}
                     </button>
                     <button
                       type="button"
@@ -306,11 +311,11 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                       variant="ghost"
                       size="sm"
                       [attr.aria-expanded]="emailingLinkId() === link.id"
-                      [attr.aria-label]="'Email this link'"
+                      [attr.aria-label]="t('dashboard.components.share.emailLink')"
                       (click)="toggleEmailForm(link)"
                     >
                       <ui-icon name="mail" [size]="14" />
-                      Email
+                      {{ t('common.email') }}
                     </button>
                     <button
                       type="button"
@@ -320,7 +325,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                       [disabled]="busy() === link.id"
                       (click)="revokeLink(link)"
                     >
-                      Revoke
+                      {{ t('dashboard.components.share.revoke') }}
                     </button>
                   </li>
                   @if (emailingLinkId() === link.id) {
@@ -332,7 +337,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                           class="sh__mail-to"
                           placeholder="name@company.com, someone@else.com"
                           autocomplete="off"
-                          aria-label="Email addresses to send this link to"
+                          [attr.aria-label]="t('dashboard.components.share.mailToAria')"
                           [value]="mailTo()"
                           [invalid]="!!mailError()"
                           [disabled]="busy() === 'mail'"
@@ -342,8 +347,8 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                           uiInput
                           class="sh__mail-note"
                           rows="2"
-                          placeholder="Add a message (optional)"
-                          aria-label="Message to include"
+                          [placeholder]="t('dashboard.components.share.mailMessagePlaceholder')"
+                          [attr.aria-label]="t('dashboard.components.share.mailMessageAria')"
                           [attr.maxlength]="maxMessage"
                           [value]="mailMessage()"
                           [disabled]="busy() === 'mail'"
@@ -351,7 +356,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                         ></textarea>
                         <div class="sh__mail-actions">
                           <span class="sh__mail-hint">
-                            Up to {{ maxRecipients }} addresses, separated by commas.
+                            {{ t('dashboard.components.share.mailHint', { max: maxRecipients }) }}
                           </span>
                           <button
                             type="submit"
@@ -361,7 +366,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                             [loading]="busy() === 'mail'"
                             [disabled]="!mailValid() || busy() === 'mail'"
                           >
-                            Send
+                            {{ t('dashboard.components.share.send') }}
                           </button>
                         </div>
                       </form>
@@ -378,29 +383,29 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
               <select
                 uiInput
                 class="sh__perm"
-                aria-label="Link permission"
+                [attr.aria-label]="t('dashboard.components.share.linkPermission')"
                 [value]="linkPermission()"
                 [disabled]="busy() === 'link'"
                 (change)="linkPermission.set(permissionOf($event))"
               >
-                <option value="view">Can view</option>
-                <option value="edit">Can edit</option>
+                <option value="view">{{ t('dashboard.components.share.canView') }}</option>
+                <option value="edit">{{ t('dashboard.components.share.canEdit') }}</option>
               </select>
               <select
                 uiInput
                 class="sh__perm"
-                aria-label="Link expiry"
+                [attr.aria-label]="t('dashboard.components.share.linkExpiry')"
                 [value]="linkExpiry()"
                 [disabled]="busy() === 'link'"
                 (change)="onExpiry($event)"
               >
                 @for (option of expiries; track option.value) {
-                  <option [value]="option.value">{{ option.label }}</option>
+                  <option [value]="option.value">{{ t(option.labelKey, { count: option.days }) }}</option>
                 }
               </select>
               <button type="submit" uiButton [loading]="busy() === 'link'" [disabled]="busy() === 'link'">
                 <ui-icon name="link" [size]="14" />
-                Create link
+                {{ t('dashboard.components.share.createLink') }}
               </button>
             </form>
           }
@@ -408,7 +413,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
       </div>
 
       <footer class="ui-dialog__footer">
-        <button type="button" uiButton variant="secondary" (click)="close()">Done</button>
+        <button type="button" uiButton variant="secondary" (click)="close()">{{ t('dashboard.components.done') }}</button>
       </footer>
     </div>
   `,
@@ -502,6 +507,7 @@ export class ShareDialogComponent {
   private readonly folders = inject(FoldersApiService);
   private readonly workspace = inject(WorkspaceService);
   private readonly notify = inject(NotificationService);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly titleId = `share-title-${++seq}`;
   protected readonly isFolder = this.data.kind === 'folder';
@@ -576,7 +582,7 @@ export class ShareDialogComponent {
       this.shares.set(result.shares ?? []);
       this.links.set(result.links ?? []);
     } catch (e) {
-      this.loadError.set(e instanceof Error && e.message ? e.message : 'Sharing could not be loaded.');
+      this.loadError.set(e instanceof Error && e.message ? e.message : this.t('dashboard.components.share.loadFailed'));
     } finally {
       this.loading.set(false);
     }
@@ -587,7 +593,7 @@ export class ShareDialogComponent {
   protected nameOf(share: ShareDto): string {
     const user = share.targetUser;
     const full = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
-    return full || share.targetEmail || 'Unknown';
+    return full || share.targetEmail || this.t('dashboard.components.unknownUser');
   }
 
   protected initialsOf(share: ShareDto): string {
@@ -636,9 +642,9 @@ export class ShareDialogComponent {
       const share = await this.upsert({ email, permission: this.emailPermission() });
       this.mergeShare(share);
       this.email.set('');
-      this.notify.success(`Shared with ${email}.`);
+      this.notify.success(this.t('dashboard.components.share.sharedWith', { email }));
     } catch (e) {
-      this.emailError.set(shareMessage(e, 'The drawing could not be shared.'));
+      this.emailError.set(this.shareMessage(e, 'dashboard.components.share.shareFailed'));
     } finally {
       this.busy.set(null);
     }
@@ -654,9 +660,9 @@ export class ShareDialogComponent {
       const share = await this.upsert({ organizationId, permission: this.orgPermission() });
       this.mergeShare(share);
       this.orgId.set('');
-      this.notify.success('Shared with the organization.');
+      this.notify.success(this.t('dashboard.components.share.sharedWithOrg'));
     } catch (e) {
-      this.orgError.set(shareMessage(e, 'It could not be shared with that organization.'));
+      this.orgError.set(this.shareMessage(e, 'dashboard.components.share.shareOrgFailed'));
     } finally {
       this.busy.set(null);
     }
@@ -676,7 +682,7 @@ export class ShareDialogComponent {
     } catch (e) {
       // The select still shows the failed value, so put it back.
       (event.target as HTMLSelectElement).value = share.permission;
-      this.notify.error(shareMessage(e, 'The permission could not be changed.'));
+      this.notify.error(this.shareMessage(e, 'dashboard.components.share.permissionFailed'));
     } finally {
       this.busy.set(null);
     }
@@ -691,7 +697,7 @@ export class ShareDialogComponent {
       this.shares.update((list) => list.filter((s) => s.id !== share.id));
       this.changed = true;
     } catch (e) {
-      this.notify.error(shareMessage(e, 'The share could not be removed.'));
+      this.notify.error(this.shareMessage(e, 'dashboard.components.share.removeFailed'));
     } finally {
       this.busy.set(null);
     }
@@ -711,7 +717,7 @@ export class ShareDialogComponent {
       this.changed = true;
       await this.copyLink(link);
     } catch (e) {
-      this.notify.error(shareMessage(e, 'The link could not be created.'));
+      this.notify.error(this.shareMessage(e, 'dashboard.components.share.linkCreateFailed'));
     } finally {
       this.busy.set(null);
     }
@@ -724,9 +730,9 @@ export class ShareDialogComponent {
       await this.drawings.revokeLink(this.data.id, link.id);
       this.links.update((list) => list.filter((l) => l.id !== link.id));
       this.changed = true;
-      this.notify.success('The link was revoked.');
+      this.notify.success(this.t('dashboard.components.share.linkRevoked'));
     } catch (e) {
-      this.notify.error(shareMessage(e, 'The link could not be revoked.'));
+      this.notify.error(this.shareMessage(e, 'dashboard.components.share.linkRevokeFailed'));
     } finally {
       this.busy.set(null);
     }
@@ -771,9 +777,9 @@ export class ShareDialogComponent {
       this.emailingLinkId.set(null);
       this.mailTo.set('');
       this.mailMessage.set('');
-      this.notify.success(sent === 1 ? 'The link was emailed.' : `The link was emailed to ${sent} people.`);
+      this.notify.success(sent === 1 ? this.t('dashboard.components.share.linkEmailedOne') : this.t('dashboard.components.share.linkEmailedOther', { count: sent }));
     } catch (e) {
-      this.mailError.set(linkEmailMessage(e));
+      this.mailError.set(this.linkEmailMessage(e));
     } finally {
       this.busy.set(null);
     }
@@ -783,11 +789,52 @@ export class ShareDialogComponent {
     const url = `${location.origin}/shared/${link.token}`;
     try {
       await navigator.clipboard.writeText(url);
-      this.notify.success('Link copied to the clipboard.');
+      this.notify.success(this.t('dashboard.components.share.linkCopied'));
     } catch {
       // Clipboard access can be denied outright; showing the URL is the fallback.
       this.notify.info(url, 10000);
     }
+  }
+
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.transloco.translate(key, params);
+  }
+
+  /** The refusals the email-a-link form can produce, worded for the person. */
+  private linkEmailMessage(e: unknown): string {
+    if (e instanceof ApiError) {
+      switch (e.code) {
+        case 'LINK_INVALID':
+          return this.t('dashboard.components.share.linkInvalid');
+        case 'VALIDATION_ERROR':
+          return this.t('dashboard.components.share.mailValidation', { max: MAX_LINK_EMAIL_RECIPIENTS });
+        default:
+          break;
+      }
+      if (e.status === 429) {
+        return this.t('dashboard.components.share.mailRateLimited');
+      }
+    }
+    return e instanceof Error && e.message ? e.message : this.t('dashboard.components.share.linkEmailFailed');
+  }
+
+  /** The four sharing refusals a person can act on get their own wording; `fallbackKey` covers the rest. */
+  private shareMessage(e: unknown, fallbackKey: string): string {
+    if (e instanceof ApiError) {
+      switch (e.code) {
+        case 'SHARE_SELF':
+          return this.t('dashboard.components.share.errSelf');
+        case 'SHARE_SAME_ORG':
+          return this.t('dashboard.components.share.errSameOrg');
+        case 'ORG_NOT_FOUND':
+          return this.t('dashboard.components.share.errOrgNotFound');
+        case 'SHARE_TARGET_REQUIRED':
+          return this.t('dashboard.components.share.errTargetRequired');
+        default:
+          break;
+      }
+    }
+    return e instanceof Error && e.message ? e.message : this.t(fallbackKey);
   }
 
   private upsert(body: { email?: string; organizationId?: string; permission: SharePermission }): Promise<ShareDto> {
@@ -820,43 +867,6 @@ export class ShareDialogComponent {
  */
 function parseAddresses(raw: string): string[] {
   return [...new Set(raw.split(/[,;\n]/).map((part) => part.trim().toLowerCase()).filter((part) => !!part))];
-}
-
-/** The refusals the email-a-link form can produce, worded for the person. */
-function linkEmailMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    switch (e.code) {
-      case 'LINK_INVALID':
-        return 'That link is no longer active — create a new one and try again.';
-      case 'VALIDATION_ERROR':
-        return `Check the addresses: up to ${MAX_LINK_EMAIL_RECIPIENTS}, each a valid email.`;
-      default:
-        break;
-    }
-    if (e.status === 429) {
-      return 'Too many emails sent just now — wait a minute and try again.';
-    }
-  }
-  return e instanceof Error && e.message ? e.message : 'The link could not be emailed.';
-}
-
-/** The four sharing refusals a person can act on get their own wording. */
-function shareMessage(e: unknown, fallback: string): string {
-  if (e instanceof ApiError) {
-    switch (e.code) {
-      case 'SHARE_SELF':
-        return 'That is your own account — you already have access.';
-      case 'SHARE_SAME_ORG':
-        return 'This already lives in that organization, so every member can see it.';
-      case 'ORG_NOT_FOUND':
-        return 'You are no longer a member of that organization.';
-      case 'SHARE_TARGET_REQUIRED':
-        return 'Choose a person or an organization to share with.';
-      default:
-        break;
-    }
-  }
-  return e instanceof Error && e.message ? e.message : fallback;
 }
 
 let seq = 0;

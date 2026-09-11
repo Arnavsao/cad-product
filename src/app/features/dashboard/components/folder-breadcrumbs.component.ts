@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { FolderDetailDto, FolderPathEntry } from '../../../core/api/api.models';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { DRAG_MIME } from './drag-payload';
@@ -30,9 +31,9 @@ export interface BreadcrumbDropEvent {
   selector: 'app-folder-breadcrumbs',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiIconComponent],
+  imports: [TranslocoDirective, RouterLink, UiIconComponent],
   template: `
-    <nav class="bc" aria-label="Folder path">
+    <nav class="bc" *transloco="let t" [attr.aria-label]="t('dashboard.components.breadcrumbs.ariaLabel')">
       <a
         class="bc__crumb"
         routerLink="/dashboard/drawings"
@@ -42,7 +43,7 @@ export interface BreadcrumbDropEvent {
         (dragleave)="onDragLeave($event)"
         (drop)="onDrop($event, null)"
       >
-        My Drawings
+        {{ t('dashboard.components.myDrawings') }}
       </a>
       @for (crumb of crumbs(); track crumb.id; let last = $last) {
         <ui-icon class="bc__sep" name="chevron-right" [size]="14" />

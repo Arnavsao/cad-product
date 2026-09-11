@@ -1,5 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { filter, scan } from 'rxjs/operators';
+import { merge } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { DrawingSort, DrawingSummaryDto, FolderDto, ListScope } from '../../../core/api/api.models';
 import { WorkspaceService } from '../../../core/api/workspace.service';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
@@ -24,10 +28,10 @@ import { DashboardView, DrawingsListStore } from '../data/drawings-list.store';
 import { FolderActionsService } from '../data/folder-actions.service';
 import { UploadService } from '../data/upload.service';
 
-const SORTS: readonly { id: DrawingSort; label: string }[] = [
-  { id: 'updated', label: 'Last modified' },
-  { id: 'opened', label: 'Last opened' },
-  { id: 'name', label: 'Name' },
+const SORTS: readonly { id: DrawingSort; labelKey: string }[] = [
+  { id: 'updated', labelKey: 'dashboard.drawings.sort.updated' },
+  { id: 'opened', labelKey: 'dashboard.drawings.sort.opened' },
+  { id: 'name', labelKey: 'dashboard.drawings.sort.name' },
 ];
 
 /**
@@ -67,6 +71,7 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
     '(document:keydown.escape)': 'store.selection.clear()',
   },
   imports: [
+    TranslocoDirective,
     RouterLink,
     UiButtonDirective,
     UiEmptyStateComponent,
@@ -83,34 +88,35 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
     NewDrawingMenuComponent,
   ],
   template: `
+    <ng-container *transloco="let t">
     <header class="pg__head">
       @if (isShared()) {
-        <h1 class="pg__title">Shared with me</h1>
+        <h1 class="pg__title">{{ t('dashboard.shell.nav.shared') }}</h1>
       } @else if (folderId()) {
         <app-folder-breadcrumbs [folder]="store.folder()" (itemsDropped)="onCrumbDrop($event)" />
       } @else if (query()) {
-        <h1 class="pg__title">Results for "{{ query() }}"</h1>
+        <h1 class="pg__title">{{ t('dashboard.drawings.resultsFor', { query: query() }) }}</h1>
       } @else {
-        <h1 class="pg__title">My Drawings</h1>
+        <h1 class="pg__title">{{ t('dashboard.shell.nav.drawings') }}</h1>
       }
 
       <div class="pg__tools">
         <label class="pg__sort">
-          <span class="ui-visually-hidden">Sort by</span>
+          <span class="ui-visually-hidden">{{ t('dashboard.drawings.sortBy') }}</span>
           <select uiInput (change)="onSort($event)">
             @for (option of sorts; track option.id) {
-              <option [value]="option.id" [selected]="option.id === store.sort()">{{ option.label }}</option>
+              <option [value]="option.id" [selected]="option.id === store.sort()">{{ t(option.labelKey) }}</option>
             }
           </select>
         </label>
 
-        <div class="pg__view" role="group" aria-label="View">
+        <div class="pg__view" role="group" [attr.aria-label]="t('dashboard.drawings.viewAria')">
           <button
             type="button"
             uiButton
             size="sm"
             iconOnly
-            aria-label="Grid view"
+            [attr.aria-label]="t('dashboard.drawings.gridView')"
             [attr.aria-pressed]="store.view() === 'grid'"
             [class.pg__view--on]="store.view() === 'grid'"
             (click)="setView('grid')"
@@ -122,7 +128,7 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
             uiButton
             size="sm"
             iconOnly
-            aria-label="List view"
+            [attr.aria-label]="t('dashboard.drawings.listView')"
             [attr.aria-pressed]="store.view() === 'list'"
             [class.pg__view--on]="store.view() === 'list'"
             (click)="setView('list')"
@@ -143,27 +149,27 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
       <div class="pg__error" role="alert">
         <ui-icon name="alert" [size]="18" />
         <div>
-          <p class="pg__error-title">This folder could not be loaded.</p>
+          <p class="pg__error-title">{{ t('dashboard.drawings.loadError') }}</p>
           <p class="pg__error-msg">{{ message }}</p>
         </div>
-        <button type="button" uiButton (click)="store.reload()"><ui-icon name="refresh" [size]="14" /> Retry</button>
+        <button type="button" uiButton (click)="store.reload()"><ui-icon name="refresh" [size]="14" /> {{ t('common.retry') }}</button>
       </div>
     } @else if (store.isEmpty()) {
       @if (isShared()) {
         <ui-empty-state
           icon="share"
-          heading="Nothing has been shared with you yet"
-          description="Drawings and folders other people share with you — or with an organization you are in — show up here."
+          [heading]="t('dashboard.drawings.sharedEmptyTitle')"
+          [description]="t('dashboard.drawings.sharedEmptyDesc')"
         />
       } @else if (query()) {
-        <ui-empty-state icon="search" heading="No drawings match your search" [description]="'Nothing found for “' + query() + '”.'">
-          <a uiButton routerLink="/dashboard/drawings">Clear search</a>
+        <ui-empty-state icon="search" [heading]="t('dashboard.drawings.noMatchTitle')" [description]="t('dashboard.drawings.noMatchDesc', { query: query() })">
+          <a uiButton routerLink="/dashboard/drawings">{{ t('dashboard.shell.clearSearch') }}</a>
         </ui-empty-state>
       } @else {
         <ui-empty-state
           icon="folder"
-          heading="This folder doesn't contain any files"
-          description="Drop a .dxf here, or create a new drawing."
+          [heading]="t('dashboard.drawings.emptyTitle')"
+          [description]="t('dashboard.drawings.emptyDesc')"
         >
           <app-new-drawing-menu [folderId]="folderId()" (created)="store.reload()" />
         </ui-empty-state>
@@ -180,7 +186,7 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
       }
 
       @if (store.folders().length) {
-        <h2 class="pg__subtitle">Folders</h2>
+        <h2 class="pg__subtitle">{{ t('dashboard.drawings.folders') }}</h2>
         <div class="dw__folders">
           @for (folder of store.folders(); track folder.id) {
             <app-folder-tile
@@ -195,7 +201,7 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
 
       @if (store.items().length) {
         @if (store.folders().length) {
-          <h2 class="pg__subtitle">Drawings</h2>
+          <h2 class="pg__subtitle">{{ t('dashboard.drawings.drawings') }}</h2>
         }
         @if (store.view() === 'grid') {
           <div class="dw__grid">
@@ -212,7 +218,7 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
             }
           </div>
         } @else {
-          <div class="dw__table" role="grid" aria-label="Drawings">
+          <div class="dw__table" role="grid" [attr.aria-label]="t('dashboard.drawings.drawings')">
             <app-drawings-table-header
               [sort]="store.sort()"
               [allSelected]="allSelected()"
@@ -237,8 +243,9 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
 
       <ui-paginator
         class="dw__pager"
-        noun="drawing"
-        label="Drawings pagination"
+        [noun]="t('dashboard.drawings.drawingOne')"
+        [nounPlural]="t('dashboard.drawings.drawingOther')"
+        [label]="t('dashboard.drawings.paginationLabel')"
         [total]="store.total()"
         [page]="store.page()"
         [pageSize]="store.pageSize()"
@@ -247,6 +254,7 @@ const SORTS: readonly { id: DrawingSort; label: string }[] = [
         (pageSizeChange)="store.setPageSize($event)"
       />
     }
+    </ng-container>
   `,
   styles: [
     `
@@ -321,6 +329,16 @@ export class DrawingsPage {
   private readonly events = inject(DashboardEventsService);
   private readonly upload = inject(UploadService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly transloco = inject(TranslocoService);
+
+  /** Bumps on language switch and translation load, so translated menus re-run. */
+  private readonly translationRevision = toSignal(
+    merge(
+      this.transloco.langChanges$,
+      this.transloco.events$.pipe(filter((e) => e.type === 'translationLoadSuccess')),
+    ).pipe(scan((n) => n + 1, 0)),
+    { initialValue: 0 },
+  );
 
   protected readonly sorts = SORTS;
   protected readonly skeletons = Array.from({ length: 8 }, (_, i) => i);
@@ -339,12 +357,17 @@ export class DrawingsPage {
    * that is not offered.
    */
   protected readonly bulkActions = computed<BulkBarAction[]>(() => {
+    this.translationRevision();
+    const t = (key: string) => this.transloco.translate(key);
     const rows = this.picked();
     const editable = rows.length > 0 && rows.every((d) => hasAccess(d, 'edit'));
     const items: BulkBarAction[] = [];
-    if (editable) items.push({ id: 'move', label: 'Move to…', icon: 'move' });
-    items.push({ id: 'copy', label: 'Copy to…', icon: 'copy' }, { id: 'download', label: 'Download', icon: 'download' });
-    if (editable) items.push({ id: 'delete', label: 'Delete', icon: 'trash', danger: true });
+    if (editable) items.push({ id: 'move', label: t('dashboard.drawings.bulk.move'), icon: 'move' });
+    items.push(
+      { id: 'copy', label: t('dashboard.drawings.bulk.copy'), icon: 'copy' },
+      { id: 'download', label: t('dashboard.drawings.bulk.download'), icon: 'download' },
+    );
+    if (editable) items.push({ id: 'delete', label: t('dashboard.drawings.bulk.delete'), icon: 'trash', danger: true });
     return items;
   });
 

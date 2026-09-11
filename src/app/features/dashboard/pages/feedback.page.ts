@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../../environments/environment';
 import { CreateFeedbackRequest, FeedbackKind } from '../../../core/api/api.models';
 import { FeedbackApiService } from '../../../core/api/feedback-api.service';
@@ -14,16 +15,42 @@ const MESSAGE_MIN = 4;
 
 interface KindOption {
   id: FeedbackKind;
-  label: string;
-  hint: string;
+  /** Translation keys — resolved in the template. */
+  labelKey: string;
+  hintKey: string;
+  placeholderKey: string;
   icon: 'alert' | 'sparkle' | 'help' | 'message';
 }
 
 const KINDS: readonly KindOption[] = [
-  { id: 'bug', label: 'Bug', hint: 'Something is broken or behaves wrongly', icon: 'alert' },
-  { id: 'idea', label: 'Idea', hint: 'A feature or improvement you would like', icon: 'sparkle' },
-  { id: 'question', label: 'Question', hint: 'You could not work out how to do something', icon: 'help' },
-  { id: 'other', label: 'Other', hint: 'Anything that does not fit the rest', icon: 'message' },
+  {
+    id: 'bug',
+    labelKey: 'dashboard.feedback.kind.bug',
+    hintKey: 'dashboard.feedback.kind.bugHint',
+    placeholderKey: 'dashboard.feedback.placeholder.bug',
+    icon: 'alert',
+  },
+  {
+    id: 'idea',
+    labelKey: 'dashboard.feedback.kind.idea',
+    hintKey: 'dashboard.feedback.kind.ideaHint',
+    placeholderKey: 'dashboard.feedback.placeholder.idea',
+    icon: 'sparkle',
+  },
+  {
+    id: 'question',
+    labelKey: 'dashboard.feedback.kind.question',
+    hintKey: 'dashboard.feedback.kind.questionHint',
+    placeholderKey: 'dashboard.feedback.placeholder.question',
+    icon: 'help',
+  },
+  {
+    id: 'other',
+    labelKey: 'dashboard.feedback.kind.other',
+    hintKey: 'dashboard.feedback.kind.otherHint',
+    placeholderKey: 'dashboard.feedback.placeholder.other',
+    icon: 'message',
+  },
 ];
 
 /**
@@ -43,33 +70,28 @@ const KINDS: readonly KindOption[] = [
   selector: 'app-feedback-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiIconComponent, UiInputDirective],
+  imports: [TranslocoDirective, UiButtonDirective, UiIconComponent, UiInputDirective],
   template: `
+    <ng-container *transloco="let t">
     <header class="pg__head">
-      <h1 class="pg__title">Provide feedback</h1>
+      <h1 class="pg__title">{{ t('dashboard.feedback.title') }}</h1>
     </header>
 
     @if (sent()) {
       <section class="fb__done" role="status">
         <span class="fb__done-mark" aria-hidden="true"><ui-icon name="check" [size]="22" /></span>
-        <h2 class="fb__done-title">Thanks — that came through.</h2>
-        <p class="fb__done-msg">
-          We read every report. If you left an email we may follow up; otherwise this goes straight onto the pile we
-          work from.
-        </p>
+        <h2 class="fb__done-title">{{ t('dashboard.feedback.doneTitle') }}</h2>
+        <p class="fb__done-msg">{{ t('dashboard.feedback.doneMsg') }}</p>
         <div class="fb__done-actions">
-          <button type="button" uiButton variant="secondary" (click)="again()">Send another</button>
-          <button type="button" uiButton (click)="goToDashboard()">Back to Recent</button>
+          <button type="button" uiButton variant="secondary" (click)="again()">{{ t('dashboard.feedback.sendAnother') }}</button>
+          <button type="button" uiButton (click)="goToDashboard()">{{ t('dashboard.feedback.backToRecent') }}</button>
         </div>
       </section>
     } @else {
-      <p class="pg__subtitle">
-        Tell us what is not working, or what you wish existed. Your current page and app version are attached
-        automatically so we can reproduce it.
-      </p>
+      <p class="pg__subtitle">{{ t('dashboard.feedback.intro') }}</p>
 
       <section class="fb__section">
-        <h2 class="fb__label" id="fb-kind">What kind of feedback is this?</h2>
+        <h2 class="fb__label" id="fb-kind">{{ t('dashboard.feedback.kindQuestion') }}</h2>
         <div class="fb__kinds" role="radiogroup" aria-labelledby="fb-kind">
           @for (option of kinds; track option.id) {
             <button
@@ -78,19 +100,19 @@ const KINDS: readonly KindOption[] = [
               role="radio"
               [class.fb__kind--on]="kind() === option.id"
               [attr.aria-checked]="kind() === option.id"
-              [title]="option.hint"
+              [title]="t(option.hintKey)"
               (click)="kind.set(option.id)"
             >
               <ui-icon [name]="option.icon" [size]="16" />
-              <span class="fb__kind-label">{{ option.label }}</span>
-              <span class="fb__kind-hint">{{ option.hint }}</span>
+              <span class="fb__kind-label">{{ t(option.labelKey) }}</span>
+              <span class="fb__kind-hint">{{ t(option.hintKey) }}</span>
             </button>
           }
         </div>
       </section>
 
       <section class="fb__section">
-        <label class="fb__label" for="fb-message">Your feedback</label>
+        <label class="fb__label" for="fb-message">{{ t('dashboard.feedback.yourFeedback') }}</label>
         <textarea
           uiInput
           id="fb-message"
@@ -98,22 +120,22 @@ const KINDS: readonly KindOption[] = [
           rows="7"
           [attr.maxlength]="messageMax"
           [attr.aria-invalid]="showTooShort() ? 'true' : null"
-          [placeholder]="placeholder()"
+          [placeholder]="t(placeholderKey())"
           [value]="message()"
           (input)="onMessage($event)"
         ></textarea>
         <div class="fb__meta">
           @if (showTooShort()) {
-            <span class="fb__hint fb__hint--bad">Please add a little more detail.</span>
+            <span class="fb__hint fb__hint--bad">{{ t('dashboard.feedback.tooShort') }}</span>
           } @else {
-            <span class="fb__hint">Steps to reproduce are worth more than anything else you can write.</span>
+            <span class="fb__hint">{{ t('dashboard.feedback.stepsHint') }}</span>
           }
           <span class="fb__count" [class.fb__count--near]="remaining() < 200">{{ remaining() }}</span>
         </div>
       </section>
 
       <section class="fb__section">
-        <span class="fb__label" id="fb-rating">How is CADO working out so far? <em>(optional)</em></span>
+        <span class="fb__label" id="fb-rating">{{ t('dashboard.feedback.ratingQuestion') }} <em>{{ t('dashboard.feedback.optional') }}</em></span>
         <div class="fb__rating" role="radiogroup" aria-labelledby="fb-rating">
           @for (value of stars; track value) {
             <button
@@ -122,14 +144,14 @@ const KINDS: readonly KindOption[] = [
               role="radio"
               [class.fb__star--on]="rating() !== null && value <= rating()!"
               [attr.aria-checked]="rating() === value"
-              [attr.aria-label]="value + ' out of 5'"
+              [attr.aria-label]="t('dashboard.feedback.starAria', { value })"
               (click)="setRating(value)"
             >
               <ui-icon name="star" [size]="20" />
             </button>
           }
           @if (rating() !== null) {
-            <button type="button" uiButton variant="ghost" size="sm" (click)="rating.set(null)">Clear</button>
+            <button type="button" uiButton variant="ghost" size="sm" (click)="rating.set(null)">{{ t('dashboard.feedback.clear') }}</button>
           }
         </div>
       </section>
@@ -138,7 +160,7 @@ const KINDS: readonly KindOption[] = [
         <div class="pg__error" role="alert">
           <ui-icon name="alert" [size]="18" />
           <div>
-            <p class="pg__error-title">That did not send.</p>
+            <p class="pg__error-title">{{ t('dashboard.feedback.sendError') }}</p>
             <p class="pg__error-msg">{{ message }}</p>
           </div>
         </div>
@@ -146,11 +168,12 @@ const KINDS: readonly KindOption[] = [
 
       <div class="fb__actions">
         <button type="button" uiButton [disabled]="!canSubmit()" [loading]="sending()" (click)="submit()">
-          Send feedback
+          {{ t('dashboard.feedback.send') }}
         </button>
-        <span class="fb__hint">Goes to the product team, not a public forum.</span>
+        <span class="fb__hint">{{ t('dashboard.feedback.privateHint') }}</span>
       </div>
     }
+    </ng-container>
   `,
   styles: [
     `
@@ -247,18 +270,10 @@ export class FeedbackPage {
   protected readonly showTooShort = computed(() => this.touched() && this.trimmed().length > 0 && this.trimmed().length < MESSAGE_MIN);
   protected readonly canSubmit = computed(() => !this.sending() && this.trimmed().length >= MESSAGE_MIN);
 
-  protected readonly placeholder = computed(() => {
-    switch (this.kind()) {
-      case 'bug':
-        return 'What did you do, what did you expect, and what happened instead?';
-      case 'idea':
-        return 'What would you like to be able to do, and what are you doing today instead?';
-      case 'question':
-        return 'What were you trying to do when you got stuck?';
-      default:
-        return 'Anything you want us to know.';
-    }
-  });
+  /** Placeholder for the selected kind, as a translation key. */
+  protected readonly placeholderKey = computed(
+    () => (KINDS.find((k) => k.id === this.kind()) ?? KINDS[KINDS.length - 1]).placeholderKey,
+  );
 
   protected onMessage(event: Event): void {
     this.touched.set(true);

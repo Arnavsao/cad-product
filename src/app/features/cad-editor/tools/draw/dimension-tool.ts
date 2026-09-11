@@ -12,14 +12,14 @@ import { AddEntityCmd } from '../../core/models/command.model';
 import { formatLen } from './draw-utils';
 
 /**
- * Linear dimension tool: p1 â†’ p2 â†’ dim-line location.
+ * Linear dimension tool: p1 → p2 → dim-line location.
  *
  * Associativity: at each of the first two clicks we look at SnappingService.current.
  * If the cursor snapped to a single-entity snap point (endpoint/midpoint/center),
  * we capture the source entity id + snap-point index as an `IDimAnchor` and stamp
  * it onto the resulting DimensionEntity. Subsequent edits to the source entity
  * (move, stretch, grip-drag, undo, redo) propagate to the dimension on its next
- * render. Click in empty space â†’ no anchor â†’ static dimension at those coords.
+ * render. Click in empty space → no anchor → static dimension at those coords.
  */
 export class DimensionTool implements ITool {
   readonly name = 'dimension';
@@ -116,8 +116,8 @@ export class DimensionTool implements ITool {
 
   /**
    * Read-only placement readout. Each click captures geometry directly, so DI
-   * here is informational â€” full editing happens via the properties panel
-   * after the dimension is created (double-click â†’ Properties).
+   * here is informational — full editing happens via the properties panel
+   * after the dimension is created (double-click → Properties).
    *
    *   Phase 1 (p1 set): show distance from p1 to cursor.
    *   Phase 2 (p2 set): show measured Length + perpendicular Offset from the

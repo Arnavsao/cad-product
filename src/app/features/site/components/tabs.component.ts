@@ -10,16 +10,18 @@ import {
   model,
   viewChild,
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import type { UiIconName } from '../../../shared/ui/icon.component';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { MotionService } from '../motion/motion.service';
 
+/** One tab. The prose fields hold translation keys, resolved here. */
 export interface SiteTab {
   id: string;
-  label: string;
+  labelKey: string;
   icon?: UiIconName;
   /** Optional short line under the label, for the vertical variant. */
-  hint?: string;
+  hintKey?: string;
 }
 
 /**
@@ -40,9 +42,10 @@ export interface SiteTab {
   selector: 'site-tabs',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent],
+  imports: [TranslocoDirective, UiIconComponent],
   template: `
-    <div class="tabs__list" role="tablist" [attr.aria-orientation]="orientation()" [attr.aria-label]="label()" (keydown)="onKey($event)">
+    <ng-container *transloco="let t">
+    <div class="tabs__list" role="tablist" [attr.aria-orientation]="orientation()" [attr.aria-label]="t(labelKey())" (keydown)="onKey($event)">
       @for (tab of tabs(); track tab.id) {
         <button
           type="button"
@@ -57,8 +60,8 @@ export interface SiteTab {
         >
           @if (tab.icon) { <ui-icon class="tabs__icon" [name]="tab.icon" [size]="16" /> }
           <span class="tabs__text">
-            <span class="tabs__label">{{ tab.label }}</span>
-            @if (tab.hint) { <span class="tabs__hint">{{ tab.hint }}</span> }
+            <span class="tabs__label">{{ t(tab.labelKey) }}</span>
+            @if (tab.hintKey) { <span class="tabs__hint">{{ t(tab.hintKey) }}</span> }
           </span>
         </button>
       }
@@ -66,6 +69,7 @@ export interface SiteTab {
     <div #panel class="tabs__panel" role="tabpanel" [id]="panelIdFor(active())" [attr.aria-labelledby]="idFor(active())" tabindex="0">
       <ng-content />
     </div>
+    </ng-container>
   `,
   host: {
     class: 'site-tabs',
@@ -139,7 +143,8 @@ export class SiteTabsComponent implements AfterViewInit {
   readonly tabs = input.required<readonly SiteTab[]>();
   readonly active = model.required<string>();
   readonly orientation = input<'horizontal' | 'vertical'>('horizontal');
-  readonly label = input('Sections');
+  /** Translation key for the tablist's accessible name. */
+  readonly labelKey = input('site.components.tabs.sections');
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly motion = inject(MotionService);

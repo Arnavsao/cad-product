@@ -22,6 +22,8 @@ import {
   IParsedColor,
 } from '../../../core/utils/color-parse';
 import { RecentColorsService } from './recent-colors.service';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { translateOr, injectTranslocoOptional } from '../../../../../core/i18n/translate-or';
 
 /**
  * Reusable color picker. Drop in anywhere a color field is needed:
@@ -49,8 +51,9 @@ import { RecentColorsService } from './recent-colors.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-color-picker',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     <button type="button" class="cp-trigger" [class.mixed]="mixed() && !isOpen()" [class.no-label]="!showLabel()" (click)="toggle()" [title]="triggerTitle()">
       <span class="cp-swatch" [style.background]="triggerSwatch()"></span>
       @if (showLabel()) {
@@ -71,13 +74,13 @@ import { RecentColorsService } from './recent-colors.service';
                 [class.selected]="drafting().toLowerCase() === q.hex"
                 (click)="pickQuick(q.hex)">
                 <span class="cp-swatch-sm" [style.background]="q.hex"></span>
-                <span class="cp-item-label">{{ q.name }}</span>
+                <span class="cp-item-label">{{ t('editor.ui.colorPicker.color.' + q.name.toLowerCase()) }}</span>
               </button>
             }
             <div class="cp-divider"></div>
             <button type="button" class="cp-dropdown-item cp-more-colors" (click)="setMode('advanced')">
               <span class="cp-swatch-sm cp-swatch-empty"></span>
-              <span class="cp-item-label">Select Color...</span>
+              <span class="cp-item-label">{{ t('editor.ui.colorPicker.selectColor') }}</span>
             </button>
           </div>
         }
@@ -85,7 +88,7 @@ import { RecentColorsService } from './recent-colors.service';
         @if (mode() === 'advanced') {
           <!-- Quick swatches -->
           <div class="cp-section">
-            <div class="cp-section-title">Quick</div>
+            <div class="cp-section-title">{{ t('editor.ui.colorPicker.quick') }}</div>
             <div class="cp-swatch-row">
               @for (q of quickColors; track q) {
                 <button
@@ -93,7 +96,7 @@ import { RecentColorsService } from './recent-colors.service';
                   class="cp-swatch-btn"
                   [class.selected]="drafting().toLowerCase() === q.hex"
                   [style.background]="q.hex"
-                  [title]="q.name + ' (' + q.hex + ')'"
+                  [title]="t('editor.ui.colorPicker.swatchTitle', { name: t('editor.ui.colorPicker.color.' + q.name.toLowerCase()), hex: q.hex })"
                 (click)="pickQuick(q.hex)"></button>
               }
             </div>
@@ -135,7 +138,7 @@ import { RecentColorsService } from './recent-colors.service';
       <!-- Recent -->
       @if (recents.colors().length) {
         <div class="cp-section">
-          <div class="cp-section-title">Recent</div>
+          <div class="cp-section-title">{{ t('editor.ui.colorPicker.recent') }}</div>
           <div class="cp-swatch-row">
             @for (c of recents.colors(); track c) {
               <button
@@ -149,12 +152,13 @@ import { RecentColorsService } from './recent-colors.service';
         </div>
       }
       <div class="cp-actions">
-        <button type="button" class="cp-btn" (click)="cancel()">Cancel</button>
-        <button type="button" class="cp-btn primary" (click)="commit()">Apply</button>
+        <button type="button" class="cp-btn" (click)="cancel()">{{ t('editor.ui.colorPicker.cancel') }}</button>
+        <button type="button" class="cp-btn primary" (click)="commit()">{{ t('editor.ui.colorPicker.apply') }}</button>
       </div>
     }
     </div>
     }
+    </ng-container>
     `,
   styles: [`
     :host { position: relative; display: inline-block; }
@@ -241,6 +245,7 @@ export class ColorPickerComponent implements OnChanges {
   readonly valueChange = output<string>();
 
   readonly recents = inject(RecentColorsService);
+  private readonly transloco = injectTranslocoOptional();
   readonly quickColors = QUICK_COLORS;
 
   readonly isOpen = signal(false);
@@ -284,12 +289,12 @@ export class ColorPickerComponent implements OnChanges {
   triggerLabel(): string {
     const label = this.label();
     if (label) return label;
-    if (this.mixed() && !this.isOpen()) return 'Varies';
+    if (this.mixed() && !this.isOpen()) return translateOr(this.transloco, 'editor.ui.colorPicker.varies', 'Varies');
     return this._draft();
   }
 
   triggerTitle(): string {
-    if (this.mixed() && !this.isOpen()) return 'Multiple values — click to set';
+    if (this.mixed() && !this.isOpen()) return translateOr(this.transloco, 'editor.ui.colorPicker.multipleValues', 'Multiple values — click to set');
     return this._draft();
   }
 

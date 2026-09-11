@@ -217,7 +217,7 @@ export class FilletTool implements ITool {
         return false;
       case 'R': {
         // Allow radius entry at any time during first-object selection.
-        if (this.first) return false; // already picking second â€” don't interrupt
+        if (this.first) return false; // already picking second — don't interrupt
         this.waitingForRadius = true;
         this.vm.markDirty();
         setTimeout(() => this.di.focusPrimaryField(), 10);
@@ -628,17 +628,17 @@ export class FilletTool implements ITool {
   }
 
   drawPreview(ctx: CanvasRenderingContext2D): void {
-    // â”€â”€ First entity: persistent 'selected' highlight until commit/cancel â”€â”€
+    // ── First entity: persistent 'selected' highlight until commit/cancel ──
     if (this.first) {
       this.first.drawHovered(ctx, this.vm, this.doc, 'selected');
     }
 
-    // â”€â”€ Second entity (after commit-lock): also persistent highlight â”€â”€
+    // ── Second entity (after commit-lock): also persistent highlight ──
     if (this.waitingForRadius && this.second) {
       this.second.drawHovered(ctx, this.vm, this.doc, 'selected');
     }
 
-    // â”€â”€ Hover preselection: show which entity the cursor is over â”€â”€
+    // ── Hover preselection: show which entity the cursor is over ──
     if (!this.waitingForRadius && this.hovered) {
       // Before first pick: any valid entity gets hover glow.
       // After first pick: only entities != first get hover glow.
@@ -647,7 +647,7 @@ export class FilletTool implements ITool {
       }
     }
 
-    // â”€â”€ Live fillet arc preview (dashed orange) â”€â”€
+    // ── Live fillet arc preview (dashed orange) ──
     if (this.previewArc) {
       ctx.save();
       ctx.lineWidth = 2;
@@ -666,7 +666,7 @@ export class FilletTool implements ITool {
       ctx.restore();
     }
 
-    // â”€â”€ Trim preview: show removed segments as red dashed â”€â”€
+    // ── Trim preview: show removed segments as red dashed ──
     if (this.previewOps.length > 0) {
       ctx.save();
       for (const op of this.previewOps) {

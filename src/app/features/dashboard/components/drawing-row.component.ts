@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { MeService } from '../../../core/api/me.service';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
@@ -8,6 +9,7 @@ import { UiMenuTriggerDirective } from '../../../shared/ui/menu/ui-menu-trigger.
 import { FileSizePipe } from '../../../shared/ui/pipes/file-size.pipe';
 import { RelativeTimePipe } from '../../../shared/ui/pipes/relative-time.pipe';
 import { drawingMenuFor } from './drawing-menu';
+import { injectTranslateFn } from './translate-fn';
 
 /** A checkbox click, with the modifier that turns it into a range selection. */
 export interface RowSelectEvent {
@@ -48,10 +50,11 @@ export interface RowSelectEvent {
   selector: 'app-drawing-row',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiIconComponent, UiMenuTriggerDirective, RelativeTimePipe, FileSizePipe],
+  imports: [TranslocoDirective, UiButtonDirective, UiIconComponent, UiMenuTriggerDirective, RelativeTimePipe, FileSizePipe],
   template: `
     <div
       class="dr"
+      *transloco="let t"
       role="row"
       [class.dr--selected]="selected()"
       [attr.draggable]="draggable() ? 'true' : null"
@@ -71,7 +74,7 @@ export interface RowSelectEvent {
             type="checkbox"
             class="dr__check"
             [checked]="selected()"
-            [attr.aria-label]="'Select ' + drawing().name"
+            [attr.aria-label]="t('dashboard.components.item.select', { name: drawing().name })"
             (click)="onPick($event)"
           />
         }
@@ -97,13 +100,13 @@ export interface RowSelectEvent {
           type="button"
           class="dr__name"
           [title]="drawing().name"
-          [attr.aria-label]="'Open ' + drawing().name"
+          [attr.aria-label]="t('dashboard.components.item.open', { name: drawing().name })"
           (click)="onNameClick($event)"
         >
           {{ drawing().name }}
         </button>
         @if (readOnly()) {
-          <span class="dr__ro" title="You can open and download this drawing, but not change it">View only</span>
+          <span class="dr__ro" [title]="t('dashboard.components.drawingRow.viewOnlyHint')">{{ t('dashboard.components.item.viewOnly') }}</span>
         }
       </span>
 
@@ -152,7 +155,7 @@ export interface RowSelectEvent {
           iconOnly
           variant="ghost"
           class="dr__kebab"
-          aria-label="Drawing actions"
+          [attr.aria-label]="t('dashboard.components.drawingRow.actions')"
           [uiMenuTrigger]="menu()"
           menuAlign="end"
           (uiMenuSelect)="action.emit($event.id)"
@@ -308,10 +311,11 @@ export class DrawingRowComponent {
   readonly dragEnd = output<void>();
 
   private readonly me = inject(MeService);
+  private readonly t = injectTranslateFn();
 
   protected readonly thumbFailed = signal(false);
 
-  protected readonly menu = computed<UiMenuItem[]>(() => this.menuItems() ?? drawingMenuFor(this.drawing()));
+  protected readonly menu = computed<UiMenuItem[]>(() => this.menuItems() ?? drawingMenuFor(this.drawing(), this.t()));
 
   /** A row reached through a view-only share is worth saying out loud. */
   protected readonly readOnly = computed(() => this.drawing().access === 'view');
@@ -319,9 +323,10 @@ export class DrawingRowComponent {
   protected readonly ownerName = computed(() => {
     const owner = this.drawing().owner;
     if (!owner) return '—';
-    if (owner.id === this.me.me()?.user.id) return 'You';
+    const t = this.t();
+    if (owner.id === this.me.me()?.user.id) return t('dashboard.components.drawingRow.you');
     const full = [owner.firstName, owner.lastName].filter(Boolean).join(' ').trim();
-    return full || 'Unknown';
+    return full || t('dashboard.components.unknownUser');
   });
 
   protected readonly ownerInitials = computed(() => {
@@ -345,12 +350,17 @@ export class DrawingRowComponent {
   protected readonly sharedLabel = computed<{ icon: 'users' | 'user'; text: string; title: string } | null>(() => {
     const drawing = this.drawing();
     const org = drawing.organizationName;
+    const t = this.t();
     if (drawing.viaShare) {
       return org
-        ? { icon: 'users', text: org, title: `Shared with you from ${org}` }
-        : { icon: 'user', text: 'Shared with you', title: 'Shared with you directly' };
+        ? { icon: 'users', text: org, title: t('dashboard.components.drawingRow.sharedFromOrg', { org }) }
+        : {
+            icon: 'user',
+            text: t('dashboard.components.shared.withYou'),
+            title: t('dashboard.components.drawingRow.sharedDirectly'),
+          };
     }
-    return org ? { icon: 'users', text: org, title: `Shared with ${org}` } : null;
+    return org ? { icon: 'users', text: org, title: t('dashboard.components.shared.withOrg', { org }) } : null;
   });
 
   protected onContextMenu(event: MouseEvent, trigger: UiMenuTriggerDirective): void {

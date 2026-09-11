@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiIconComponent } from './icon.component';
 
 /** Page sizes offered in the picker. */
@@ -32,20 +33,30 @@ type PageSlot = number | 'gap';
   selector: 'ui-paginator',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent],
+  imports: [TranslocoDirective, UiIconComponent],
   template: `
     @if (total() > 0) {
-      <nav class="pg" [attr.aria-label]="label()">
+      <nav class="pg" *transloco="let t" [attr.aria-label]="label() ?? t('shared.paginator.label')">
+        <!--
+          One key for the whole sentence: a translator may need the total before
+          the range ("137 件中 1–25"), which a range span plus a suffix forbids.
+        -->
         <p class="pg__count" aria-live="polite">
-          <span class="pg__range">{{ firstRow() }}–{{ lastRow() }}</span>
-          of {{ total() }} {{ total() === 1 ? noun() : nounPlural() }}
+          {{
+            t('shared.paginator.count', {
+              first: firstRow(),
+              last: lastRow(),
+              total: total(),
+              noun: total() === 1 ? (noun() ?? t('shared.paginator.itemOne')) : pluralNoun(t('shared.paginator.itemOther')),
+            })
+          }}
         </p>
 
         <div class="pg__spacer"></div>
 
         @if (showPageSize()) {
           <label class="pg__size">
-            <span class="pg__size-label">Per page</span>
+            <span class="pg__size-label">{{ t('shared.paginator.perPage') }}</span>
             <select
               class="pg__select"
               [value]="pageSize()"
@@ -64,7 +75,7 @@ type PageSlot = number | 'gap';
             <button
               type="button"
               class="pg__btn pg__btn--icon"
-              aria-label="First page"
+              [attr.aria-label]="t('shared.paginator.firstPage')"
               [disabled]="disabled() || page() === 1"
               (click)="go(1)"
             >
@@ -73,7 +84,7 @@ type PageSlot = number | 'gap';
             <button
               type="button"
               class="pg__btn pg__btn--icon"
-              aria-label="Previous page"
+              [attr.aria-label]="t('shared.paginator.previousPage')"
               [disabled]="disabled() || page() === 1"
               (click)="go(page() - 1)"
             >
@@ -88,7 +99,7 @@ type PageSlot = number | 'gap';
                   type="button"
                   class="pg__btn pg__btn--num"
                   [class.pg__btn--active]="slot === page()"
-                  [attr.aria-label]="'Page ' + slot"
+                  [attr.aria-label]="t('shared.paginator.page', { page: slot })"
                   [attr.aria-current]="slot === page() ? 'page' : null"
                   [disabled]="disabled()"
                   (click)="go(slot)"
@@ -101,7 +112,7 @@ type PageSlot = number | 'gap';
             <button
               type="button"
               class="pg__btn pg__btn--icon"
-              aria-label="Next page"
+              [attr.aria-label]="t('shared.paginator.nextPage')"
               [disabled]="disabled() || page() >= lastPage()"
               (click)="go(page() + 1)"
             >
@@ -110,7 +121,7 @@ type PageSlot = number | 'gap';
             <button
               type="button"
               class="pg__btn pg__btn--icon"
-              aria-label="Last page"
+              [attr.aria-label]="t('shared.paginator.lastPage')"
               [disabled]="disabled() || page() >= lastPage()"
               (click)="go(lastPage())"
             >
@@ -134,8 +145,7 @@ type PageSlot = number | 'gap';
         color: var(--ui-text-dim);
       }
       .pg__spacer { flex: 1 1 auto; }
-      .pg__count { margin: 0; white-space: nowrap; }
-      .pg__range { color: var(--ui-text-strong); font-variant-numeric: tabular-nums; }
+      .pg__count { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
       .pg__size { display: inline-flex; align-items: center; gap: var(--ui-space-2); }
       .pg__size-label { white-space: nowrap; }
@@ -191,18 +201,26 @@ export class UiPaginatorComponent {
   readonly disabled = input(false);
   /** Hide the per-page picker where a fixed size is wanted. */
   readonly showPageSize = input(true);
-  /** Singular noun for the count, e.g. `drawing`. */
-  readonly noun = input('item');
-  /** Plural, when it is not simply `noun + "s"`. */
-  readonly nounPluralInput = input<string | null>(null, { alias: 'nounPlural' });
-  readonly label = input('Pagination');
+  /** Singular noun for the count, already translated (e.g. `t('dashboard.drawings.one')`). Defaults to "item". */
+  readonly noun = input<string | null>(null);
+  /** Plural noun, already translated. Defaults to "items", or to `noun + "s"` when only `noun` was given. */
+  readonly nounPlural = input<string | null>(null);
+  /** Accessible name of the nav. Defaults to "Pagination". */
+  readonly label = input<string | null>(null);
 
   readonly pageChange = output<number>();
   readonly pageSizeChange = output<number>();
 
   protected readonly sizes = PAGE_SIZES;
 
-  protected readonly nounPlural = computed(() => this.nounPluralInput() ?? `${this.noun()}s`);
+  /** Callers that pass only `noun` keep the old English `+s` plural; pass `nounPlural` for anything translated. */
+  protected pluralNoun(fallback: string): string {
+    const explicit = this.nounPlural();
+    if (explicit != null) return explicit;
+    const noun = this.noun();
+    return noun != null ? `${noun}s` : fallback;
+  }
+
   protected readonly lastPage = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
   protected readonly firstRow = computed(() => (this.page() - 1) * this.pageSize() + 1);
   protected readonly lastRow = computed(() => Math.min(this.page() * this.pageSize(), this.total()));

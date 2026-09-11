@@ -14,7 +14,7 @@ export class LineTool implements ITool {
   readonly name = 'line';
   private p1: IPoint | null = null;
   private cur: IPoint = { x: 0, y: 0 };
-  /** First click of the current LINE command â€” needed for Close. */
+  /** First click of the current LINE command — needed for Close. */
   private startPt: IPoint | null = null;
   /** Previous from-points in order, used to walk back on Undo. */
   private history: IPoint[] = [];
@@ -173,7 +173,7 @@ export class LineTool implements ITool {
   private undoSegment(): boolean {
     if (!this.p1) return false;
     if (this.history.length === 0) {
-      // No segments placed yet â€” cancel the first-point pick.
+      // No segments placed yet — cancel the first-point pick.
       this.p1 = null;
       this.startPt = null;
       this.dyn.clearEdits();

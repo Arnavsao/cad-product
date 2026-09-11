@@ -133,10 +133,20 @@ export class MeService {
     this.me.update((m) => (m ? { ...m, billing } : m));
   }
 
-  /** Push preferences into the running editor services (theme, autosave). */
+  /**
+   * Push preferences into the running editor services (theme, language,
+   * autosave).
+   *
+   * Theme and language go through `applyRemote`, not the plain setters: this
+   * runs on every `/me` and on every preferences PATCH echo, and either can
+   * land after the person has already changed the setting in the picker. The
+   * plain setters would overwrite that newer choice with the older stored one,
+   * which is the "language jumps back to English" bug. A server response
+   * describes the past; a local choice is the present.
+   */
   applyPreferences(prefs: PreferencesDto): void {
-    if (prefs.theme) this.theme.setTheme(prefs.theme); // unknown ids are ignored by ThemeService
-    if (prefs.locale) this.language.setLocale(prefs.locale); // unknown codes are ignored by LanguageService
+    this.theme.applyRemote(prefs.theme); // unknown ids are ignored by ThemeService
+    this.language.applyRemote(prefs.locale); // unknown codes are ignored by LanguageService
     if (prefs.autosaveIntervalSec > 0) void this.applyAutosaveInterval(prefs.autosaveIntervalSec);
   }
 

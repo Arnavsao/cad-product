@@ -1,5 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { merge } from 'rxjs';
+import { filter, scan } from 'rxjs/operators';
 import { UserRole } from '../../../core/api/api.models';
 import { MeService } from '../../../core/api/me.service';
 import { SupabaseAuthService } from '../../../core/auth/supabase-auth.service';
@@ -13,11 +17,11 @@ import { UiSkeletonComponent } from '../../../shared/ui/skeleton.component';
 import { UploadDropzoneDirective } from '../components/upload-dropzone.directive';
 import { messageOf } from '../data/drawings-list.store';
 
-const ROLES: readonly { id: UserRole; label: string }[] = [
-  { id: 'architect', label: 'Architect' },
-  { id: 'engineer', label: 'Engineer' },
-  { id: 'student', label: 'Student' },
-  { id: 'other', label: 'Other' },
+const ROLES: readonly { id: UserRole; labelKey: string }[] = [
+  { id: 'architect', labelKey: 'dashboard.profile.role.architect' },
+  { id: 'engineer', labelKey: 'dashboard.profile.role.engineer' },
+  { id: 'student', labelKey: 'dashboard.profile.role.student' },
+  { id: 'other', labelKey: 'dashboard.profile.role.other' },
 ];
 
 /**
@@ -46,6 +50,7 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    TranslocoDirective,
     RouterLink,
     UiButtonDirective,
     UiIconComponent,
@@ -54,12 +59,13 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
     UploadDropzoneDirective,
   ],
   template: `
+    <ng-container *transloco="let t">
     <header class="pg__head">
-      <h1 class="pg__title">Personal info</h1>
+      <h1 class="pg__title">{{ t('dashboard.shell.nav.profile') }}</h1>
       @if (saving()) {
-        <span class="pg__state">Saving…</span>
+        <span class="pg__state">{{ t('dashboard.settings.saving') }}</span>
       } @else if (savedOnce()) {
-        <span class="pg__state pg__state--ok"><ui-icon name="check" [size]="13" /> Saved</span>
+        <span class="pg__state pg__state--ok"><ui-icon name="check" [size]="13" /> {{ t('dashboard.settings.saved') }}</span>
       }
     </header>
 
@@ -81,13 +87,13 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
             <span class="pf__avatar pf__avatar--fallback" aria-hidden="true">{{ initials() }}</span>
           }
           @if (uploadingPhoto()) {
-            <span class="pf__avatar-busy" role="status" aria-label="Uploading your photo"></span>
+            <span class="pf__avatar-busy" role="status" [attr.aria-label]="t('dashboard.profile.uploadingPhoto')"></span>
           }
         </div>
 
         <div class="pf__identity-text">
           <p class="pf__name">{{ displayName() }}</p>
-          <p class="pf__email">{{ email() || 'No email on file' }}</p>
+          <p class="pf__email">{{ email() || t('dashboard.profile.noEmail') }}</p>
 
           @if (canEditPhoto()) {
             <div class="pf__photo-actions">
@@ -101,7 +107,7 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
                 (click)="photoInput.click()"
               >
                 <ui-icon name="upload" [size]="14" />
-                {{ avatarUrl() ? 'Change photo' : 'Upload photo' }}
+                {{ t(avatarUrl() ? 'dashboard.profile.changePhoto' : 'dashboard.profile.uploadPhoto') }}
               </button>
               @if (canRemovePhoto()) {
                 <button
@@ -113,7 +119,7 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
                   (click)="removePhoto()"
                 >
                   <ui-icon name="trash" [size]="14" />
-                  Remove
+                  {{ t('dashboard.profile.remove') }}
                 </button>
               }
             </div>
@@ -137,7 +143,7 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
         <div class="pg__error" role="alert">
           <ui-icon name="alert" [size]="18" />
           <div>
-            <p class="pg__error-title">Your photo could not be saved.</p>
+            <p class="pg__error-title">{{ t('dashboard.profile.photoError') }}</p>
             <p class="pg__error-msg">{{ message }}</p>
           </div>
         </div>
@@ -145,21 +151,21 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
 
       <div class="pf__grid">
         <div class="pf__field">
-          <label class="pf__label" for="pf-first">First name</label>
+          <label class="pf__label" for="pf-first">{{ t('dashboard.profile.firstName') }}</label>
           <input uiInput id="pf-first" autocomplete="given-name" [value]="firstName()" (input)="firstName.set(value($event))" />
         </div>
         <div class="pf__field">
-          <label class="pf__label" for="pf-last">Last name</label>
+          <label class="pf__label" for="pf-last">{{ t('dashboard.profile.lastName') }}</label>
           <input uiInput id="pf-last" autocomplete="family-name" [value]="lastName()" (input)="lastName.set(value($event))" />
         </div>
       </div>
 
       <div class="pf__field">
-        <label class="pf__label" for="pf-email">Email</label>
+        <label class="pf__label" for="pf-email">{{ t('common.email') }}</label>
         <input uiInput id="pf-email" type="email" [value]="email()" readonly disabled />
         <p class="pf__hint">
-          Managed by your sign-in provider.
-          <a routerLink="/dashboard/settings/account">Change it in account settings</a>.
+          {{ t('dashboard.profile.emailManaged') }}
+          <a routerLink="/dashboard/settings/account">{{ t('dashboard.profile.emailChangeLink') }}</a>.
         </p>
       </div>
 
@@ -167,7 +173,7 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
         <div class="pg__error" role="alert">
           <ui-icon name="alert" [size]="18" />
           <div>
-            <p class="pg__error-title">Your name could not be saved.</p>
+            <p class="pg__error-title">{{ t('dashboard.profile.nameError') }}</p>
             <p class="pg__error-msg">{{ message }}</p>
           </div>
         </div>
@@ -175,18 +181,18 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
 
       <div class="pf__actions">
         <button type="button" uiButton [disabled]="!dirty() || saving()" [loading]="saving()" (click)="save()">
-          Save changes
+          {{ t('dashboard.profile.saveChanges') }}
         </button>
         @if (dirty()) {
-          <button type="button" uiButton variant="ghost" [disabled]="saving()" (click)="revert()">Cancel</button>
+          <button type="button" uiButton variant="ghost" [disabled]="saving()" (click)="revert()">{{ t('dashboard.profile.cancel') }}</button>
         }
       </div>
     </section>
 
     <section class="pf__card">
-      <h2 class="pf__section-title">What you do</h2>
-      <p class="pf__hint pf__hint--block">Helps us pick sensible defaults. Change it whenever you like.</p>
-      <div class="pf__roles" role="radiogroup" aria-label="Your role">
+      <h2 class="pf__section-title">{{ t('dashboard.profile.whatYouDo') }}</h2>
+      <p class="pf__hint pf__hint--block">{{ t('dashboard.profile.roleHint') }}</p>
+      <div class="pf__roles" role="radiogroup" [attr.aria-label]="t('dashboard.profile.yourRole')">
         @for (option of roles; track option.id) {
           <button
             type="button"
@@ -197,22 +203,21 @@ const ROLES: readonly { id: UserRole; label: string }[] = [
             [disabled]="savingRole()"
             (click)="setRole(option.id)"
           >
-            {{ option.label }}
+            {{ t(option.labelKey) }}
           </button>
         }
       </div>
     </section>
 
     <section class="pf__card">
-      <h2 class="pf__section-title">Security &amp; sessions</h2>
-      <p class="pf__hint pf__hint--block">
-        Password, two-factor authentication and signed-in devices are handled by your sign-in provider.
-      </p>
+      <h2 class="pf__section-title">{{ t('dashboard.profile.security') }}</h2>
+      <p class="pf__hint pf__hint--block">{{ t('dashboard.profile.securityHint') }}</p>
       <a uiButton variant="secondary" routerLink="/dashboard/settings/account">
         <ui-icon name="settings" [size]="15" />
-        Open account settings
+        {{ t('dashboard.profile.openAccountSettings') }}
       </a>
     </section>
+    </ng-container>
   `,
   styles: [
     `
@@ -306,6 +311,16 @@ export class ProfilePage {
   private readonly me = inject(MeService);
   private readonly notify = inject(NotificationService);
   private readonly dialog = inject(UiDialogService);
+  private readonly transloco = inject(TranslocoService);
+
+  /** Bumps on language switch and translation load, so translated computeds re-run. */
+  private readonly translationRevision = toSignal(
+    merge(
+      this.transloco.langChanges$,
+      this.transloco.events$.pipe(filter((e) => e.type === 'translationLoadSuccess')),
+    ).pipe(scan((n) => n + 1, 0)),
+    { initialValue: 0 },
+  );
 
   protected readonly roles = ROLES;
   protected readonly acceptedImages = ACCEPTED_IMAGE_ACCEPT;
@@ -343,16 +358,15 @@ export class ProfilePage {
    * letting the button look broken.
    */
   protected readonly photoHint = computed(() => {
-    const base = 'PNG, JPEG or WebP. Drop one here or browse — it will be cropped to a square.';
-    if (!this.canRemovePhoto() || this.auth.identities().length === 0) {
-      return base;
-    }
-    return `${base} Removing yours reverts to your sign-in provider's photo.`;
+    this.translationRevision();
+    const reverts = this.canRemovePhoto() && this.auth.identities().length > 0;
+    return this.transloco.translate(reverts ? 'dashboard.profile.photoHintProvider' : 'dashboard.profile.photoHint');
   });
 
   protected readonly displayName = computed(() => {
+    this.translationRevision();
     const name = `${this.firstName()} ${this.lastName()}`.trim();
-    return name || this.email() || 'Your account';
+    return name || this.email() || this.transloco.translate('dashboard.profile.yourAccount');
   });
 
   protected readonly initials = computed(() => {
@@ -431,7 +445,7 @@ export class ProfilePage {
     const [file] = files;
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      this.photoError.set('That file is not an image. Pick a PNG, JPEG or WebP.');
+      this.photoError.set(this.transloco.translate('dashboard.profile.notImage'));
       return;
     }
     void this.uploadPhoto(file);
@@ -452,7 +466,7 @@ export class ProfilePage {
       const { blob, contentType, extension } = await resizeToSquare(file);
       await this.auth.uploadAvatar(blob, contentType, extension);
       await this.me.refresh();
-      this.notify.success('Your profile photo was updated.');
+      this.notify.success(this.transloco.translate('dashboard.profile.photoUpdated'));
     } catch (e) {
       this.photoError.set(messageOf(e));
     } finally {
@@ -465,11 +479,11 @@ export class ProfilePage {
     if (this.uploadingPhoto()) return;
     const reverts = this.auth.identities().length > 0;
     const ok = await this.dialog.confirm({
-      title: 'Remove photo?',
-      message: reverts
-        ? 'Your uploaded photo will be deleted and your sign-in provider’s photo will be used instead.'
-        : 'Your uploaded photo will be deleted and your initials will be shown instead.',
-      confirmLabel: 'Remove',
+      title: this.transloco.translate('dashboard.profile.removePhotoTitle'),
+      message: this.transloco.translate(
+        reverts ? 'dashboard.profile.removePhotoProvider' : 'dashboard.profile.removePhotoInitials',
+      ),
+      confirmLabel: this.transloco.translate('dashboard.profile.remove'),
       danger: true,
     });
     if (!ok) return;
@@ -479,7 +493,7 @@ export class ProfilePage {
     try {
       await this.auth.removeAvatar();
       await this.me.refresh();
-      this.notify.success('Your profile photo was removed.');
+      this.notify.success(this.transloco.translate('dashboard.profile.photoRemoved'));
     } catch (e) {
       this.photoError.set(messageOf(e));
     } finally {

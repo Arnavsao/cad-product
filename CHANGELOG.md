@@ -6,6 +6,25 @@ DXF import fidelity. An imported drawing now renders as AutoCAD renders it: corr
 values, decoded text, per-style fonts and real lineweights.
 
 ### Added
+* **The whole product is now translatable, not just the editor's commands.** Transloco shipped with
+  490 keys covering the command prompts, tool names and the sign-in page; everything else — the
+  dashboard, settings, profile, organization, trash, every dialog and toast, onboarding, the shared
+  UI primitives, the editor's panels and dialogs, and all nine marketing pages — was hard-coded
+  English that a language switch could not touch. `public/i18n/en.json` now holds **3,223 keys**.
+
+  Two structural changes made that manageable. `scripts/i18n/app-strings/` holds one English
+  fragment per area (dashboard pages and components, editor panels and dialogs, app shell, site
+  core and pages) which `build-en.mjs` merges into `en.json`, refusing the build if two fragments
+  claim the same key — so several people can add strings without fighting over one file. And data
+  constants that feed the UI (`site-content.ts`, `docs.data.ts`, `pricing.data.ts`, the dashboard
+  menus, `onboarding.model.ts`) now store translation *keys* in `…Key` fields rather than English,
+  keeping each one the single source of truth it already was.
+
+  `scripts/i18n/missing.mjs` prints the keys a language lacks as a worklist, and `merge.mjs` folds a
+  translated fragment back in, rejecting any key `en.json` does not have. `src/testing/i18n-testing.ts`
+  serves the real English strings to specs, so tests still assert on the text a user sees rather
+  than on key names.
+
 * **A full public website around the editor.** The three marketing pages (landing, features,
   pricing), each carrying its own copy of the header and footer, are now a nine-page site under one
   shell route: Home, Product (how it works), Features, Use cases, Pricing, Docs, About, Contact and
@@ -94,7 +113,41 @@ values, decoded text, per-style fonts and real lineweights.
   allowlist, and its `@default("dark")` is a ground-shaped placeholder that `findTheme` ignores —
   which is precisely the mechanism that lets the client default apply to a fresh account.
 
+### Known gaps
+* **The plural scheme has two forms; Czech, Polish and Russian need three.** 23 counted strings
+  are keyed `…One` / `…Other`, which covers English and most of the set. Czech and Slovak-style
+  plurals distinguish 1 / 2–4 / 5+, and Russian 1 / 2–4 / 5+ by final digit, so a single `Other`
+  form cannot be right for every number. The translators worked around it by phrasing `Other` as a
+  count-last construction ("Smazáno {{count}} výkresů", "Удалено чертежей: {{count}}"), which stays
+  grammatical at any number but reads more stiffly than natural agreement. Adding a `…Few` form to
+  the key schema, and Transloco's plural handling with it, is the real fix.
+* **The non-English files are machine-drafted, not reviewed by native-speaking drafters.** They
+  follow AutoCAD's terminology per language, and each translator flagged the terms they were least
+  certain of, but the first native review is still outstanding. English is the reference.
+
 ### Fixed
+* **Picking a language in Settings snapped straight back to English, and never survived a reload.**
+  Two defects stacked. The server never stored the language: `UpdatePreferencesDto` validated
+  `locale` against the fourteen shipped codes, and `locale-registry.spec.ts` even proved it
+  accepted all of them, but the patch mapper in `UsersService` listed every field *except*
+  `locale`, so the value was validated, dropped, and echoed back as the stored `en`. Nothing
+  tested that an accepted preference was written. On the client, that echo — and the `/me`
+  answer still in flight from the page opening — went straight into `setLocale`, which cannot
+  tell a stored value from a chosen one, so the older server value overwrote the newer choice
+  the moment it landed. The theme flowed through the same path and had the same race.
+
+  The server now writes `locale`, and `users.service.preferences.spec.ts` checks every DTO field
+  reaches the database by comparing the written keys against the DTO's own, so the next field
+  cannot be forgotten the same way. On the client, `LanguageService` and `ThemeService` gained
+  `applyRemote()` for values arriving from the server, which declines to overrule a choice made in
+  this session; the plain setters remain for the picker. That flag is seeded from `localStorage`,
+  so a language chosen before a reload still outranks the account — otherwise the reload restored
+  the right language and a stale `/me` immediately undid it, which is the same bug wearing a
+  different hat. There is deliberately no time window on the guard — a response can only describe
+  the past, and a threshold would just move the bug to slow connections, where the race is
+  likeliest. Someone who has never chosen still gets their account's language, so a new browser or
+  a first sign-in behaves as before. Accounts that picked a language before this fix still hold
+  `en` in the database; picking it once more now sticks.
 * **Sign-in and the dashboard felt slow on every visit, and much slower after a quiet spell.**
   Measured from India against the Korea Central deployment: a single API call cost 370–500 ms
   even when nothing was wrong, the first request after a few idle minutes waited around 22 s,
@@ -373,8 +426,6 @@ customer portal are both hosted by them.
   50 MB) are not applied anywhere yet.
 * Only subscription events are acted on. Payment, refund, dispute and licence-key events are
   recorded in `webhook_events` but have no handler, so adding one later needs no backfill.
-* The billing pane's strings are hardcoded English — they are not yet in the translation
-  files, so they do not follow the language setting.
 * Prices in `pricing.data.ts` are display only; the charged amount is whatever the Dodo
   product says. Nothing reconciles the two.
 

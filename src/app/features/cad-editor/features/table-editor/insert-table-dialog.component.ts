@@ -3,19 +3,20 @@ import { Component, effect , ChangeDetectionStrategy
 
 import { FormsModule } from '@angular/forms';
 import { InsertTableDialogService, ITableConfig } from './insert-table-dialog.service';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-insert-table-dialog',
   standalone: true,
-  imports: [FormsModule],
+  imports: [UiIconComponent, FormsModule],
   template: `
     @if (svc.isOpen()) {
       <div class="dialog-overlay">
         <div class="dialog">
           <div class="dialog-header">
             <span>Insert Table</span>
-            <button class="close-btn" (click)="cancel()">✕</button>
+            <button class="close-btn" (click)="cancel()"><ui-icon name="close" [size]="16" /></button>
           </div>
           <div class="dialog-body">
             <div class="col-left">

@@ -17,15 +17,15 @@ import { evalExpression, parseCadVector } from '../../core/utils/expression-pars
  * AutoCAD-style COPY command tool.
  *
  * Phase flow:
- *   1. `select`  â€” crossing/window selection if nothing pre-selected.
- *   2. `base`    â€” pick base point; snapping applies.
- *   3. `second`  â€” cursor-tracking ghost; each left-click places a copy
+ *   1. `select`  — crossing/window selection if nothing pre-selected.
+ *   2. `base`    — pick base point; snapping applies.
+ *   3. `second`  — cursor-tracking ghost; each left-click places a copy
  *                  (AutoCAD multi-paste behaviour). Enter/Esc ends.
  *
  * The tool also serves COPYBASE (basePointFirst=true), which reverses the order:
- *   1. `base`    â€” pick base point first.
- *   2. `select`  â€” select objects.
- *   3. `second`  â€” place copies.
+ *   1. `base`    — pick base point first.
+ *   2. `select`  — select objects.
+ *   3. `second`  — place copies.
  *
  * On each placement, a fresh clone-set is pasted through CadClipboardService,
  * keeping the undo stack clean (one PasteEntitiesCmd per placement).
@@ -199,7 +199,7 @@ export class CopyTool implements ITool {
 
   invokeOption(key: string): boolean {
     if (key === 'D' && !this.basePoint) {
-      // Displacement mode â€” for now treat as regular base pick via Enter.
+      // Displacement mode — for now treat as regular base pick via Enter.
       return true;
     }
     return false;
@@ -209,7 +209,7 @@ export class CopyTool implements ITool {
     this.cleanup();
   }
 
-  // â”€â”€â”€ Private â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Private ───────────────────────────────────────────────────────────────
 
   private initPreview(): void {
     if (!this.basePoint || !this.targets.length) return;

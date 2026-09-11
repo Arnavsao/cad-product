@@ -3,6 +3,7 @@ import { Component, HostListener, inject , ChangeDetectionStrategy
 
 import { SymbolPickerService } from './symbol-picker.service';
 import { SafeHtmlPipe } from '../../shared/components/safe-html.pipe';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
 /**
  * Modal picker for engineering symbols. Replaces the old `window.prompt`
@@ -22,14 +23,14 @@ import { SafeHtmlPipe } from '../../shared/components/safe-html.pipe';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-symbol-picker',
   standalone: true,
-  imports: [SafeHtmlPipe],
+  imports: [UiIconComponent, SafeHtmlPipe],
   template: `
     @if (svc.isOpen()) {
       <div class="sp-backdrop" (mousedown)="onBackdropMouseDown($event)">
         <div class="sp-dialog" (mousedown)="$event.stopPropagation()">
           <div class="sp-header">
             <h3>Insert Engineering Symbol</h3>
-            <button type="button" class="sp-close" (click)="svc.cancel()" title="Cancel (Esc)">×</button>
+            <button type="button" class="sp-close" (click)="svc.cancel()" title="Cancel (Esc)"><ui-icon name="close" [size]="16" /></button>
           </div>
           <div class="sp-grid">
             @for (s of svc.catalog; track s) {

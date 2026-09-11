@@ -10,7 +10,7 @@ import { DeleteMultipleCmd } from '../../core/models/command.model';
 import { hitTestAll } from '../select/select-tool';
 
 /**
- * MLEADERREMOVE â€” Remove a leader entity.
+ * MLEADERREMOVE — Remove a leader entity.
  *
  * Workflow (mirrors AutoCAD MLEADERREMOVE):
  *   Hover a LeaderEntity to highlight it, then click to delete.

@@ -1,32 +1,32 @@
-<div class="site" [class.site--home]="isHome()">
-  <a class="site__skip" href="#site-main">Skip to content</a>
+<div class="site" [class.site--home]="isHome()" *transloco="let t">
+  <a class="site__skip" href="#site-main">{{ t('site.shell.skipToContent') }}</a>
   <ui-grid-backdrop />
 
   <header class="site__header" [class.site__header--scrolled]="scrolled() || menuOpen()">
     <div class="site__bar site-container">
-      <a class="brand" [routerLink]="'/'" [attr.aria-label]="appName + ' home'" (click)="toggleMenu(false)">
+      <a class="brand" [routerLink]="'/'" [attr.aria-label]="t('site.shell.brandHome', { appName })" (click)="toggleMenu(false)">
         <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
         <span class="brand__name">{{ appName }}</span>
       </a>
 
-      <nav class="site__nav" aria-label="Primary">
+      <nav class="site__nav" [attr.aria-label]="t('site.shell.navPrimary')">
         @for (link of nav; track link.path) {
-          <a class="site__nav-link" [routerLink]="link.path" routerLinkActive="site__nav-link--on" ariaCurrentWhenActive="page">{{ link.label }}</a>
+          <a class="site__nav-link" [routerLink]="link.path" routerLinkActive="site__nav-link--on" ariaCurrentWhenActive="page">{{ t(link.labelKey) }}</a>
         }
       </nav>
 
       <div class="site__actions">
         @if (!auth.enabled()) {
-          <a uiButton size="sm" variant="primary" routerLink="/editor">Open editor</a>
+          <a uiButton size="sm" variant="primary" routerLink="/editor">{{ t('site.shell.openEditor') }}</a>
         } @else if (!auth.isLoaded()) {
           <ui-skeleton width="64px" height="30px" radius="var(--ui-radius-md)" />
           <ui-skeleton width="120px" height="30px" radius="var(--ui-radius-md)" />
         } @else if (auth.isSignedIn()) {
-          <a uiButton size="sm" variant="ghost" routerLink="/editor">Open editor</a>
-          <a uiButton size="sm" variant="primary" routerLink="/dashboard">Dashboard</a>
+          <a uiButton size="sm" variant="ghost" routerLink="/editor">{{ t('site.shell.openEditor') }}</a>
+          <a uiButton size="sm" variant="primary" routerLink="/dashboard">{{ t('site.shell.dashboard') }}</a>
         } @else {
-          <a uiButton size="sm" variant="ghost" routerLink="/sign-in">Sign in</a>
-          <a uiButton size="sm" variant="primary" routerLink="/sign-up">Create account</a>
+          <a uiButton size="sm" variant="ghost" routerLink="/sign-in">{{ t('site.shell.signIn') }}</a>
+          <a uiButton size="sm" variant="primary" routerLink="/sign-up">{{ t('site.shell.createAccount') }}</a>
         }
         <button
           type="button"
@@ -37,7 +37,7 @@
           iconOnly
           [attr.aria-expanded]="menuOpen()"
           aria-controls="site-drawer"
-          [attr.aria-label]="menuOpen() ? 'Close menu' : 'Open menu'"
+          [attr.aria-label]="menuOpen() ? t('site.shell.closeMenu') : t('site.shell.openMenu')"
           (click)="toggleMenu()"
         >
           <ui-icon [name]="menuOpen() ? 'close' : 'list'" [size]="20" />
@@ -46,23 +46,23 @@
     </div>
 
     <div class="site__drawer" id="site-drawer" [class.site__drawer--open]="menuOpen()" [attr.aria-hidden]="!menuOpen()">
-      <nav class="site__drawer-nav" aria-label="Primary, mobile">
+      <nav class="site__drawer-nav" [attr.aria-label]="t('site.shell.navPrimaryMobile')">
         @for (link of nav; track link.path) {
           <a class="site__drawer-link" [routerLink]="link.path" routerLinkActive="site__drawer-link--on" [tabindex]="menuOpen() ? 0 : -1">
-            {{ link.label }}
+            {{ t(link.labelKey) }}
             <ui-icon name="chevron-right" [size]="16" />
           </a>
         }
       </nav>
       <div class="site__drawer-actions">
         @if (!auth.enabled()) {
-          <a uiButton variant="primary" routerLink="/editor" [tabindex]="menuOpen() ? 0 : -1">Open editor</a>
+          <a uiButton variant="primary" routerLink="/editor" [tabindex]="menuOpen() ? 0 : -1">{{ t('site.shell.openEditor') }}</a>
         } @else if (auth.isLoaded() && auth.isSignedIn()) {
-          <a uiButton variant="primary" routerLink="/dashboard" [tabindex]="menuOpen() ? 0 : -1">Dashboard</a>
-          <a uiButton routerLink="/editor" [tabindex]="menuOpen() ? 0 : -1">Open editor</a>
+          <a uiButton variant="primary" routerLink="/dashboard" [tabindex]="menuOpen() ? 0 : -1">{{ t('site.shell.dashboard') }}</a>
+          <a uiButton routerLink="/editor" [tabindex]="menuOpen() ? 0 : -1">{{ t('site.shell.openEditor') }}</a>
         } @else if (auth.isLoaded()) {
-          <a uiButton variant="primary" routerLink="/sign-up" [tabindex]="menuOpen() ? 0 : -1">Create account</a>
-          <a uiButton routerLink="/sign-in" [tabindex]="menuOpen() ? 0 : -1">Sign in</a>
+          <a uiButton variant="primary" routerLink="/sign-up" [tabindex]="menuOpen() ? 0 : -1">{{ t('site.shell.createAccount') }}</a>
+          <a uiButton routerLink="/sign-in" [tabindex]="menuOpen() ? 0 : -1">{{ t('site.shell.signIn') }}</a>
         }
       </div>
     </div>
@@ -75,47 +75,43 @@
   <footer class="site__footer">
     <div class="site-container site__footer-grid">
       <div class="site__footer-brand">
-        <a class="brand" routerLink="/" [attr.aria-label]="appName + ' home'">
+        <a class="brand" routerLink="/" [attr.aria-label]="t('site.shell.brandHome', { appName })">
           <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
           <span class="brand__name">{{ appName }}</span>
         </a>
-        <p class="site__footer-tagline">
-          Browser-native 2D CAD. DXF in, DXF out, and nothing to install between them.
-        </p>
-        <p class="site__footer-langs">
-          Interface in 14 languages · 12 colour themes · Runs in Chrome, Edge, Safari and Firefox
-        </p>
+        <p class="site__footer-tagline">{{ t('site.shell.footer.tagline') }}</p>
+        <p class="site__footer-langs">{{ t('site.shell.footer.langs') }}</p>
       </div>
 
       <nav class="site__footer-col" aria-labelledby="ft-product">
-        <h2 class="site__footer-h" id="ft-product">Product</h2>
-        <a routerLink="/product">How it works</a>
-        <a routerLink="/features">Features</a>
-        <a routerLink="/use-cases">Use cases</a>
-        <a routerLink="/pricing">Pricing</a>
-        <a routerLink="/whats-new">What's new</a>
+        <h2 class="site__footer-h" id="ft-product">{{ t('site.shell.nav.product') }}</h2>
+        <a routerLink="/product">{{ t('site.shell.footer.howItWorks') }}</a>
+        <a routerLink="/features">{{ t('site.shell.nav.features') }}</a>
+        <a routerLink="/use-cases">{{ t('site.shell.nav.useCases') }}</a>
+        <a routerLink="/pricing">{{ t('site.shell.nav.pricing') }}</a>
+        <a routerLink="/whats-new">{{ t('site.shell.footer.whatsNew') }}</a>
       </nav>
 
       <nav class="site__footer-col" aria-labelledby="ft-resources">
-        <h2 class="site__footer-h" id="ft-resources">Resources</h2>
-        <a routerLink="/docs">Documentation</a>
-        <a routerLink="/docs" fragment="getting-started">Getting started</a>
-        <a routerLink="/docs" fragment="commands">Command reference</a>
-        <a routerLink="/docs" fragment="dxf">DXF compatibility</a>
-        <a routerLink="/docs" fragment="ai">AI assistant setup</a>
+        <h2 class="site__footer-h" id="ft-resources">{{ t('site.shell.footer.resources') }}</h2>
+        <a routerLink="/docs">{{ t('site.shell.footer.documentation') }}</a>
+        <a routerLink="/docs" fragment="getting-started">{{ t('site.shell.footer.gettingStarted') }}</a>
+        <a routerLink="/docs" fragment="commands">{{ t('site.components.explorer.commandReference') }}</a>
+        <a routerLink="/docs" fragment="dxf">{{ t('site.shell.footer.dxfCompatibility') }}</a>
+        <a routerLink="/docs" fragment="ai">{{ t('site.shell.footer.aiSetup') }}</a>
       </nav>
 
       <nav class="site__footer-col" aria-labelledby="ft-company">
-        <h2 class="site__footer-h" id="ft-company">Company</h2>
-        <a routerLink="/about">About</a>
-        <a routerLink="/contact">Contact</a>
-        <a routerLink="/terms">Terms of Service</a>
-        <a routerLink="/privacy">Privacy Policy</a>
+        <h2 class="site__footer-h" id="ft-company">{{ t('site.shell.footer.company') }}</h2>
+        <a routerLink="/about">{{ t('site.shell.nav.about') }}</a>
+        <a routerLink="/contact">{{ t('site.shell.footer.contact') }}</a>
+        <a routerLink="/terms">{{ t('site.shell.footer.terms') }}</a>
+        <a routerLink="/privacy">{{ t('site.shell.footer.privacy') }}</a>
       </nav>
     </div>
     <div class="site-container site__footer-bottom">
-      <span>&copy; {{ year }} {{ appName }}. Your drawings stay yours.</span>
-      <span class="site__footer-note">Built for people who would rather open a tab than install a licence server.</span>
+      <span>{{ t('site.shell.footer.copyright', { year, appName }) }}</span>
+      <span class="site__footer-note">{{ t('site.shell.footer.note') }}</span>
     </div>
   </footer>
 </div>

@@ -1,3 +1,4 @@
+import { inject } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 
 /**
@@ -29,4 +30,32 @@ export function translateOr(
   const translated = transloco.translate(key);
   // Transloco returns the key itself when it cannot resolve it.
   return !translated || translated === key ? english : translated;
+}
+
+/**
+ * Inject `TranslocoService`, tolerating both a missing provider and a failure
+ * while constructing it.
+ *
+ * `inject(TranslocoService, { optional: true })` already covers today's case:
+ * the service is `providedIn: 'root'`, but its own factory declares every
+ * dependency it cannot default (the transpiler among them) optional, so
+ * without `provideTransloco()` the injection resolves to `null` rather than
+ * throwing. A spec in this repo pins that behaviour.
+ *
+ * This wrapper adds a try/catch on top, because that is a property of
+ * Transloco's factory rather than a guarantee of Angular's `optional`: a
+ * future version that hard-requires a dependency would turn a bare `inject`
+ * into an NG0201 at construction time. The editor is embeddable in a host that
+ * owns its providers and never calls `provideI18n()`, and specs construct
+ * these components bare — both must render English rather than fail, so the
+ * failure resolves to `null` for `translateOr` to fall back on.
+ *
+ * Call from an injection context, like `inject` itself.
+ */
+export function injectTranslocoOptional(): TranslocoService | null {
+  try {
+    return inject(TranslocoService, { optional: true });
+  } catch {
+    return null;
+  }
 }

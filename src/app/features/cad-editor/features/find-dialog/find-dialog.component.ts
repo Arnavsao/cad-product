@@ -1,6 +1,7 @@
 import { Component, inject, ChangeDetectionStrategy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule } from '@angular/cdk/drag-drop';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { FindDialogService } from './find-dialog.service';
 import { FindReplaceService, FindResult } from '../../core/services/find-replace.service';
 import { NotificationService } from '../../../../core/services/notification.service';
@@ -11,7 +12,7 @@ import { ViewModelService } from '../../core/services/view-model.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-find-dialog',
   standalone: true,
-  imports: [FormsModule, DragDropModule],
+  imports: [FormsModule, DragDropModule, TranslocoDirective],
   templateUrl: './find-dialog.component.html',
   styleUrls: ['./find-dialog.component.scss']
 })

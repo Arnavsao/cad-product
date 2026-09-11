@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { InboxItemDto } from '../../../core/api/api.models';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent, type UiIconName } from '../../../shared/ui/icon.component';
@@ -31,17 +32,18 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
   selector: 'app-inbox-dropdown',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiIconComponent, UiSkeletonComponent, RelativeTimePipe],
+  imports: [TranslocoDirective, UiButtonDirective, UiIconComponent, UiSkeletonComponent, RelativeTimePipe],
   template: `
+    <ng-container *transloco="let t">
     <header class="pg__head">
-      <h3 class="pg__title">Notifications</h3>
+      <h3 class="pg__title">{{ t('dashboard.components.inbox.title') }}</h3>
       <div class="pg__head-actions">
         @if (inbox.hasUnread()) {
-          <button type="button" uiButton variant="ghost" size="sm" class="mark-read-btn" (click)="inbox.markAllRead()" title="Mark all read">
+          <button type="button" uiButton variant="ghost" size="sm" class="mark-read-btn" (click)="inbox.markAllRead()" [title]="t('dashboard.components.inbox.markAllRead')">
             <ui-icon name="check" [size]="14" />
           </button>
         }
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly (click)="close.emit()" title="Close">
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly (click)="close.emit()" [title]="t('dashboard.components.close')">
           <ui-icon name="close" [size]="16" />
         </button>
       </div>
@@ -53,15 +55,15 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
       <div class="pg__error" role="alert">
         <ui-icon name="alert" [size]="18" />
         <div>
-          <p class="pg__error-title">Notifications could not be loaded.</p>
+          <p class="pg__error-title">{{ t('dashboard.components.inbox.loadFailed') }}</p>
           <p class="pg__error-msg">{{ message }}</p>
         </div>
-        <button type="button" uiButton (click)="inbox.load()"><ui-icon name="refresh" [size]="14" /> Retry</button>
+        <button type="button" uiButton (click)="inbox.load()"><ui-icon name="refresh" [size]="14" /> {{ t('common.retry') }}</button>
       </div>
     } @else if (inbox.isEmpty()) {
       <div class="in__empty">
-        <p class="in__empty-title">No Notifications</p>
-        <p class="in__empty-desc">Helpful information about the product and your account will appear here.</p>
+        <p class="in__empty-title">{{ t('dashboard.components.inbox.emptyTitle') }}</p>
+        <p class="in__empty-desc">{{ t('dashboard.components.inbox.emptyBody') }}</p>
       </div>
     } @else {
       <ul class="in__list">
@@ -82,7 +84,7 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
             <div class="in__body">
               <p class="in__title">
                 {{ item.title }}
-                @if (!item.readAt) { <span class="in__dot" aria-label="Unread"></span> }
+                @if (!item.readAt) { <span class="in__dot" [attr.aria-label]="t('dashboard.components.inbox.unread')"></span> }
               </p>
               @if (item.body) { <p class="in__text">{{ item.body }}</p> }
             </div>
@@ -94,11 +96,12 @@ const KIND_ICONS: Record<InboxItemDto['kind'], UiIconName> = {
       @if (inbox.hasMore()) {
         <div class="in__more">
           <button type="button" uiButton variant="secondary" [loading]="inbox.loadingMore()" (click)="inbox.loadMore()">
-            Load older
+            {{ t('dashboard.components.inbox.loadOlder') }}
           </button>
         </div>
       }
     }
+    </ng-container>
   `,
   styles: [
     `

@@ -11,8 +11,10 @@
  *   extra      keys this language has that en.json does not      -> dead weight
  *   untranslated  values byte-identical to English               -> may be fine (cognates)
  *   params     keys whose {{placeholders}} differ from English   -> renders a literal
+ *   literals   a term that must survive translation, dropped     -> lost meaning
  *
- * Exits non-zero on missing, extra, or mismatched params. `untranslated` is
+ * Exits non-zero on missing, extra, mismatched params, or a dropped literal.
+ * `untranslated` is
  * reported but never fatal: "Pan", "Spline" and "2P" are genuinely the same
  * word in several of these languages.
  *
@@ -30,6 +32,25 @@ const en = read('en.json');
 const enKeys = new Set(Object.keys(en));
 const paramsOf = (s) => (String(s).match(/\{\{\s*[\w.]+\s*\}\}/g) ?? []).map((p) => p.replace(/[{}\s]/g, '')).sort();
 
+/**
+ * Terms that must appear in the translation whenever they appear in English.
+ *
+ * A file format or a product name carries information the reader needs — most
+ * sharply in `alt` text, where dropping "DXF" costs a screen-reader user the
+ * one detail that says what kind of drawing is on screen. Translators drop
+ * them by accident when a sentence is reshaped, and nothing else notices.
+ *
+ * Matched as a prefix, deliberately: Czech, Polish and Russian decline proper
+ * nouns, so "V AutoCADu" and "s AutoCADem" are correct translations that a
+ * `\bAutoCAD\b` match would reject. Requiring only that the term *start* a
+ * word still catches the real failure — the term vanishing altogether — while
+ * leaving case endings alone.
+ *
+ * Keep this to terms that are genuinely invariant across all fourteen
+ * languages. Anything a language legitimately localizes does not belong here.
+ */
+const MUST_SURVIVE = [/\bDXF/i, /\bDWG/i, /\bPDF/i, /\bSVG/i, /\bCADO/i, /\bAutoCAD/i];
+
 const files = readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'en.json').sort();
 let failed = false;
 
@@ -45,8 +66,15 @@ for (const file of files) {
   const badParams = [...keys].filter(
     (k) => enKeys.has(k) && paramsOf(t[k]).join(',') !== paramsOf(en[k]).join(','),
   );
+  const droppedLiterals = [];
+  for (const k of keys) {
+    if (!enKeys.has(k)) continue;
+    for (const re of MUST_SURVIVE) {
+      if (re.test(en[k]) && !re.test(t[k])) droppedLiterals.push([k, re.source.replace(/\\b/g, '')]);
+    }
+  }
 
-  const bad = missing.length || extra.length || badParams.length;
+  const bad = missing.length || extra.length || badParams.length || droppedLiterals.length;
   if (bad) failed = true;
 
   console.log(
@@ -55,10 +83,14 @@ for (const file of files) {
       `missing=${String(missing.length).padStart(3)}  ` +
       `extra=${String(extra.length).padStart(3)}  ` +
       `params=${String(badParams.length).padStart(3)}  ` +
+      `literals=${String(droppedLiterals.length).padStart(3)}  ` +
       `untranslated=${String(untranslated.length).padStart(3)}`,
   );
   for (const k of missing.slice(0, 5)) console.log(`         missing: ${k}`);
   for (const k of extra.slice(0, 5)) console.log(`         extra:   ${k}`);
+  for (const [k, term] of droppedLiterals.slice(0, 5)) {
+    console.log(`         literal: ${k}  "${term}" is in the English but not the translation`);
+  }
   for (const k of badParams.slice(0, 5)) {
     console.log(`         params:  ${k}  en=${paramsOf(en[k]).join(',') || '-'}  ${lang}=${paramsOf(t[k]).join(',') || '-'}`);
   }

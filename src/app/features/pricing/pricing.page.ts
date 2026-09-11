@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { BillingApiService } from '../../core/api/billing-api.service';
 import { MeService } from '../../core/api/me.service';
@@ -32,7 +33,15 @@ import { COMPARISON, CURRENCY, FAQS, TIERS, type ComparisonRow, type PricingTier
   selector: 'app-pricing-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiButtonDirective, UiIconComponent, SiteAccordionComponent, SiteClosingComponent, SiteHeadingComponent],
+  imports: [
+    RouterLink,
+    TranslocoDirective,
+    UiButtonDirective,
+    UiIconComponent,
+    SiteAccordionComponent,
+    SiteClosingComponent,
+    SiteHeadingComponent,
+  ],
   templateUrl: './pricing.page.html',
   styleUrl: './pricing.page.scss',
 })
@@ -45,13 +54,15 @@ export class PricingPage {
   protected readonly tiers = TIERS;
   protected readonly comparison = COMPARISON;
   protected readonly faqs = FAQS;
-  protected readonly faqItems: SiteAccordionItem[] = FAQS.map((f, i) => ({ id: `faq-${i}`, title: f.q, body: f.a }));
   protected readonly currency = CURRENCY;
   protected readonly appName = environment.appName;
   protected readonly year = new Date().getFullYear();
 
   /** Annual is the default because it is the cheaper, and the one we recommend. */
   protected readonly annual = signal(true);
+
+  /** The saving advertised on the billing toggle: what the recommended tier saves. */
+  protected readonly annualSaving = this.savingOf(TIERS.find((tier) => tier.featured) ?? TIERS[1]);
 
   /** Tier whose checkout is being created, so only that button spins. */
   protected readonly buying = signal<PricingTier['id'] | null>(null);
@@ -62,6 +73,13 @@ export class PricingPage {
   /** Signed-in visitors have nothing to sign up for; send them to the app. */
   protected readonly ctaLink = computed(() => (this.auth.isSignedIn() ? '/dashboard' : '/sign-up'));
 
+  /** The accordion resolves the keys itself, so hand it the keys. */
+  protected readonly faqItems: readonly SiteAccordionItem[] = FAQS.map((f) => ({
+    id: f.id,
+    titleKey: f.qKey,
+    bodyKey: f.aKey,
+  }));
+
   protected priceOf(tier: PricingTier): number {
     return this.annual() ? tier.annual : tier.monthly;
   }
@@ -71,12 +89,13 @@ export class PricingPage {
     return Math.round((1 - tier.annual / tier.monthly) * 100);
   }
 
-  protected ctaFor(tier: PricingTier): string {
-    if (!this.signedIn()) return tier.cta;
+  /** Translation key of the CTA label for this tier. */
+  protected ctaKeyFor(tier: PricingTier): string {
+    if (!this.signedIn()) return tier.ctaKey;
     // Signed in and already on this tier — nothing to buy.
-    if (this.me.plan() === tier.id) return 'Current plan';
-    if (tier.id === 'free') return 'Go to dashboard';
-    return tier.cta;
+    if (this.me.plan() === tier.id) return 'site.pricing.cta.currentPlan';
+    if (tier.id === 'free') return 'site.pricing.cta.goToDashboard';
+    return tier.ctaKey;
   }
 
   /**
@@ -113,5 +132,11 @@ export class PricingPage {
 
   protected cell(row: ComparisonRow, tier: PricingTier['id']): string | boolean {
     return row[tier];
+  }
+
+  /** The translation key of a text cell; `''` for tick/dash cells. */
+  protected cellKey(row: ComparisonRow, tier: PricingTier['id']): string {
+    const value = row[tier];
+    return typeof value === 'string' ? value : '';
   }
 }

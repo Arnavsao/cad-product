@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { CreateFeedbackRequest, FeedbackDto } from '../../../core/api/api.models';
 import { FeedbackApiService } from '../../../core/api/feedback-api.service';
+import { provideI18nTesting } from '../../../../testing/i18n-testing';
 import { FeedbackPage } from './feedback.page';
 
 const SENT: FeedbackDto = {
@@ -38,6 +39,7 @@ describe('FeedbackPage', () => {
       imports: [FeedbackPage],
       providers: [
         provideZonelessChangeDetection(),
+        provideI18nTesting(),
         { provide: FeedbackApiService, useValue: api },
         { provide: Router, useValue: { url: '/dashboard/feedback', navigateByUrl: jasmine.createSpy('navigateByUrl') } },
       ],

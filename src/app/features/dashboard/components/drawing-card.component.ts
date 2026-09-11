@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
@@ -6,6 +7,7 @@ import { UiMenuItem } from '../../../shared/ui/menu/ui-menu.component';
 import { UiMenuTriggerDirective } from '../../../shared/ui/menu/ui-menu-trigger.directive';
 import { RelativeTimePipe } from '../../../shared/ui/pipes/relative-time.pipe';
 import { drawingMenuFor } from './drawing-menu';
+import { injectTranslateFn } from './translate-fn';
 import type { RowSelectEvent } from './drawing-row.component';
 
 /**
@@ -23,10 +25,11 @@ import type { RowSelectEvent } from './drawing-row.component';
   selector: 'app-drawing-card',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiIconComponent, UiMenuTriggerDirective, RelativeTimePipe],
+  imports: [TranslocoDirective, UiButtonDirective, UiIconComponent, UiMenuTriggerDirective, RelativeTimePipe],
   template: `
     <div
       class="dc"
+      *transloco="let t"
       [class.dc--selected]="selected()"
       [attr.draggable]="draggable() ? 'true' : null"
       [uiMenuTrigger]="menu()"
@@ -37,7 +40,7 @@ import type { RowSelectEvent } from './drawing-row.component';
       (dragstart)="dragStart.emit($event)"
       (dragend)="dragEnd.emit()"
     >
-      <button type="button" class="dc__hit" [attr.aria-label]="'Open ' + drawing().name" (click)="open.emit()">
+      <button type="button" class="dc__hit" [attr.aria-label]="t('dashboard.components.item.open', { name: drawing().name })" (click)="open.emit()">
         <span class="dc__thumb">
           @if (drawing().thumbnailUrl && !thumbFailed()) {
             <img [src]="drawing().thumbnailUrl" alt="" loading="lazy" decoding="async" (error)="thumbFailed.set(true)" />
@@ -51,9 +54,9 @@ import type { RowSelectEvent } from './drawing-row.component';
         <span class="dc__meta">
           <span class="dc__name" [title]="drawing().name">{{ drawing().name }}</span>
           <span class="dc__sub">
-            Edited {{ drawing().updatedAt | relativeTime }}
+            {{ t('dashboard.components.drawingCard.edited', { time: (drawing().updatedAt | relativeTime) }) }}
             @if (readOnly()) {
-              · View only
+              · {{ t('dashboard.components.item.viewOnly') }}
             }
           </span>
         </span>
@@ -64,7 +67,7 @@ import type { RowSelectEvent } from './drawing-row.component';
           type="checkbox"
           class="dc__check"
           [checked]="selected()"
-          [attr.aria-label]="'Select ' + drawing().name"
+          [attr.aria-label]="t('dashboard.components.item.select', { name: drawing().name })"
           (click)="onPick($event)"
         />
       }
@@ -76,7 +79,7 @@ import type { RowSelectEvent } from './drawing-row.component';
         size="sm"
         iconOnly
         class="dc__kebab"
-        [attr.aria-label]="'Actions for ' + drawing().name"
+        [attr.aria-label]="t('dashboard.components.item.actionsFor', { name: drawing().name })"
         [uiMenuTrigger]="menu()"
         menuAlign="end"
         (uiMenuSelect)="action.emit($event.id)"
@@ -165,8 +168,10 @@ export class DrawingCardComponent {
   readonly dragStart = output<DragEvent>();
   readonly dragEnd = output<void>();
 
+  private readonly t = injectTranslateFn();
+
   protected readonly thumbFailed = signal(false);
-  protected readonly menu = computed<UiMenuItem[]>(() => this.menuItems() ?? drawingMenuFor(this.drawing()));
+  protected readonly menu = computed<UiMenuItem[]>(() => this.menuItems() ?? drawingMenuFor(this.drawing(), this.t()));
   protected readonly readOnly = computed(() => this.drawing().access === 'view');
 
   protected onContextMenu(event: MouseEvent, trigger: UiMenuTriggerDirective): void {

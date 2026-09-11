@@ -1,5 +1,6 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiButtonDirective } from '../button.directive';
 import { UiIconComponent } from '../icon.component';
 import { UI_DIALOG_DATA, UiDialogData, UiDialogRef } from './ui-dialog-ref';
@@ -20,10 +21,11 @@ let seq = 0;
   selector: 'ui-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, UiButtonDirective, UiIconComponent],
+  imports: [A11yModule, TranslocoDirective, UiButtonDirective, UiIconComponent],
   template: `
     <div
       class="ui-dialog"
+      *transloco="let t"
       role="dialog"
       aria-modal="true"
       [attr.aria-labelledby]="titleId"
@@ -33,7 +35,7 @@ let seq = 0;
     >
       <header class="ui-dialog__header">
         <h2 [id]="titleId">{{ data.title }}</h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="ref.close()">
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('shared.dialog.close')" (click)="ref.close()">
           <ui-icon name="close" />
         </button>
       </header>

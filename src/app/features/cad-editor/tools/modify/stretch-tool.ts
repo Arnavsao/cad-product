@@ -23,7 +23,7 @@ export class StretchTool implements ITool {
   private cur: IPoint = { x: 0, y: 0 };
   /** Each target carries a one-time `clone` used for the live preview so the
    *  real entity is never mutated (and its revision never bumped) during the
-   *  drag. `base` is the pre-stretch snapshot â€” the "before" for undo and the
+   *  drag. `base` is the pre-stretch snapshot — the "before" for undo and the
    *  reference the clone is stretched from. */
   private targets: { ent: Entity; file: DxfFile; clone: Entity; base: Record<string, unknown>; insideMask: boolean[] }[] = [];
   /** Net delta already applied to the preview clones, so each move only adds
@@ -87,7 +87,7 @@ export class StretchTool implements ITool {
     if (this.window && this.basePoint) {
       const dx = wx - this.basePoint.x;
       const dy = wy - this.basePoint.y;
-      // Move the preview clones by the incremental delta only â€” no array
+      // Move the preview clones by the incremental delta only — no array
       // rebuild, and the real entities (and their caches) stay untouched.
       const incX = dx - this.lastDx;
       const incY = dy - this.lastDy;
@@ -154,7 +154,7 @@ export class StretchTool implements ITool {
       ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
       ctx.restore();
     }
-    // Ghost of the stretched selection â€” drawn from the one-time clones so the
+    // Ghost of the stretched selection — drawn from the one-time clones so the
     // real entities stay untouched during the drag.
     for (const t of this.targets) {
       const fileVm = createProxyVm(this.vm, t.file.x, t.file.y, t.file.scale, t.file.scale, t.file.rotation);
@@ -195,8 +195,8 @@ export class StretchTool implements ITool {
       wy: this.cur.y,
       primaryFieldKey: 'dx',
       fields: [
-        { key: 'dx', label: 'Î”X', liveValue: formatLen(dx), width: 70 },
-        { key: 'dy', label: 'Î”Y', liveValue: formatLen(dy), width: 70 },
+        { key: 'dx', label: 'ΔX', liveValue: formatLen(dx), width: 70 },
+        { key: 'dy', label: 'ΔY', liveValue: formatLen(dy), width: 70 },
       ],
     };
   }

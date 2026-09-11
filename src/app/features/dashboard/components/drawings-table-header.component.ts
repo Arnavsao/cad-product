@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { DrawingSort } from '../../../core/api/api.models';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 
@@ -27,29 +28,29 @@ import { UiIconComponent } from '../../../shared/ui/icon.component';
   selector: 'app-drawings-table-header',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent],
+  imports: [TranslocoDirective, UiIconComponent],
   template: `
-    <div class="th" role="row">
+    <div class="th" role="row" *transloco="let t">
       <span class="th__cell th__cell--pick" role="columnheader">
         @if (selectable()) {
           <input
             type="checkbox"
             class="th__check"
-            aria-label="Select all drawings on this page"
+            [attr.aria-label]="t('dashboard.components.tableHeader.selectAll')"
             [checked]="allSelected()"
             [indeterminate]="someSelected() && !allSelected()"
             (change)="allChange.emit(!allSelected())"
           />
         } @else {
-          <span class="ui-visually-hidden">Select</span>
+          <span class="ui-visually-hidden">{{ t('dashboard.components.tableHeader.select') }}</span>
         }
       </span>
 
-      <span class="th__cell th__cell--type" role="columnheader">File Type</span>
+      <span class="th__cell th__cell--type" role="columnheader">{{ t('dashboard.components.tableHeader.fileType') }}</span>
 
       <span class="th__cell th__cell--name" role="columnheader" [attr.aria-sort]="ariaSort('name')">
         <button type="button" class="th__btn" (click)="sortChange.emit('name')">
-          Name
+          {{ t('dashboard.components.tableHeader.name') }}
           @if (sort() === 'name') {
             <ui-icon name="chevron-down" [size]="12" />
           }
@@ -58,17 +59,17 @@ import { UiIconComponent } from '../../../shared/ui/icon.component';
 
       <span class="th__cell th__cell--modified" role="columnheader" [attr.aria-sort]="ariaSort('updated')">
         <button type="button" class="th__btn" (click)="sortChange.emit('updated')">
-          Date Modified
+          {{ t('dashboard.components.tableHeader.dateModified') }}
           @if (sort() === 'updated') {
             <ui-icon name="chevron-down" [size]="12" />
           }
         </button>
       </span>
 
-      <span class="th__cell th__cell--size" role="columnheader">Size</span>
-      <span class="th__cell th__cell--owner" role="columnheader">Owner</span>
-      <span class="th__cell th__cell--shared" role="columnheader">Shared</span>
-      <span class="th__cell th__cell--menu" role="columnheader"><span class="ui-visually-hidden">Actions</span></span>
+      <span class="th__cell th__cell--size" role="columnheader">{{ t('dashboard.components.tableHeader.size') }}</span>
+      <span class="th__cell th__cell--owner" role="columnheader">{{ t('dashboard.components.tableHeader.owner') }}</span>
+      <span class="th__cell th__cell--shared" role="columnheader">{{ t('dashboard.components.tableHeader.shared') }}</span>
+      <span class="th__cell th__cell--menu" role="columnheader"><span class="ui-visually-hidden">{{ t('dashboard.components.tableHeader.actions') }}</span></span>
     </div>
   `,
   styles: [

@@ -1,5 +1,5 @@
-<div class="doc-tabs-container" (wheel)="onWheel($event)">
-  <div class="hamburger-menu" (click)="toggleMenu($event)">
+<div class="doc-tabs-container" *transloco="let t" (wheel)="onWheel($event)">
+  <div class="hamburger-menu" [title]="t('editor.ui.documentTabs.openDrawings')" (click)="toggleMenu($event)">
     <span class="hamburger-icon">☰</span>
     <div class="dropdown-menu" [class.open]="isMenuOpen">
       @for (doc of docManager.documents(); track doc.tabId) {
@@ -30,9 +30,9 @@
             <span class="doc-dirty">*</span>
           }
         </div>
-        <button class="doc-close-btn" (click)="onCloseTab(doc.tabId, $event)" title="Close">×</button>
+        <button class="doc-close-btn" (click)="onCloseTab(doc.tabId, $event)" [title]="t('editor.ui.documentTabs.close')"><ui-icon name="close" [size]="12" /></button>
       </div>
     }
   </div>
-  <button class="doc-new-btn" (click)="onNewDrawing()" title="New Drawing">+</button>
+  <button class="doc-new-btn" (click)="onNewDrawing()" [title]="t('editor.ui.documentTabs.newDrawing')">+</button>
 </div>

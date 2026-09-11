@@ -16,8 +16,8 @@ import { AddEntityCmd } from '../../core/models/command.model';
  *   2. On file selection, the file is loaded as a data URL and stashed.
  *   3. The image starts following the cursor (live preview at natural pixel size,
  *      treating 1 px = 1 world unit).
- *   4. Click â†’ entity committed at the click point via AddEntityCmd.
- *   5. Esc / Enter â†’ cancel placement.
+ *   4. Click → entity committed at the click point via AddEntityCmd.
+ *   5. Esc / Enter → cancel placement.
  *
  * Image sizing default: natural pixel dimensions as world units. The user can
  * rescale afterwards via the properties panel (ScaleX / ScaleY) or by dragging

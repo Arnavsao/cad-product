@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { InboxItemDto, InboxPageDto } from '../../../core/api/api.models';
 import { InboxApiService } from '../../../core/api/inbox-api.service';
+import { provideI18nTesting } from '../../../../testing/i18n-testing';
 import { InboxService } from './inbox.service';
 
 /**
@@ -33,7 +34,12 @@ describe('InboxService', () => {
   beforeEach(() => {
     api = jasmine.createSpyObj<InboxApiService>('InboxApiService', ['list', 'markRead', 'markAllRead']);
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), InboxService, { provide: InboxApiService, useValue: api }],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideI18nTesting(),
+        InboxService,
+        { provide: InboxApiService, useValue: api },
+      ],
     });
     service = TestBed.inject(InboxService);
   });

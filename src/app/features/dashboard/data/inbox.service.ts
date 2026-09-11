@@ -1,7 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { TranslocoService } from '@jsverse/transloco';
 import { InboxApiService } from '../../../core/api/inbox-api.service';
 import { InboxItemDto } from '../../../core/api/api.models';
-import { messageOf } from './drawings-list.store';
+import { GENERIC_ERROR_KEY, messageOf } from './drawings-list.store';
 
 /** Page size for the inbox list. */
 const PAGE_SIZE = 20;
@@ -18,6 +19,7 @@ const PAGE_SIZE = 20;
 @Injectable({ providedIn: 'root' })
 export class InboxService {
   private readonly api = inject(InboxApiService);
+  private readonly transloco = inject(TranslocoService);
 
   readonly items = signal<InboxItemDto[]>([]);
   readonly unreadCount = signal(0);
@@ -56,7 +58,7 @@ export class InboxService {
       this.nextCursor.set(null);
       this.unreadCount.set(0);
       this.unavailable.set(true);
-      this.error.set(messageOf(e));
+      this.error.set(this.messageOf(e));
     } finally {
       if (gen === this.generation) this.loading.set(false);
     }
@@ -90,7 +92,7 @@ export class InboxService {
       this.nextCursor.set(page.nextCursor);
       this.unreadCount.set(page.unreadCount);
     } catch (e) {
-      if (gen === this.generation) this.error.set(messageOf(e));
+      if (gen === this.generation) this.error.set(this.messageOf(e));
     } finally {
       this.loadingMore.set(false);
     }
@@ -119,7 +121,7 @@ export class InboxService {
       // Put it back: an unread item that silently looks read is worse than an error.
       this.patch(id, null);
       this.unreadCount.update((n) => n + 1);
-      this.error.set(messageOf(e));
+      this.error.set(this.messageOf(e));
     }
   }
 
@@ -136,13 +138,18 @@ export class InboxService {
     } catch (e) {
       this.items.set(snapshot);
       this.unreadCount.set(snapshot.filter((item) => !item.readAt).length);
-      this.error.set(messageOf(e));
+      this.error.set(this.messageOf(e));
     }
   }
 
   /** Clears a surfaced error without refetching. */
   dismissError(): void {
     this.error.set(null);
+  }
+
+  /** The server's message, or the translated generic fallback. */
+  private messageOf(e: unknown): string {
+    return messageOf(e, this.transloco.translate(GENERIC_ERROR_KEY));
   }
 
   private patch(id: string, readAt: string | null): void {

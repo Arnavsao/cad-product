@@ -1,11 +1,12 @@
+<ng-container *transloco="let t">
 <!-- Hero -->
 <section class="uc__hero site-section site-section--tight">
   <div class="site-container">
     <site-heading
       [level]="1"
-      eyebrow="Use cases"
-      title="Built for the people who still draw in 2D."
-      lede="Plans, general arrangements, coursework, a studio’s shared set, a drafting surface inside someone else’s product. Five ways CADO is used, with the commands, the files and the plan that fit each."
+      [eyebrow]="t('site.useCases.hero.eyebrow')"
+      [title]="t('site.useCases.hero.title')"
+      [lede]="t('site.useCases.hero.lede')"
     />
   </div>
 </section>
@@ -13,57 +14,59 @@
 <!-- Audience explorer -->
 <section class="uc__explorer site-section site-section--tight" aria-labelledby="uc-who">
   <div class="site-container">
-    <h2 class="ui-visually-hidden" id="uc-who">Who uses CADO</h2>
+    <h2 class="ui-visually-hidden" id="uc-who">{{ t('site.useCases.explorer.heading') }}</h2>
 
-    <site-tabs [tabs]="tabs" [(active)]="active" orientation="vertical" label="Audiences">
+    <site-tabs [tabs]="tabs" [(active)]="active" orientation="vertical" labelKey="site.useCases.explorer.tabsLabel">
       @if (current(); as a) {
-        <article class="uc__aud" [attr.aria-label]="a.label">
+        <article class="uc__aud" [attr.aria-label]="t(a.labelKey)">
           <header class="uc__aud-head">
-            <p class="site-eyebrow">{{ a.label }}</p>
-            <h3 class="uc__headline">{{ a.headline }}</h3>
-            <p class="site-body">{{ a.body }}</p>
+            <p class="site-eyebrow">{{ t(a.labelKey) }}</p>
+            <h3 class="uc__headline">{{ t(a.headlineKey) }}</h3>
+            <p class="site-body">{{ t(a.bodyKey) }}</p>
           </header>
 
           <div class="uc__aud-grid">
             <div class="uc__aud-text">
-              <h4 class="uc__h4">What matters</h4>
+              <h4 class="uc__h4">{{ t('site.useCases.explorer.mattersTitle') }}</h4>
               <ul class="uc__checks">
-                @for (point of a.points; track point) {
+                @for (pointKey of a.pointKeys; track pointKey) {
                   <li>
                     <ui-icon name="check" [size]="16" aria-hidden="true" />
-                    <span>{{ point }}</span>
+                    <span>{{ t(pointKey) }}</span>
                   </li>
                 }
               </ul>
 
-              <h4 class="uc__h4">A week with CADO</h4>
+              <h4 class="uc__h4">{{ t('site.useCases.explorer.weekTitle') }}</h4>
               <ol class="uc__week">
-                @for (step of detail().week; track $index) {
+                @for (stepKey of detail().weekKeys; track stepKey) {
                   <li>
                     <span class="uc__week-n" aria-hidden="true">{{ $index + 1 }}</span>
-                    <span class="uc__week-text">{{ step }}</span>
+                    <span class="uc__week-text">{{ t(stepKey) }}</span>
                   </li>
                 }
               </ol>
             </div>
 
-            <aside class="uc__aud-side" aria-label="Screenshot and related features">
+            <aside class="uc__aud-side" [attr.aria-label]="t('site.useCases.explorer.sideLabel')">
               <site-screen
                 [src]="detail().screen.src"
-                [alt]="detail().screen.alt"
+                [alt]="t(detail().screen.altKey)"
                 [title]="detail().screen.title"
-                [caption]="detail().screen.caption"
+                [caption]="t(detail().screen.captionKey)"
                 ratio="16 / 10"
               />
 
-              <h4 class="uc__h4">Features that matter</h4>
+              <h4 class="uc__h4">{{ t('site.useCases.explorer.featuresTitle') }}</h4>
               <ul class="uc__links">
-                @for (f of detail().features; track f.label) {
+                @for (f of detail().features; track f.id) {
                   <li>
                     <a class="uc__link" [routerLink]="f.link" [fragment]="f.fragment">
-                      <span>{{ f.label }}</span>
+                      <span>{{ t(f.labelKey) }}</span>
                       <ui-icon name="chevron-right" [size]="14" aria-hidden="true" />
-                      <span class="ui-visually-hidden">, on the {{ f.link === '/docs' ? 'documentation' : 'features' }} page</span>
+                      <span class="ui-visually-hidden">{{
+                        f.link === '/docs' ? t('site.useCases.explorer.linkOnDocs') : t('site.useCases.explorer.linkOnFeatures')
+                      }}</span>
                     </a>
                   </li>
                 }
@@ -82,43 +85,42 @@
     <div class="uc__switch-intro" siteReveal="left">
       <site-heading
         id="uc-switch"
-        eyebrow="From AutoCAD to CADO"
-        title="What carries over, and what does not."
-        lede="Most of what your hands know still works. The rest is different because a browser and a cloud account are different from an installer and a network share, and we would rather say so than let you find out."
+        [eyebrow]="t('site.useCases.switch.eyebrow')"
+        [title]="t('site.useCases.switch.title')"
+        [lede]="t('site.useCases.switch.lede')"
       />
       <p class="site-body">
-        Try it with a drawing you know. Type <kbd class="site-kbd">L</kbd>, press <kbd class="site-kbd">F8</kbd>, snap to an
-        endpoint, and see whether it feels like Tuesday.
+        <span [innerHTML]="t('site.useCases.switch.tryIt')"></span>
       </p>
-      <a uiButton variant="secondary" routerLink="/docs" fragment="commands">Read the command reference</a>
+      <a uiButton variant="secondary" routerLink="/docs" fragment="commands">{{ t('site.useCases.switch.cta') }}</a>
     </div>
 
     <div class="uc__table-wrap site-panel" siteReveal="right">
       <table class="uc__table">
-        <caption class="ui-visually-hidden">AutoCAD habits and how they map to CADO</caption>
+        <caption class="ui-visually-hidden">{{ t('site.useCases.switch.caption') }}</caption>
         <thead>
           <tr>
-            <th scope="col">In AutoCAD</th>
-            <th scope="col">In CADO</th>
+            <th scope="col">{{ t('site.useCases.switch.thAutocad') }}</th>
+            <th scope="col">{{ t('site.useCases.switch.thCado') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr class="uc__table-group">
-            <th scope="rowgroup" colspan="2"><span class="site-pill site-pill--success">Carries over</span></th>
+            <th scope="rowgroup" colspan="2"><span class="site-pill site-pill--success">{{ t('site.useCases.switch.carriesOver') }}</span></th>
           </tr>
-          @for (row of carriesOver; track row.autocad) {
+          @for (row of carriesOver; track row.id) {
             <tr>
-              <th scope="row">{{ row.autocad }}</th>
-              <td>{{ row.cado }}</td>
+              <th scope="row">{{ t(row.autocadKey) }}</th>
+              <td>{{ t(row.cadoKey) }}</td>
             </tr>
           }
           <tr class="uc__table-group">
-            <th scope="rowgroup" colspan="2"><span class="site-pill site-pill--warning">Different</span></th>
+            <th scope="rowgroup" colspan="2"><span class="site-pill site-pill--warning">{{ t('site.useCases.switch.different') }}</span></th>
           </tr>
-          @for (row of different; track row.autocad) {
+          @for (row of different; track row.id) {
             <tr>
-              <th scope="row">{{ row.autocad }}</th>
-              <td>{{ row.cado }}</td>
+              <th scope="row">{{ t(row.autocadKey) }}</th>
+              <td>{{ t(row.cadoKey) }}</td>
             </tr>
           }
         </tbody>
@@ -133,48 +135,47 @@
     <div class="uc__embed-text" siteReveal>
       <site-heading
         id="uc-embed"
-        eyebrow="Embedding"
-        title="The editor is a component."
-        lede="CadEditorComponent is a standalone Angular component with a small API. Hand it a drawing, get the DXF back on save, and keep your own identity system."
+        [eyebrow]="t('site.useCases.embed.eyebrow')"
+        [title]="t('site.useCases.embed.title')"
+        [lede]="t('site.useCases.embed.lede')"
       />
       <dl class="uc__api">
         <div>
           <dt><code class="site-mono">id</code></dt>
-          <dd>Open this stored drawing on init.</dd>
+          <dd>{{ t('site.useCases.embed.api.id') }}</dd>
         </div>
         <div>
           <dt><code class="site-mono">initialDxf</code></dt>
-          <dd>Or hand it DXF text, or a JSON entity payload, directly.</dd>
+          <dd>{{ t('site.useCases.embed.api.initialDxf') }}</dd>
         </div>
         <div>
           <dt><code class="site-mono">exitUrl</code></dt>
-          <dd>Where Back goes. Pass <code class="site-mono">null</code> to keep browser history.</dd>
+          <dd [innerHTML]="t('site.useCases.embed.api.exitUrl')"></dd>
         </div>
         <div>
           <dt><code class="site-mono">(save)</code></dt>
-          <dd>Emits the DXF when the user exports.</dd>
+          <dd>{{ t('site.useCases.embed.api.save') }}</dd>
         </div>
         <div>
           <dt><code class="site-mono">(close)</code></dt>
-          <dd>Emits when the user presses Back.</dd>
+          <dd>{{ t('site.useCases.embed.api.close') }}</dd>
         </div>
       </dl>
       <p class="site-body">
-        Leave the Supabase keys empty and the editor runs in embedded mode: the route guards pass through, the account menu renders
-        nothing, and a 401 from the API no longer redirects to our sign-in page. Your application owns identity.
+        {{ t('site.useCases.embed.body') }}
       </p>
       <div class="uc__embed-actions">
-        <a uiButton variant="primary" routerLink="/docs" fragment="embedding">Integration guide</a>
-        <a uiButton variant="ghost" routerLink="/contact">Talk to us about embedding</a>
+        <a uiButton variant="primary" routerLink="/docs" fragment="embedding">{{ t('site.useCases.embed.ctaGuide') }}</a>
+        <a uiButton variant="ghost" routerLink="/contact">{{ t('site.useCases.embed.ctaTalk') }}</a>
       </div>
     </div>
 
     <div class="uc__code site-panel" siteReveal="right" revealDelay="120">
-      <div class="uc__code-bar"><span class="uc__code-file">cad-editor.ts</span><span class="uc__code-lang">TypeScript</span></div>
+      <div class="uc__code-bar"><span class="uc__code-file">cad-editor.ts</span><span class="uc__code-lang">{{ t('site.useCases.embed.code.typescript') }}</span></div>
       <pre class="uc__pre" tabindex="0"><code>{{ apiSnippet }}</code></pre>
-      <div class="uc__code-bar"><span class="uc__code-file">host.component.html</span><span class="uc__code-lang">Template</span></div>
+      <div class="uc__code-bar"><span class="uc__code-file">host.component.html</span><span class="uc__code-lang">{{ t('site.useCases.embed.code.template') }}</span></div>
       <pre class="uc__pre" tabindex="0"><code>{{ usageSnippet }}</code></pre>
-      <div class="uc__code-bar"><span class="uc__code-file">app.config.ts</span><span class="uc__code-lang">Your token source</span></div>
+      <div class="uc__code-bar"><span class="uc__code-file">app.config.ts</span><span class="uc__code-lang">{{ t('site.useCases.embed.code.tokenSource') }}</span></div>
       <pre class="uc__pre" tabindex="0"><code>{{ tokenSnippet }}</code></pre>
     </div>
   </div>
@@ -183,41 +184,48 @@
 <!-- Which plan -->
 <section class="uc__plans site-section site-section--tight" aria-labelledby="uc-plan">
   <div class="site-container site-container--narrow">
-    <site-heading id="uc-plan" eyebrow="Which plan" title="Match the plan to the way you draw." align="center" />
+    <site-heading
+      id="uc-plan"
+      [eyebrow]="t('site.useCases.plans.eyebrow')"
+      [title]="t('site.useCases.plans.title')"
+      align="center"
+    />
     <ol class="uc__plan-list" siteReveal revealStagger="li">
       @for (row of plans; track row.tierId) {
         <li class="uc__plan site-panel">
           <div class="uc__plan-tier">
-            <span class="site-pill" [class.site-pill--muted]="row.tierId === 'free'">{{ row.tier.name }}</span>
+            <span class="site-pill" [class.site-pill--muted]="row.tierId === 'free'">{{ t(row.tier.nameKey) }}</span>
             <span class="uc__plan-price">
               @if (row.tier.monthly === 0) {
-                Free
+                {{ t('site.useCases.plans.free') }}
               } @else {
-                {{ currency }}{{ row.tier.monthly }}<span class="uc__plan-per">/user/month</span>
+                {{ currency }}{{ row.tier.monthly }}<span class="uc__plan-per">{{ t('site.useCases.plans.perUserMonth') }}</span>
               }
             </span>
           </div>
           <div class="uc__plan-body">
-            <h3 class="site-h3">{{ row.who }}</h3>
-            <p class="site-body">{{ row.why }}</p>
+            <h3 class="site-h3">{{ t(row.whoKey) }}</h3>
+            <p class="site-body">{{ t(row.whyKey) }}</p>
           </div>
           <a class="uc__plan-link" routerLink="/pricing" [fragment]="row.tierId">
-            <span>See {{ row.tier.name }} on the pricing page</span>
+            <span>{{ t('site.useCases.plans.seeOnPricing', { plan: t(row.tier.nameKey) }) }}</span>
             <ui-icon name="chevron-right" [size]="14" aria-hidden="true" />
           </a>
         </li>
       }
     </ol>
     <p class="uc__plan-note">
-      Embedding the editor in your own product is not a tier.
-      <a class="site-link" routerLink="/contact">Get in touch</a> and we will work it out with you.
+      {{ t('site.useCases.plans.embedNote') }}
+      <a class="site-link" routerLink="/contact">{{ t('site.useCases.plans.embedLink') }}</a>
+      {{ t('site.useCases.plans.embedNoteAfter') }}
     </p>
   </div>
 </section>
 
 <site-closing
-  title="Open the drawing you already have."
-  sub="Drop a DXF on the dashboard and see whether it reads the way it was issued. It takes less time than reading this page did."
-  secondaryLabel="Compare plans"
+  [title]="t('site.useCases.closing.title')"
+  [sub]="t('site.useCases.closing.sub')"
+  [secondaryLabel]="t('site.useCases.closing.secondary')"
   secondaryLink="/pricing"
 />
+</ng-container>

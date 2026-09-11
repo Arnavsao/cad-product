@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { NotificationService, type NotificationType } from '../../../core/services/notification.service';
 import { UiIconComponent, type UiIconName } from '../../ui/icon.component';
 
@@ -9,11 +10,12 @@ const ICON: Record<NotificationType, UiIconName> = {
   info: 'help',
 };
 
-const TITLE: Record<NotificationType, string> = {
-  success: 'Done',
-  error: 'Something went wrong',
-  warning: 'Heads up',
-  info: 'Note',
+/** Translation key of the short title that names each kind without relying on colour. */
+const TITLE_KEY: Record<NotificationType, string> = {
+  success: 'shared.toast.success',
+  error: 'shared.toast.error',
+  warning: 'shared.toast.warning',
+  info: 'shared.toast.info',
 };
 
 /**
@@ -29,9 +31,9 @@ const TITLE: Record<NotificationType, string> = {
   selector: 'app-notification-display',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent],
+  imports: [TranslocoDirective, UiIconComponent],
   template: `
-    <div class="toasts">
+    <div class="toasts" *transloco="let t">
       @for (n of notifications.notifications(); track n.id) {
         <div
           class="toast"
@@ -47,10 +49,10 @@ const TITLE: Record<NotificationType, string> = {
           <span class="toast__rail" aria-hidden="true"></span>
           <span class="toast__icon" aria-hidden="true"><ui-icon [name]="iconFor(n.type)" [size]="15" [strokeWidth]="2.2" /></span>
           <div class="toast__body">
-            <p class="toast__title">{{ titleFor(n.type) }}</p>
+            <p class="toast__title">{{ t(titleKeyFor(n.type)) }}</p>
             <p class="toast__msg">{{ n.message }}</p>
           </div>
-          <button type="button" class="toast__close" aria-label="Dismiss" (click)="notifications.remove(n.id); $event.stopPropagation()">
+          <button type="button" class="toast__close" [attr.aria-label]="t('shared.toast.dismiss')" (click)="notifications.remove(n.id); $event.stopPropagation()">
             <ui-icon name="close" [size]="14" />
           </button>
           <span class="toast__bar" aria-hidden="true"></span>
@@ -182,7 +184,7 @@ export class NotificationDisplayComponent {
   protected iconFor(type: NotificationType): UiIconName {
     return ICON[type];
   }
-  protected titleFor(type: NotificationType): string {
-    return TITLE[type];
+  protected titleKeyFor(type: NotificationType): string {
+    return TITLE_KEY[type];
   }
 }

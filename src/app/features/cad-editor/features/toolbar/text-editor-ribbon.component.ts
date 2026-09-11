@@ -5,32 +5,33 @@ import { FormsModule } from '@angular/forms';
 import { TextEditorService } from '../text-editor/text-editor.service';
 import { TableEditorService } from '../table-editor/table-editor.service';
 import { ColorPickerComponent } from '../shared/color-picker/color-picker.component';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-text-editor-ribbon',
   standalone: true,
-  imports: [FormsModule, ColorPickerComponent],
+  imports: [FormsModule, ColorPickerComponent, TranslocoDirective],
   template: `
     @if (f; as s) {
-      <div class="text-ribbon" (mousedown)="$event.stopPropagation()">
+      <div class="text-ribbon" *transloco="let t" (mousedown)="$event.stopPropagation()">
         <!-- ═══ STYLE PANEL ═══ -->
         <div class="te-panel">
           <div class="te-panel-body te-panel-row">
             <div class="te-field-group">
-              <label class="te-field-label">Font</label>
-              <select class="te-select te-font-select" [ngModel]="s.font" (ngModelChange)="s.setFont($event)" title="Font Family">
+              <label class="te-field-label">{{ t('editor.ui.textRibbon.fieldFont') }}</label>
+              <select class="te-select te-font-select" [ngModel]="s.font" (ngModelChange)="s.setFont($event)" [title]="t('editor.ui.textRibbon.fontFamily')">
                 @for (fn of fonts; track fn) {
                   <option [value]="fn">{{ fn }}</option>
                 }
               </select>
             </div>
             <div class="te-field-group">
-              <label class="te-field-label">Height</label>
+              <label class="te-field-label">{{ t('editor.ui.textRibbon.fieldHeight') }}</label>
               <input class="te-input-num" type="number" step="0.5" min="0.001"
                 [ngModel]="s.height"
                 (change)="s.setHeight(+$any($event.target).value)"
-                title="Text Height">
+                [title]="t('editor.ui.textRibbon.textHeight')">
               </div>
               @if (!s.isTable) {
                 <div class="te-field-group">
@@ -38,7 +39,7 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                   <input class="te-input-num" type="number" step="0.05" min="0.1" max="5"
                     [ngModel]="s.widthFactor"
                     (change)="s.setWidthFactor(+$any($event.target).value)"
-                    title="Width Factor (1.0 = normal)">
+                    [title]="t('editor.ui.textRibbon.widthFactor')">
                   </div>
                 }
                 @if (!s.isTable) {
@@ -47,45 +48,45 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                     <input class="te-input-num" type="number" step="1" min="-85" max="85"
                       [ngModel]="s.obliqueAngle"
                       (change)="s.setObliqueAngle(+$any($event.target).value)"
-                      title="Oblique Angle (degrees)">
+                      [title]="t('editor.ui.textRibbon.obliqueAngle')">
                     </div>
                   }
                 </div>
-                <div class="te-panel-label">Style</div>
+                <div class="te-panel-label">{{ t('editor.ui.textRibbon.panelStyle') }}</div>
               </div>
               <div class="te-sep"></div>
               <!-- ═══ FORMATTING PANEL ═══ -->
               <div class="te-panel">
                 <div class="te-panel-body te-panel-row">
                   <button class="te-btn" [class.active]="s.bold"
-                    (click)="s.setBold(!s.bold)" title="Bold">
+                    (click)="s.setBold(!s.bold)" [title]="t('editor.ui.textRibbon.bold')">
                     <b>B</b>
                   </button>
                   <button class="te-btn" [class.active]="s.italic"
-                    (click)="s.setItalic(!s.italic)" title="Italic">
+                    (click)="s.setItalic(!s.italic)" [title]="t('editor.ui.textRibbon.italic')">
                     <i>I</i>
                   </button>
                   <button class="te-btn" [class.active]="s.underline"
-                    (click)="s.setUnderline(!s.underline)" title="Underline">
+                    (click)="s.setUnderline(!s.underline)" [title]="t('editor.ui.textRibbon.underline')">
                     <u>U</u>
                   </button>
                   <button class="te-btn" [class.active]="s.overline"
-                    (click)="s.setOverline(!s.overline)" title="Overline">
+                    (click)="s.setOverline(!s.overline)" [title]="t('editor.ui.textRibbon.overline')">
                     <span style="text-decoration:overline">O</span>
                   </button>
                   <button class="te-btn" [class.active]="s.strikethrough"
-                    (click)="s.setStrikethrough(!s.strikethrough)" title="Strikethrough">
+                    (click)="s.setStrikethrough(!s.strikethrough)" [title]="t('editor.ui.textRibbon.strikethrough')">
                     <s>S</s>
                   </button>
                   <div class="te-sep-v"></div>
                   <app-color-picker
                     [value]="s.textColor"
-                    [label]="'Color'"
+                    [label]="t('editor.ui.textRibbon.labelColor')"
                     (valueChange)="s.setTextColor($event)"
-                    title="Text Color">
+                    [title]="t('editor.ui.textRibbon.textColor')">
                   </app-color-picker>
                   <div class="te-sep-v"></div>
-                  <button class="te-btn" title="Toggle UPPERCASE / lowercase" (click)="cycleCase(s)">
+                  <button class="te-btn" [title]="t('editor.ui.textRibbon.toggleCase')" (click)="cycleCase(s)">
                     <span style="font-size:10px;letter-spacing:-0.5px;font-weight:600">Aa</span>
                   </button>
                   @if (!s.isTable) {
@@ -93,11 +94,11 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                   }
                   @if (!s.isTable) {
                     <div class="te-field-group">
-                      <label class="te-field-label te-label-hide-small">Spacing</label>
+                      <label class="te-field-label te-label-hide-small">{{ t('editor.ui.textRibbon.fieldSpacing') }}</label>
                       <input class="te-input-num" type="number" step="0.1" min="-5" max="20"
                         [ngModel]="s.charSpacing"
                         (change)="s.setCharSpacing(+$any($event.target).value)"
-                        title="Character Spacing">
+                        [title]="t('editor.ui.textRibbon.charSpacing')">
                       </div>
                     }
                     @if (s.isTable) {
@@ -106,13 +107,13 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                     @if (s.isTable) {
                       <app-color-picker
                         [value]="s.backgroundColor"
-                        [label]="'Bg'"
+                        [label]="t('editor.ui.textRibbon.labelBg')"
                         (valueChange)="s.setBackgroundColor($event)"
-                        title="Cell Background Color">
+                        [title]="t('editor.ui.textRibbon.cellBackgroundColor')">
                       </app-color-picker>
                     }
                   </div>
-                  <div class="te-panel-label">Formatting</div>
+                  <div class="te-panel-label">{{ t('editor.ui.textRibbon.panelFormatting') }}</div>
                 </div>
                 <div class="te-sep"></div>
                 <!-- ═══ PARAGRAPH PANEL ═══ -->
@@ -120,28 +121,28 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                   <div class="te-panel">
                     <div class="te-panel-body te-panel-row">
                       <button class="te-btn" [class.active]="s.horiz === 'left'"
-                        (click)="s.setHoriz('left')" title="Align Left">
+                        (click)="s.setHoriz('left')" [title]="t('editor.ui.textRibbon.alignLeft')">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="2" width="12" height="1.5" rx="0.5"/><rect x="1" y="5.5" width="8" height="1.5" rx="0.5"/><rect x="1" y="9" width="10" height="1.5" rx="0.5"/></svg>
                       </button>
                       <button class="te-btn" [class.active]="s.horiz === 'center'"
-                        (click)="s.setHoriz('center')" title="Align Center">
+                        (click)="s.setHoriz('center')" [title]="t('editor.ui.textRibbon.alignCenter')">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="2" width="12" height="1.5" rx="0.5"/><rect x="3" y="5.5" width="8" height="1.5" rx="0.5"/><rect x="2" y="9" width="10" height="1.5" rx="0.5"/></svg>
                       </button>
                       <button class="te-btn" [class.active]="s.horiz === 'right'"
-                        (click)="s.setHoriz('right')" title="Align Right">
+                        (click)="s.setHoriz('right')" [title]="t('editor.ui.textRibbon.alignRight')">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="2" width="12" height="1.5" rx="0.5"/><rect x="5" y="5.5" width="8" height="1.5" rx="0.5"/><rect x="3" y="9" width="10" height="1.5" rx="0.5"/></svg>
                       </button>
                       <div class="te-sep-v"></div>
                       <button class="te-btn" [class.active]="s.vert === 'top'"
-                        (click)="s.setVert('top')" title="Top">
+                        (click)="s.setVert('top')" [title]="t('editor.ui.textRibbon.alignTop')">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="12" height="1.5" rx="0.5"/><rect x="3" y="4" width="3" height="8" rx="0.5"/><rect x="8" y="4" width="3" height="8" rx="0.5"/></svg>
                       </button>
                       <button class="te-btn" [class.active]="s.vert === 'middle'"
-                        (click)="s.setVert('middle')" title="Middle">
+                        (click)="s.setVert('middle')" [title]="t('editor.ui.textRibbon.alignMiddle')">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="6.25" width="12" height="1.5" rx="0.5"/><rect x="3" y="1" width="3" height="12" rx="0.5"/><rect x="8" y="1" width="3" height="12" rx="0.5"/></svg>
                       </button>
                       <button class="te-btn" [class.active]="s.vert === 'bottom'"
-                        (click)="s.setVert('bottom')" title="Bottom">
+                        (click)="s.setVert('bottom')" [title]="t('editor.ui.textRibbon.alignBottom')">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="11.5" width="12" height="1.5" rx="0.5"/><rect x="3" y="2" width="3" height="8" rx="0.5"/><rect x="8" y="2" width="3" height="8" rx="0.5"/></svg>
                       </button>
                       @if (!s.isTable) {
@@ -149,11 +150,11 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                       }
                       @if (!s.isTable) {
                         <div class="te-field-group">
-                          <label class="te-field-label te-label-hide-small">Line Spc</label>
+                          <label class="te-field-label te-label-hide-small">{{ t('editor.ui.textRibbon.fieldLineSpacing') }}</label>
                           <select class="te-select-sm"
                             [ngModel]="s.lineSpacing"
                             (ngModelChange)="s.setLineSpacing(+$event)"
-                            title="Line Spacing">
+                            [title]="t('editor.ui.textRibbon.lineSpacing')">
                             <option [value]="1.0">1.0×</option>
                             <option [value]="1.2">1.2×</option>
                             <option [value]="1.5">1.5×</option>
@@ -167,25 +168,25 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                       }
                       @if (!s.isTable) {
                         <div class="te-dropdown" (mouseleave)="bulletsOpen = false">
-                          <button class="te-btn" (click)="bulletsOpen = !bulletsOpen" title="Bullets &amp; Numbering" style="margin-top: 10px;">
+                          <button class="te-btn" (click)="bulletsOpen = !bulletsOpen" [title]="t('editor.ui.textRibbon.bulletsNumbering')" style="margin-top: 10px;">
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><circle cx="2" cy="3.5" r="1.3"/><rect x="5" y="2.5" width="8" height="2" rx="0.5"/><circle cx="2" cy="7" r="1.3"/><rect x="5" y="6" width="6" height="2" rx="0.5"/><circle cx="2" cy="10.5" r="1.3"/><rect x="5" y="9.5" width="7" height="2" rx="0.5"/></svg>
                             <span style="font-size:9px;margin-left:1px">▾</span>
                           </button>
                           @if (bulletsOpen) {
                             <div class="te-dropdown-menu">
-                              <div class="te-menu-label">Insert Prefix</div>
-                              <button class="te-menu-item" (click)="s.toggleListType(''); bulletsOpen = false">None</button>
+                              <div class="te-menu-label">{{ t('editor.ui.textRibbon.menuInsertPrefix') }}</div>
+                              <button class="te-menu-item" (click)="s.toggleListType(''); bulletsOpen = false">{{ t('editor.ui.textRibbon.listNone') }}</button>
                               <div class="te-sep"></div>
-                              <button class="te-menu-item" (click)="s.toggleListType('• '); bulletsOpen = false">&bull; Bulleted</button>
-                              <button class="te-menu-item" (click)="s.toggleListType('1. '); bulletsOpen = false">1. Numbered</button>
-                              <button class="te-menu-item" (click)="s.toggleListType('a. '); bulletsOpen = false">a. Lowercase</button>
-                              <button class="te-menu-item" (click)="s.toggleListType('A. '); bulletsOpen = false">A. Uppercase</button>
+                              <button class="te-menu-item" (click)="s.toggleListType('• '); bulletsOpen = false">&bull; {{ t('editor.ui.textRibbon.listBulleted') }}</button>
+                              <button class="te-menu-item" (click)="s.toggleListType('1. '); bulletsOpen = false">1. {{ t('editor.ui.textRibbon.listNumbered') }}</button>
+                              <button class="te-menu-item" (click)="s.toggleListType('a. '); bulletsOpen = false">a. {{ t('editor.ui.textRibbon.listLowercase') }}</button>
+                              <button class="te-menu-item" (click)="s.toggleListType('A. '); bulletsOpen = false">A. {{ t('editor.ui.textRibbon.listUppercase') }}</button>
                             </div>
                           }
                         </div>
                       }
                     </div>
-                    <div class="te-panel-label">Paragraph</div>
+                    <div class="te-panel-label">{{ t('editor.ui.textRibbon.panelParagraph') }}</div>
                   </div>
                 }
                 @if (!s.isLeader) {
@@ -195,21 +196,21 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                 @if (s.isTable) {
                   <div class="te-panel">
                     <div class="te-panel-body te-panel-row">
-                      <button class="te-btn" (click)="s.insertRow()" title="Insert Row Above/Below">
+                      <button class="te-btn" (click)="s.insertRow()" [title]="t('editor.ui.textRibbon.insertRow')">
                         <span style="font-weight:600;font-size:12px">+R</span>
                       </button>
-                      <button class="te-btn" (click)="s.deleteRow()" title="Delete Row">
+                      <button class="te-btn" (click)="s.deleteRow()" [title]="t('editor.ui.textRibbon.deleteRow')">
                         <span style="font-weight:600;font-size:12px;color:#ef4444">-R</span>
                       </button>
                       <div class="te-sep-v"></div>
-                      <button class="te-btn" (click)="s.insertCol()" title="Insert Column Left/Right">
+                      <button class="te-btn" (click)="s.insertCol()" [title]="t('editor.ui.textRibbon.insertCol')">
                         <span style="font-weight:600;font-size:12px">+C</span>
                       </button>
-                      <button class="te-btn" (click)="s.deleteCol()" title="Delete Column">
+                      <button class="te-btn" (click)="s.deleteCol()" [title]="t('editor.ui.textRibbon.deleteCol')">
                         <span style="font-weight:600;font-size:12px;color:#ef4444">-C</span>
                       </button>
                     </div>
-                    <div class="te-panel-label">Table Cells</div>
+                    <div class="te-panel-label">{{ t('editor.ui.textRibbon.panelTableCells') }}</div>
                   </div>
                 }
                 @if (s.isTable) {
@@ -219,23 +220,23 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                 <div class="te-panel">
                   <div class="te-panel-body te-panel-row-wrap">
                     <div class="te-dropdown" (mouseleave)="symbolMenuOpen = false">
-                      <button class="te-btn-tall" (click)="symbolMenuOpen = !symbolMenuOpen" title="Insert Symbol">
+                      <button class="te-btn-tall" (click)="symbolMenuOpen = !symbolMenuOpen" [title]="t('editor.ui.textRibbon.insertSymbol')">
                         <span class="te-icon-xl">&#937;</span>
-                        <span class="te-btn-sub">Symbol</span>
+                        <span class="te-btn-sub">{{ t('editor.ui.textRibbon.subSymbol') }}</span>
                       </button>
                       @if (symbolMenuOpen) {
                         <div class="te-dropdown-menu te-sym-grid">
-                          <div class="te-menu-label te-span-all">Engineering</div>
+                          <div class="te-menu-label te-span-all">{{ t('editor.ui.textRibbon.menuEngineering') }}</div>
                           @for (sym of engineeringSymbols; track sym) {
                             <button class="te-sym-btn" [title]="sym.name"
                             (click)="insertSymbol(sym.char); symbolMenuOpen = false">{{ sym.char }}</button>
                           }
-                          <div class="te-menu-label te-span-all">Greek</div>
+                          <div class="te-menu-label te-span-all">{{ t('editor.ui.textRibbon.menuGreek') }}</div>
                           @for (sym of greekSymbols; track sym) {
                             <button class="te-sym-btn" [title]="sym.name"
                             (click)="insertSymbol(sym.char); symbolMenuOpen = false">{{ sym.char }}</button>
                           }
-                          <div class="te-menu-label te-span-all">Math</div>
+                          <div class="te-menu-label te-span-all">{{ t('editor.ui.textRibbon.menuMath') }}</div>
                           @for (sym of mathSymbols; track sym) {
                             <button class="te-sym-btn" [title]="sym.name"
                             (click)="insertSymbol(sym.char); symbolMenuOpen = false">{{ sym.char }}</button>
@@ -245,13 +246,13 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                     </div>
                     @if (!s.isTable) {
                       <div class="te-dropdown" (mouseleave)="maskMenuOpen = false">
-                        <button class="te-btn-tall" (click)="maskMenuOpen = !maskMenuOpen" title="Background Mask">
+                        <button class="te-btn-tall" (click)="maskMenuOpen = !maskMenuOpen" [title]="t('editor.ui.textRibbon.backgroundMask')">
                           <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="2" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="4" width="12" height="12" rx="1" opacity="0.3"/><text x="10" y="14" text-anchor="middle" font-size="8" font-weight="bold">M</text></svg>
-                          <span class="te-btn-sub">Mask</span>
+                          <span class="te-btn-sub">{{ t('editor.ui.textRibbon.subMask') }}</span>
                         </button>
                         @if (maskMenuOpen) {
                           <div class="te-dropdown-menu te-mask-menu">
-                            <div class="te-menu-label">Background Mask</div>
+                            <div class="te-menu-label">{{ t('editor.ui.textRibbon.menuBackgroundMask') }}</div>
                             <label class="te-menu-check" style="white-space: nowrap;">
                               <input type="checkbox"
                                 [checked]="s.backgroundMask"
@@ -260,16 +261,16 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                               </label>
                               @if (s.backgroundMask) {
                                 <div class="te-menu-item-group">
-                                  <label class="te-field-label-m">Border Offset</label>
+                                  <label class="te-field-label-m">{{ t('editor.ui.textRibbon.fieldBorderOffset') }}</label>
                                   <input type="number" class="te-input-sm" step="0.1" min="1" max="5"
                                     [ngModel]="s.maskOffset"
                                     (change)="s.setMaskOffset(+$any($event.target).value)">
-                                    <label class="te-field-label-m" style="margin-top:4px; margin-bottom: 2px;">Mask Color</label>
+                                    <label class="te-field-label-m" style="margin-top:4px; margin-bottom: 2px;">{{ t('editor.ui.textRibbon.fieldMaskColor') }}</label>
                                     <app-color-picker
                                       [value]="s.backgroundColor"
                                       [label]="''"
                                       (valueChange)="s.setBackgroundColor($event)"
-                                      title="Mask Color">
+                                      [title]="t('editor.ui.textRibbon.maskColor')">
                                     </app-color-picker>
                                   </div>
                                 }
@@ -278,24 +279,24 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                           </div>
                         }
                         <div class="te-dropdown" (mouseleave)="findMenuOpen = false">
-                          <button class="te-btn-tall" (click)="findMenuOpen = !findMenuOpen" title="Find &amp; Replace">
+                          <button class="te-btn-tall" (click)="findMenuOpen = !findMenuOpen" [title]="t('editor.ui.textRibbon.findReplace')">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="8" cy="8" r="5" stroke-width="1.5"/><line x1="12" y1="12" x2="17" y2="17" stroke-width="2"/></svg>
-                            <span class="te-btn-sub">Find</span>
+                            <span class="te-btn-sub">{{ t('editor.ui.textRibbon.subFind') }}</span>
                           </button>
                           @if (findMenuOpen) {
                             <div class="te-dropdown-menu te-find-menu">
                               <div class="te-menu-label">Find &amp; Replace</div>
-                              <input class="te-find-input" type="text" placeholder="Find..." [(ngModel)]="findText">
-                              <input class="te-find-input" type="text" placeholder="Replace with..." [(ngModel)]="replaceText">
+                              <input class="te-find-input" type="text" [placeholder]="t('editor.ui.textRibbon.findPlaceholder')" [(ngModel)]="findText">
+                              <input class="te-find-input" type="text" [placeholder]="t('editor.ui.textRibbon.replacePlaceholder')" [(ngModel)]="replaceText">
                               <div class="te-find-actions">
-                                <button class="te-find-btn" (click)="doFindReplace(s, false)">Replace</button>
-                                <button class="te-find-btn te-find-btn-all" (click)="doFindReplace(s, true)">All</button>
+                                <button class="te-find-btn" (click)="doFindReplace(s, false)">{{ t('editor.ui.textRibbon.replace') }}</button>
+                                <button class="te-find-btn te-find-btn-all" (click)="doFindReplace(s, true)">{{ t('editor.ui.textRibbon.replaceAll') }}</button>
                               </div>
                             </div>
                           }
                         </div>
                       </div>
-                      <div class="te-panel-label">Insert</div>
+                      <div class="te-panel-label">{{ t('editor.ui.textRibbon.panelInsert') }}</div>
                     </div>
                     <div class="te-sep"></div>
                     <!-- ═══ OPTIONS PANEL ═══ -->
@@ -303,23 +304,23 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                       <div class="te-panel">
                         <div class="te-panel-body te-panel-row">
                           <div class="te-field-group">
-                            <label class="te-field-label te-label-hide-small">Type</label>
+                            <label class="te-field-label te-label-hide-small">{{ t('editor.ui.textRibbon.fieldType') }}</label>
                             <label class="te-menu-check" style="white-space:nowrap;margin-top:4px;">
                               <input type="checkbox"
                                 [checked]="s.annotative"
                                 (change)="s.setAnnotative($any($event.target).checked)">
-                                <span class="te-label-hide-small">Annotative</span>
+                                <span class="te-label-hide-small">{{ t('editor.ui.textRibbon.annotative') }}</span>
                               </label>
                             </div>
                             <div class="te-field-group">
-                              <label class="te-field-label te-label-hide-small">Rotation°</label>
+                              <label class="te-field-label te-label-hide-small">{{ t('editor.ui.textRibbon.fieldRotation') }}</label>
                               <input class="te-input-num" type="number" step="15"
                                 [ngModel]="s.rotation"
                                 (change)="s.setRotation(+$any($event.target).value)"
-                                title="Text Rotation (degrees)">
+                                [title]="t('editor.ui.textRibbon.textRotation')">
                               </div>
                             </div>
-                            <div class="te-panel-label">Options</div>
+                            <div class="te-panel-label">{{ t('editor.ui.textRibbon.panelOptions') }}</div>
                           </div>
                         }
                         @if (!s.isTable) {
@@ -328,10 +329,10 @@ import { ColorPickerComponent } from '../shared/color-picker/color-picker.compon
                         <!-- ═══ CLOSE ═══ -->
                         <div class="te-panel te-panel-close">
                           <div class="te-panel-body te-panel-row" style="gap:2px">
-                            <button class="te-close-btn" (click)="s.commit()" title="Close Text Editor (Save)">
+                            <button class="te-close-btn" (click)="s.commit()" [title]="t('editor.ui.textRibbon.closeSave')">
                               <span class="te-close-check">&#10004;</span>
                             </button>
-                            <button class="te-close-btn cancel" (click)="s.cancel()" title="Cancel (Esc)">
+                            <button class="te-close-btn cancel" (click)="s.cancel()" [title]="t('editor.ui.textRibbon.cancelEsc')">
                               <span class="te-cancel-cross">&#10006;</span>
                             </button>
                           </div>

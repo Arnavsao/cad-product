@@ -1,45 +1,52 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { CAD_THEMES } from '../../cad-editor/core/services/theme.service';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
-import { OnboardingDraft, roleLabel, unitLabel } from '../onboarding.model';
+import { OnboardingDraft, roleLabelKey, unitChoice } from '../onboarding.model';
 
 /** Step 3 — read-back of everything the wizard is about to POST. */
 @Component({
   selector: 'app-onboarding-finish-step',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent],
+  imports: [TranslocoDirective, UiIconComponent],
   template: `
-    <h2 class="ob-step__title">You're all set</h2>
-    <p class="ob-step__sub">Here's what we'll save to your account.</p>
+    <ng-container *transloco="let t">
+    <h2 class="ob-step__title">{{ t('onboarding.finish.title') }}</h2>
+    <p class="ob-step__sub">{{ t('onboarding.finish.subtitle') }}</p>
 
     <dl class="ob-summary">
       <div class="ob-summary__row">
-        <dt>Name</dt>
-        <dd>{{ fullName() || 'Not specified' }}</dd>
+        <dt>{{ t('onboarding.finish.name') }}</dt>
+        <dd>{{ fullName() || t('onboarding.finish.notSpecified') }}</dd>
       </div>
       <div class="ob-summary__row">
-        <dt>Role</dt>
-        <dd>{{ role() }}</dd>
+        <dt>{{ t('onboarding.finish.role') }}</dt>
+        <dd>{{ t(roleKey()) }}</dd>
       </div>
       <div class="ob-summary__row">
-        <dt>Units</dt>
-        <dd>{{ units() }}</dd>
+        <dt>{{ t('onboarding.finish.units') }}</dt>
+        @if (unit(); as u) {
+          <dd>{{ t('onboarding.finish.unitsValue', { name: t(u.nameKey), abbr: u.label }) }}</dd>
+        } @else {
+          <dd>{{ draft().units }}</dd>
+        }
       </div>
       <div class="ob-summary__row">
-        <dt>Appearance</dt>
+        <dt>{{ t('onboarding.finish.appearance') }}</dt>
         <dd>{{ theme() }}</dd>
       </div>
       <div class="ob-summary__row">
-        <dt>Template</dt>
-        <dd>Blank drawing</dd>
+        <dt>{{ t('onboarding.finish.template') }}</dt>
+        <dd>{{ t('onboarding.finish.blankDrawing') }}</dd>
       </div>
     </dl>
 
     <p class="ob-note">
       <ui-icon name="cloud" [size]="15" />
-      Drawings are saved to your account, so you can pick them up on any machine.
+      {{ t('onboarding.finish.note') }}
     </p>
+    </ng-container>
   `,
   styles: [
     `
@@ -71,7 +78,7 @@ export class OnboardingFinishStepComponent {
   readonly draft = input.required<OnboardingDraft>();
 
   protected readonly fullName = computed(() => `${this.draft().firstName} ${this.draft().lastName}`.trim());
-  protected readonly role = computed(() => roleLabel(this.draft().roleChoice));
-  protected readonly units = computed(() => unitLabel(this.draft().units));
+  protected readonly roleKey = computed(() => roleLabelKey(this.draft().roleChoice));
+  protected readonly unit = computed(() => unitChoice(this.draft().units));
   protected readonly theme = computed(() => CAD_THEMES.find((t) => t.id === this.draft().themeId)?.name ?? 'CAD Dark');
 }

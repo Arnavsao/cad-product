@@ -5,12 +5,15 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
 import { DocumentManagerService } from '../../core/services/document-manager.service';
 import { ContextMenuService } from '../../core/services/context-menu.service';
 import { DrawingPersistenceService } from '../../core/services/drawing-persistence.service';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { translateOr, injectTranslocoOptional } from '../../../../core/i18n/translate-or';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-document-tabs',
   standalone: true,
-  imports: [DragDropModule],
+  imports: [UiIconComponent, DragDropModule, TranslocoDirective],
   templateUrl: './document-tabs.component.html',
   styleUrl: './document-tabs.component.scss'
 })
@@ -18,6 +21,7 @@ export class DocumentTabsComponent {
   public docManager = inject(DocumentManagerService);
   private contextMenu = inject(ContextMenuService);
   private persist = inject(DrawingPersistenceService);
+  private transloco = injectTranslocoOptional();
 
   isMenuOpen = false;
 
@@ -101,21 +105,21 @@ export class DocumentTabsComponent {
 
     const items = [
       {
-        label: 'Close',
+        label: translateOr(this.transloco, 'editor.ui.documentTabs.close', 'Close'),
         action: () => {
           this.contextMenu.hide();
           void this.docManager.closeDocument(tabId);
         }
       },
       {
-        label: 'Close Others',
+        label: translateOr(this.transloco, 'editor.ui.documentTabs.closeOthers', 'Close Others'),
         action: () => {
           this.contextMenu.hide();
           void this.closeMany(this.docManager.documents().filter(d => d.tabId !== tabId).map(d => d.tabId));
         }
       },
       {
-        label: 'Close All',
+        label: translateOr(this.transloco, 'editor.ui.documentTabs.closeAll', 'Close All'),
         action: () => {
           this.contextMenu.hide();
           void this.closeMany(this.docManager.documents().map(d => d.tabId));
@@ -123,7 +127,7 @@ export class DocumentTabsComponent {
       },
       { label: '', separator: true, action: () => {} },
       {
-        label: 'Save',
+        label: translateOr(this.transloco, 'editor.ui.documentTabs.save', 'Save'),
         action: () => {
           this.contextMenu.hide();
           // Real cloud save. This used to call `docManager.saveDocument`,
@@ -132,7 +136,7 @@ export class DocumentTabsComponent {
         }
       },
       {
-        label: 'Duplicate',
+        label: translateOr(this.transloco, 'editor.ui.documentTabs.duplicate', 'Duplicate'),
         action: () => {
           this.contextMenu.hide();
           this.docManager.duplicateDocument(tabId);

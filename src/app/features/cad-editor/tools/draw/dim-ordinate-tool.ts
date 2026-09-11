@@ -35,7 +35,7 @@ export class DimOrdinateTool implements ITool {
     if (this.phase === 'leader' && this.featurePoint) {
       const dx = Math.abs(wx - this.featurePoint.x);
       const dy = Math.abs(wy - this.featurePoint.y);
-      // Horizontal leader â†’ measuring Y (isXDatum=false); vertical â†’ measuring X (isXDatum=true)
+      // Horizontal leader → measuring Y (isXDatum=false); vertical → measuring X (isXDatum=true)
       const isXDatum = dy > dx;
       const dim = new OrdinateDimensionEntity(this.featurePoint, { x: wx, y: wy }, isXDatum);
       dim.layer = this.doc.activeLayer;

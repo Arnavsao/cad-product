@@ -219,9 +219,23 @@ describeIfDb('API foundation (e2e)', () => {
     const ok = await request(app.getHttpServer())
       .patch('/api/v1/me/preferences')
       .set('Authorization', `Bearer ${token}`)
-      .send({ units: 'in', theme: 'light', autosaveIntervalSec: 45, uiState: { sidebar: 'open' } });
+      .send({ units: 'in', theme: 'light', locale: 'de', autosaveIntervalSec: 45, uiState: { sidebar: 'open' } });
     expect(ok.status).toBe(200);
-    expect(ok.body.data).toMatchObject({ units: 'in', theme: 'light', autosaveIntervalSec: 45, uiState: { sidebar: 'open' } });
+    expect(ok.body.data).toMatchObject({
+      units: 'in',
+      theme: 'light',
+      locale: 'de',
+      autosaveIntervalSec: 45,
+      uiState: { sidebar: 'open' },
+    });
+
+    // The echo above comes from the row Prisma returned, so it proves the write
+    // reached the database only if a fresh read agrees. `locale` in particular
+    // used to be validated and then dropped by the patch mapper, and the echo
+    // alone would not have caught that either way.
+    const again = await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${token}`);
+    expect(again.status).toBe(200);
+    expect(again.body.data.preferences).toMatchObject({ locale: 'de', theme: 'light', units: 'in' });
   });
 
   it('POST /me/onboarding sets onboardedAt once', async () => {

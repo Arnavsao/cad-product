@@ -1,4 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, signal, viewChildren } from '@angular/core';
+import { TranslocoService, TranslocoDirective } from '@jsverse/transloco';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { WORKFLOW } from '../data/site-content';
 import { MotionService } from '../motion/motion.service';
@@ -19,24 +20,24 @@ import { SiteRevealDirective } from '../motion/reveal.directive';
   selector: 'site-workflow',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent, SiteRevealDirective],
+  imports: [TranslocoDirective, UiIconComponent, SiteRevealDirective],
   template: `
-    <div class="wf">
+    <div class="wf" *transloco="let t">
       <aside class="wf__monitor" siteReveal="left">
         <div class="wf__mon site-panel" aria-live="polite">
           <div class="wf__mon-bar">
             <span class="wf__mon-dots"><i></i><i></i><i></i></span>
-            <span class="wf__mon-title">Command line</span>
+            <span class="wf__mon-title">{{ t('site.components.workflow.commandLine') }}</span>
           </div>
           <div class="wf__mon-body">
-            <p class="wf__mon-step">Step {{ current().index }} of {{ steps.length }}</p>
+            <p class="wf__mon-step">{{ t('site.components.workflow.stepOf', { index: current().index, total: steps.length }) }}</p>
             <p class="wf__mon-line"><span class="wf__mon-prompt" aria-hidden="true">&gt;</span> <span class="wf__mon-text">{{ typed() }}</span><span class="wf__caret" aria-hidden="true"></span></p>
-            <ol class="wf__rail" aria-label="Progress">
+            <ol class="wf__rail" [attr.aria-label]="t('site.components.workflow.progress')">
               @for (step of steps; track step.id; let i = $index) {
                 <li class="wf__rail-step" [class.wf__rail-step--done]="i < activeIndex()" [class.wf__rail-step--on]="i === activeIndex()">
                   <button type="button" class="wf__rail-btn" (click)="jump(i)" [attr.aria-current]="i === activeIndex() ? 'step' : null">
                     <span class="wf__rail-dot"><ui-icon [name]="step.icon" [size]="12" /></span>
-                    <span class="wf__rail-label">{{ step.title }}</span>
+                    <span class="wf__rail-label">{{ t(step.titleKey) }}</span>
                   </button>
                 </li>
               }
@@ -49,8 +50,8 @@ import { SiteRevealDirective } from '../motion/reveal.directive';
         @for (step of steps; track step.id; let i = $index) {
           <li #stepEl class="wf__step" [class.wf__step--on]="i === activeIndex()" [attr.data-index]="i" siteReveal>
             <p class="wf__index">{{ step.index }}</p>
-            <h3 class="wf__title">{{ step.title }}</h3>
-            <p class="wf__body">{{ step.body }}</p>
+            <h3 class="wf__title">{{ t(step.titleKey) }}</h3>
+            <p class="wf__body">{{ t(step.bodyKey) }}</p>
           </li>
         }
       </ol>
@@ -148,7 +149,8 @@ export class SiteWorkflowComponent implements AfterViewInit {
   protected readonly steps = WORKFLOW;
   protected readonly activeIndex = signal(0);
   protected readonly current = computed(() => this.steps[this.activeIndex()]);
-  protected readonly typed = signal(WORKFLOW[0].prompt);
+  private readonly transloco = inject(TranslocoService);
+  protected readonly typed = signal(this.transloco.translate(WORKFLOW[0].promptKey));
 
   private readonly motion = inject(MotionService);
   private readonly destroyRef = inject(DestroyRef);
@@ -183,7 +185,7 @@ export class SiteWorkflowComponent implements AfterViewInit {
 
   private activate(i: number): void {
     this.activeIndex.set(i);
-    const text = this.steps[i].prompt;
+    const text = this.transloco.translate(this.steps[i].promptKey);
     if (this.timer) clearInterval(this.timer);
     if (this.motion.reduced()) {
       this.typed.set(text);

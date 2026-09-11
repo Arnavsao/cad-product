@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { TranslocoService } from '@jsverse/transloco';
 import { Router } from '@angular/router';
 import { ACCOUNT_URL, SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { UiButtonDirective } from './button.directive';
@@ -6,11 +8,12 @@ import { UiMenuTriggerDirective } from './menu/ui-menu-trigger.directive';
 import type { UiMenuItem } from './menu/ui-menu.component';
 import { UiSkeletonComponent } from './skeleton.component';
 
+/** Menu entries with `label` holding the translation key; resolved per language in `menu`. */
 const MENU: UiMenuItem[] = [
-  { id: 'profile', label: 'Personal info', icon: 'user' },
-  { id: 'account', label: 'Account settings', icon: 'settings' },
+  { id: 'profile', label: 'shared.account.personalInfo', icon: 'user' },
+  { id: 'account', label: 'shared.account.accountSettings', icon: 'settings' },
   { id: 'sep', label: '', separator: true },
-  { id: 'sign-out', label: 'Sign out', icon: 'log-out', danger: true },
+  { id: 'sign-out', label: 'shared.account.signOut', icon: 'log-out', danger: true },
 ];
 
 /**
@@ -42,7 +45,7 @@ const MENU: UiMenuItem[] = [
           class="acct__trigger"
           [title]="label()"
           [attr.aria-label]="label()"
-          [uiMenuTrigger]="menu"
+          [uiMenuTrigger]="menu()"
           menuAlign="end"
           (uiMenuSelect)="onSelect($event.id)"
         >
@@ -80,14 +83,23 @@ const MENU: UiMenuItem[] = [
 export class AccountButtonComponent {
   protected readonly auth = inject(SupabaseAuthService);
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
 
-  protected readonly menu = MENU;
+  /** Re-resolved when the language changes, so an open-then-reopened menu follows the UI language. */
+  private readonly lang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
+  protected readonly menu = computed<UiMenuItem[]>(() => {
+    this.lang();
+    return MENU.map((item) => (item.label ? { ...item, label: this.transloco.translate(item.label) } : item));
+  });
 
   protected readonly avatarUrl = computed(() => this.auth.userAvatarUrl());
 
   protected readonly label = computed(() => {
+    this.lang();
     const name = `${this.auth.userFirstName()} ${this.auth.userLastName()}`.trim();
-    return `Account — ${name || this.auth.userEmail() || 'signed in'}`;
+    return this.transloco.translate('shared.account.label', {
+      name: name || this.auth.userEmail() || this.transloco.translate('shared.account.signedIn'),
+    });
   });
 
   protected readonly initials = computed(() => {

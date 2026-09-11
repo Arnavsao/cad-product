@@ -1,4 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { merge } from 'rxjs';
+import { filter, scan } from 'rxjs/operators';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { WorkspaceService } from '../../../core/api/workspace.service';
@@ -18,9 +22,9 @@ import { messageOf } from '../data/drawings-list.store';
 import { RowSelection } from '../data/row-selection';
 
 /** Restore and permanent delete are the only two things a trashed row can do. */
-const BULK_ACTIONS: readonly BulkBarAction[] = [
-  { id: 'restore', label: 'Restore', icon: 'restore' },
-  { id: 'delete', label: 'Delete permanently', icon: 'trash', danger: true },
+const BULK_ACTIONS: readonly (Omit<BulkBarAction, 'label'> & { labelKey: string })[] = [
+  { id: 'restore', labelKey: 'dashboard.trash.restore', icon: 'restore' },
+  { id: 'delete', labelKey: 'dashboard.trash.deletePermanently', icon: 'trash', danger: true },
 ];
 
 /**
@@ -49,6 +53,7 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
     '(document:keydown.escape)': 'selection.clear()',
   },
   imports: [
+    TranslocoDirective,
     UiButtonDirective,
     UiEmptyStateComponent,
     UiIconComponent,
@@ -59,18 +64,19 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
     BulkBarComponent,
   ],
   template: `
+    <ng-container *transloco="let t">
     <header class="pg__head">
       @if (query()) {
-        <h1 class="pg__title">Results for "{{ query() }}" in Trash</h1>
+        <h1 class="pg__title">{{ t('dashboard.trash.resultsFor', { query: query() }) }}</h1>
       } @else {
-        <h1 class="pg__title">Trash</h1>
+        <h1 class="pg__title">{{ t('dashboard.shell.nav.trash') }}</h1>
       }
       <div class="tr__head-end">
         @if (items().length) {
-          <p class="tr__note">Deleted drawings stay here until you remove them permanently.</p>
+          <p class="tr__note">{{ t('dashboard.trash.note') }}</p>
           <button type="button" uiButton variant="danger" [disabled]="busy() !== null" (click)="emptyTrash()">
             <ui-icon name="trash" [size]="14" />
-            Empty trash ({{ total() }})
+            {{ t('dashboard.trash.emptyTrashCount', { count: total() }) }}
           </button>
         }
       </div>
@@ -82,21 +88,21 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
       <div class="pg__error" role="alert">
         <ui-icon name="alert" [size]="18" />
         <div>
-          <p class="pg__error-title">The trash could not be loaded.</p>
+          <p class="pg__error-title">{{ t('dashboard.trash.loadError') }}</p>
           <p class="pg__error-msg">{{ message }}</p>
         </div>
-        <button type="button" uiButton (click)="reload()"><ui-icon name="refresh" [size]="14" /> Retry</button>
+        <button type="button" uiButton (click)="reload()"><ui-icon name="refresh" [size]="14" /> {{ t('common.retry') }}</button>
       </div>
     } @else if (!items().length) {
-      <ui-empty-state icon="trash" heading="The trash is empty" description="Drawings you delete show up here first." />
+      <ui-empty-state icon="trash" [heading]="t('dashboard.trash.emptyTitle')" [description]="t('dashboard.trash.emptyDesc')" />
     } @else if (!filteredItems().length) {
-      <ui-empty-state icon="search" heading="No drawings match your search"
-        [description]="'Nothing in Trash matches &quot;' + query() + '&quot;.'" />
+      <ui-empty-state icon="search" [heading]="t('dashboard.drawings.noMatchTitle')"
+        [description]="t('dashboard.trash.noMatchDesc', { query: query() })" />
     } @else {
       @if (selection.any()) {
         <app-bulk-bar
           [count]="selection.count()"
-          [actions]="bulkActions"
+          [actions]="bulkActions()"
           [busy]="busy() !== null"
           (action)="onBulk($event)"
           (clear)="selection.clear()"
@@ -107,12 +113,12 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
         <input
           type="checkbox"
           class="tr__check"
-          aria-label="Select every drawing on this page"
+          [attr.aria-label]="t('dashboard.trash.selectAllAria')"
           [checked]="allSelected()"
           [indeterminate]="selection.any() && !allSelected()"
           (change)="selection.setAll(items(), !allSelected())"
         />
-        <span>Select all on this page</span>
+        <span>{{ t('dashboard.trash.selectAll') }}</span>
       </div>
 
       <ul class="tr__list">
@@ -122,19 +128,19 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
               type="checkbox"
               class="tr__check"
               [checked]="selection.has(drawing.id)"
-              [attr.aria-label]="'Select ' + drawing.name"
+              [attr.aria-label]="t('dashboard.trash.selectRow', { name: drawing.name })"
               (click)="onPick(drawing, $event)"
             />
             <ui-icon class="tr__icon" name="file" [size]="16" />
             <span class="tr__name" [title]="drawing.name">{{ drawing.name }}</span>
-            <span class="tr__meta">Deleted {{ drawing.deletedAt | relativeTime }}</span>
+            <span class="tr__meta">{{ t('dashboard.trash.deletedAt', { when: drawing.deletedAt | relativeTime }) }}</span>
             <span class="tr__size">{{ drawing.byteSize | fileSize }}</span>
             <button type="button" uiButton size="sm" [disabled]="busy() === drawing.id" (click)="restore(drawing)">
               <ui-icon name="restore" [size]="14" />
-              Restore
+              {{ t('dashboard.trash.restore') }}
             </button>
             <button type="button" uiButton variant="danger" size="sm" [disabled]="busy() === drawing.id" (click)="deleteForever(drawing)">
-              Delete permanently
+              {{ t('dashboard.trash.deletePermanently') }}
             </button>
           </li>
         }
@@ -142,8 +148,9 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
 
       <ui-paginator
         class="tr__pager"
-        noun="drawing"
-        label="Trash pagination"
+        [noun]="t('dashboard.drawings.drawingOne')"
+        [nounPlural]="t('dashboard.drawings.drawingOther')"
+        [label]="t('dashboard.trash.paginationLabel')"
         [total]="total()"
         [page]="page()"
         [pageSize]="pageSize()"
@@ -152,6 +159,7 @@ const BULK_ACTIONS: readonly BulkBarAction[] = [
         (pageSizeChange)="setPageSize($event)"
       />
     }
+    </ng-container>
   `,
   styles: [
     `
@@ -211,6 +219,16 @@ export class TrashPage {
   private readonly dialog = inject(UiDialogService);
   private readonly notify = inject(NotificationService);
   private readonly events = inject(DashboardEventsService);
+  private readonly transloco = inject(TranslocoService);
+
+  /** Bumps on language switch and translation load, so the bulk bar relabels. */
+  private readonly translationRevision = toSignal(
+    merge(
+      this.transloco.langChanges$,
+      this.transloco.events$.pipe(filter((e) => e.type === 'translationLoadSuccess')),
+    ).pipe(scan((n) => n + 1, 0)),
+    { initialValue: 0 },
+  );
 
   protected readonly items = signal<DrawingSummaryDto[]>([]);
   protected readonly loading = signal(true);
@@ -223,7 +241,10 @@ export class TrashPage {
   protected readonly total = signal(0);
 
   protected readonly selection = new RowSelection();
-  protected readonly bulkActions = [...BULK_ACTIONS];
+  protected readonly bulkActions = computed<BulkBarAction[]>(() => {
+    this.translationRevision();
+    return BULK_ACTIONS.map(({ labelKey, ...item }) => ({ ...item, label: this.transloco.translate(labelKey) }));
+  });
   protected readonly allSelected = computed(() => this.selection.allOf(this.items()));
 
   /** Normalised query string from `?q=`. */
@@ -254,6 +275,10 @@ export class TrashPage {
         void this.reload();
       });
     });
+  }
+
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.transloco.translate(key, params);
   }
 
   /** Tell the other pages something changed without re-fetching our own list. */
@@ -325,8 +350,8 @@ export class TrashPage {
       // the trash, so say what actually came back rather than what was asked for.
       this.notify.success(
         restored.name === drawing.name
-          ? `"${drawing.name}" was restored.`
-          : `"${drawing.name}" was restored as "${restored.name}".`,
+          ? this.t('dashboard.trash.restored', { name: drawing.name })
+          : this.t('dashboard.trash.restoredAs', { name: drawing.name, newName: restored.name }),
       );
       this.announce();
     } catch (e) {
@@ -339,9 +364,9 @@ export class TrashPage {
   protected async deleteForever(drawing: DrawingSummaryDto): Promise<void> {
     if (this.busy()) return;
     const ok = await this.dialog.confirm({
-      title: 'Delete permanently?',
-      message: `"${drawing.name}" and all of its saved versions will be deleted. This cannot be undone.`,
-      confirmLabel: 'Delete permanently',
+      title: this.t('dashboard.trash.deleteOneTitle'),
+      message: this.t('dashboard.trash.deleteOneMessage', { name: drawing.name }),
+      confirmLabel: this.t('dashboard.trash.deletePermanently'),
       danger: true,
     });
     if (!ok) return;
@@ -349,7 +374,7 @@ export class TrashPage {
     try {
       await this.api.deletePermanently(drawing.id);
       this.dropRow(drawing.id);
-      this.notify.success(`"${drawing.name}" was deleted.`);
+      this.notify.success(this.t('dashboard.trash.deleted', { name: drawing.name }));
       this.announce();
     } catch (e) {
       this.notify.error(messageOf(e));
@@ -371,9 +396,12 @@ export class TrashPage {
 
     if (id === 'delete') {
       const ok = await this.dialog.confirm({
-        title: `Delete ${rows.length === 1 ? 'this drawing' : rows.length + ' drawings'} permanently?`,
-        message: 'They and all of their saved versions will be deleted. This cannot be undone.',
-        confirmLabel: 'Delete permanently',
+        title:
+          rows.length === 1
+            ? this.t('dashboard.trash.deleteBulkTitleOne')
+            : this.t('dashboard.trash.deleteBulkTitleOther', { count: rows.length }),
+        message: this.t('dashboard.trash.deleteBulkMessage'),
+        confirmLabel: this.t('dashboard.trash.deletePermanently'),
         danger: true,
       });
       if (!ok) return;
@@ -400,11 +428,20 @@ export class TrashPage {
       this.busy.set(null);
     }
 
-    const verb = id === 'restore' ? 'Restored' : 'Deleted';
+    const restoring = id === 'restore';
     if (failed.length) {
-      this.notify.error(`${verb} ${done} of ${rows.length}; failed: ${failed.slice(0, 2).join(', ')}.`);
+      this.notify.error(
+        this.t(restoring ? 'dashboard.trash.restoredPartial' : 'dashboard.trash.deletedPartial', {
+          done,
+          total: rows.length,
+          names: failed.slice(0, 2).join(', '),
+        }),
+      );
     } else {
-      this.notify.success(`${verb} ${done} ${done === 1 ? 'drawing' : 'drawings'}.`);
+      const key = restoring
+        ? done === 1 ? 'dashboard.trash.restoredCountOne' : 'dashboard.trash.restoredCountOther'
+        : done === 1 ? 'dashboard.trash.deletedCountOne' : 'dashboard.trash.deletedCountOther';
+      this.notify.success(this.t(key, { count: done }));
     }
     this.selection.clear();
     await this.reload();
@@ -420,9 +457,9 @@ export class TrashPage {
     if (this.busy() || !this.items().length) return;
     const count = this.total();
     const ok = await this.dialog.confirm({
-      title: 'Empty the trash?',
-      message: `${count} ${count === 1 ? 'drawing' : 'drawings'} and all of their saved versions will be deleted. This cannot be undone.`,
-      confirmLabel: 'Empty trash',
+      title: this.t('dashboard.trash.emptyTrashTitle'),
+      message: this.t(count === 1 ? 'dashboard.trash.emptyMessageOne' : 'dashboard.trash.emptyMessageOther', { count }),
+      confirmLabel: this.t('dashboard.trash.emptyConfirm'),
       danger: true,
     });
     if (!ok) return;
@@ -431,7 +468,7 @@ export class TrashPage {
     try {
       const { deleted } = await this.api.emptyTrash(this.workspace.activeOrgId());
       this.selection.clear();
-      this.notify.success(`${deleted} ${deleted === 1 ? 'drawing' : 'drawings'} deleted.`);
+      this.notify.success(this.t(deleted === 1 ? 'dashboard.trash.emptiedOne' : 'dashboard.trash.emptiedOther', { count: deleted }));
       this.page.set(1);
       await this.reload();
       this.announce();

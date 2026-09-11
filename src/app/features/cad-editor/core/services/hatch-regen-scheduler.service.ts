@@ -11,7 +11,7 @@ import { TopologyService } from './topology.service';
 import { EntityDependencyService } from './entity-dependency.service';
 
 /**
- * HatchRegenScheduler â€” the change-propagation engine for associative hatches.
+ * HatchRegenScheduler — the change-propagation engine for associative hatches.
  *
  * ## Lifecycle
  *
@@ -21,14 +21,14 @@ import { EntityDependencyService } from './entity-dependency.service';
  *
  * ## What it does each frame
  *
- *   1. `syncRegistry` â€” scans the active file's entities. Registers new associative
+ *   1. `syncRegistry` — scans the active file's entities. Registers new associative
  *      hatches with the dependency service; unregisters hatches that have been
  *      deleted or disassociated since the last frame.
- *   2. `deps.sync` â€” compares current entity revisions against cached snapshots
+ *   2. `deps.sync` — compares current entity revisions against cached snapshots
  *      to detect which hatches are stale.
  *   3. For each dirty hatch:
  *      - `host-modified`: the boundary entity moved or was reshaped. The rendered
- *        path is already correct (draw() resolves entity refs dynamically) â€” we
+ *        path is already correct (draw() resolves entity refs dynamically) — we
  *        just need to invalidate the bbox/snap-points cache so hit-testing and
  *        properties panels see the updated shape.
  *      - `host-deleted`: the boundary entity was removed. Try to re-detect a new
@@ -40,7 +40,7 @@ import { EntityDependencyService } from './entity-dependency.service';
  *
  * ## Why no command hooks
  *
- * Commands don't know about this service â€” adding callbacks to `IModifyEntitiesCmdHooks`
+ * Commands don't know about this service — adding callbacks to `IModifyEntitiesCmdHooks`
  * would spread knowledge of hatch associativity through every tool that touches
  * geometry. Instead, the scheduler pulls change information from the entity
  * `revision` counter that `refreshCaches()` already bumps universally.
@@ -65,7 +65,7 @@ export class HatchRegenScheduler {
   private registeredIds = new Set<number>();
 
   /** Last vm.version() seen by flushBeforeFrame(). syncRegistry() only runs
-   *  when this changes â€” skipping the O(n) entity scan on content-identical frames. */
+   *  when this changes — skipping the O(n) entity scan on content-identical frames. */
   private _lastFlushVersion = -1;
 
   constructor() {
@@ -76,7 +76,7 @@ export class HatchRegenScheduler {
   }
 
   /**
-   * Main entry point â€” called once per render frame by DocumentService.drawAll().
+   * Main entry point — called once per render frame by DocumentService.drawAll().
    * Returns early if there are no associative hatches or nothing changed.
    */
   flushBeforeFrame(): void {
@@ -145,13 +145,13 @@ export class HatchRegenScheduler {
     if (needsRedraw) this.vm.markDirty();
   }
 
-  /* â”€â”€â”€ Registry sync â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ─── Registry sync ──────────────────────────────────────────────────── */
 
   /**
    * Reconcile the registered-id set against the current entity list.
    *
-   *   - New associative hatches â†’ register with dependency service.
-   *   - Hatches that disappeared (deleted or disassociated) â†’ unregister.
+   *   - New associative hatches → register with dependency service.
+   *   - Hatches that disappeared (deleted or disassociated) → unregister.
    */
   private syncRegistry(entities: Entity[]): void {
     const currentIds = new Set<number>();
@@ -175,14 +175,14 @@ export class HatchRegenScheduler {
     }
   }
 
-  /* â”€â”€â”€ Host-deleted handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ─── Host-deleted handler ───────────────────────────────────────────── */
 
   /**
    * A contributing entity was removed from the file. Attempt to re-detect a
    * closed region at the hatch's seed point using the remaining geometry.
    *
    *   - Re-detected: replace with a new frozen spec, disassociate.
-   *   - Not found: orphan â€” mark non-associative so draw() stops trying to
+   *   - Not found: orphan — mark non-associative so draw() stops trying to
    *     resolve the deleted entity ref (produces an empty, harmless path).
    *
    * Pushes a `RegenerateHatchCmd` so the transformation is undoable.
@@ -212,7 +212,7 @@ export class HatchRegenScheduler {
       // Update legacy boundaries so DXF export + old rendering path stay correct.
       hatch.boundaries = polygonToLegacyBoundaries(result.polygon, result.islands);
     } else {
-      // Can't find a replacement region â€” orphan: freeze with no geometry.
+      // Can't find a replacement region — orphan: freeze with no geometry.
       spec.associative = false;
       spec.revision++;
       hatch.associative = false;
@@ -240,7 +240,7 @@ export class HatchRegenScheduler {
   }
 }
 
-/* â”€â”€â”€ Utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
 
 /**
  * Convert a topology polygon + islands back into the legacy `IHatchEdge[][]`

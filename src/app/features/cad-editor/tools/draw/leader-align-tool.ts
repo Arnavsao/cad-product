@@ -11,12 +11,12 @@ import { snapshotEntity } from '../geometry-utils';
 import { hitTestAll } from '../select/select-tool';
 
 /**
- * MLEADERALIGN â€” Align multiple leader landing ends to a common Y.
+ * MLEADERALIGN — Align multiple leader landing ends to a common Y.
  *
  * Workflow (mirrors AutoCAD MLEADERALIGN):
  *   1. Click each leader to add it to the selection set.
  *      Press Enter / Space to finish selection.
- *   2. Click a reference leader â€” all others shift vertically so their
+ *   2. Click a reference leader — all others shift vertically so their
  *      landing Y matches the reference leader's landing Y.
  *
  * The arrowhead tip of each leader stays fixed; only the bend (last pts

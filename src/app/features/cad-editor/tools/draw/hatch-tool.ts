@@ -17,11 +17,11 @@ import { pointInPolygon } from '../../core/utils/region-topology';
 import type { RegionResult } from '../../core/utils/region-topology';
 
 /**
- * Hatch tool â€” fill-bucket semantics.
+ * Hatch tool — fill-bucket semantics.
  *
  * On click:
  *   1. Run the V2 topology solver (modular pipeline from core/services/topology/*).
- *      Falls back to V1 if V2 returns null â€” same coverage, different pipeline.
+ *      Falls back to V1 if V2 returns null — same coverage, different pipeline.
  *      The solver finds the smallest closed face containing the click, resolving
  *      every intersection so overlapping geometry produces correct sub-faces.
  *      Inner holes (islands) are detected and subtracted via even-odd fill.
@@ -121,7 +121,7 @@ export class HatchTool implements ITool {
         const ent = this.doc.activeFile.entities.find((x: Entity) => x.id === result.entIds[0]);
         if (ent && this.isHatchableBoundary(ent)) {
           this.topoDebug.log(
-            `PATH: topologyâ†’single-entity (entIds=[${result.entIds[0]}], no islands) â†’ placeAssociativeMulti`,
+            `PATH: topology→single-entity (entIds=[${result.entIds[0]}], no islands) → placeAssociativeMulti`,
           );
           this.placeAssociativeMulti([ent], { x: wx, y: wy }, hatchToDelete);
           this.onMouseMove(wx, wy, sx, sy, e);
@@ -129,7 +129,7 @@ export class HatchTool implements ITool {
         }
       }
       this.topoDebug.log(
-        `PATH: topology face â†’ placeRegion (ents=[${result.entIds.join(',')}], islands=${result.islands.length})`,
+        `PATH: topology face → placeRegion (ents=[${result.entIds.join(',')}], islands=${result.islands.length})`,
       );
       this.placeRegion(result.polygon, result.islands, result.entIds, { x: wx, y: wy }, hatchToDelete);
       this.onMouseMove(wx, wy, sx, sy, e);
@@ -140,12 +140,12 @@ export class HatchTool implements ITool {
     const hit = hitTestAll(this.doc, this.vm, sx, sy);
     if (hit && this.isHatchableBoundary(hit.entity)) {
       this.topoDebug.log(
-        `PATH: hitTest fallback (entity=${hit.entity.id}) â†’ placeAssociativeMulti`,
+        `PATH: hitTest fallback (entity=${hit.entity.id}) → placeAssociativeMulti`,
       );
       this.placeAssociativeMulti([hit.entity], { x: wx, y: wy }, hatchToDelete);
       this.onMouseMove(wx, wy, sx, sy, e);
     } else {
-      this.topoDebug.log('PATH: no region detected, no hatchable entity under cursor â€” no-op');
+      this.topoDebug.log('PATH: no region detected, no hatchable entity under cursor — no-op');
     }
   }
 
@@ -263,7 +263,7 @@ export class HatchTool implements ITool {
       this.tools.setTool('select');
       return;
     }
-    // 'B' â€” BHATCH: hatch every closed region in the drawing in one command.
+    // 'B' — BHATCH: hatch every closed region in the drawing in one command.
     if (e.key === 'b' || e.key === 'B') {
       this.batchHatch();
     }
@@ -305,7 +305,7 @@ export class HatchTool implements ITool {
     }
   }
 
-  /* â”€â”€â”€ Region detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ─── Region detection ─────────────────────────────────────────────────── */
 
   /**
    * Try V2 pipeline first; fall back to V1 if V2 returns null.
@@ -314,14 +314,14 @@ export class HatchTool implements ITool {
   private _detectRegion(wx: number, wy: number): RegionResult | null {
     const v2 = this.topology.findRegionAtWithIslandsV2(wx, wy);
     if (v2) return v2;
-    this.topoDebug.log('_detectRegion: V2 returned null â†’ trying V1 fallback');
+    this.topoDebug.log('_detectRegion: V2 returned null → trying V1 fallback');
     const v1 = this.topology.findRegionAtWithIslands(wx, wy);
     if (v1) this.topoDebug.log(`_detectRegion: V1 succeeded (ents=[${v1.entIds.join(',')}])`);
     else this.topoDebug.log('_detectRegion: V1 also returned null');
     return v1;
   }
 
-  /* â”€â”€â”€ Hatch placement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ─── Hatch placement ──────────────────────────────────────────────────── */
 
   /**
    * Place an associative single-entity hatch. The entity's full outline
@@ -417,7 +417,7 @@ export class HatchTool implements ITool {
     this._originalPattern = null;
   }
 
-  /* â”€â”€â”€ BHATCH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ─── BHATCH ───────────────────────────────────────────────────────────── */
 
   /**
    * Hatch every closed CCW region in the active drawing in a single undoable
@@ -456,7 +456,7 @@ export class HatchTool implements ITool {
     const isCoveredSeed = (cx: number, cy: number): boolean =>
       coveredSeedPts.some((s) => Math.hypot(s.x - cx, s.y - cy) < 1);
 
-    // Minimum region area filter â€” skip regions smaller than a 1Ã—1 unit square.
+    // Minimum region area filter — skip regions smaller than a 1×1 unit square.
     // Prevents hatching micro-slivers produced by near-coincident intersections.
     const MIN_AREA = 1;
 
@@ -513,7 +513,7 @@ export class HatchTool implements ITool {
     this.vm.markDirty();
   }
 
-  /* â”€â”€â”€ BoundarySpec builders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ─── BoundarySpec builders ────────────────────────────────────────────── */
 
   /** Delegates to the shared helper in hatch-boundary.model.ts. */
   private _buildFrozenSpec(
@@ -557,7 +557,7 @@ export class HatchTool implements ITool {
     };
   }
 
-  /* â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
   private isHatchableBoundary(ent: Entity): boolean {
     if (ent.type === 'POLYLINE' || ent instanceof PolylineEntity) {
@@ -589,14 +589,14 @@ function isLoopClosed(pts: IPoint[]): boolean {
  *
  * Strategy: target ~35 hatch lines across the boundary's longest diagonal.
  * ANSI31 (and most standard patterns) have a base spacing of 3.175 units at
- * scale=1, so:  ideal = diagonal / (35 Ã— 3.175).
+ * scale=1, so:  ideal = diagonal / (35 × 3.175).
  * The result is then snapped to the nearest power-of-10 so the scale property
- * stays a clean number (1, 10, 100, 1000, â€¦).
+ * stays a clean number (1, 10, 100, 1000, …).
  *
  * Examples:
- *   100 Ã— 80   â†’ diagonal â‰ˆ 128  â†’ ideal â‰ˆ 1.15  â†’ scale = 1
- *   1000 Ã— 800 â†’ diagonal â‰ˆ 1281 â†’ ideal â‰ˆ 11.5  â†’ scale = 10
- *   10000Ã— 8000â†’ diagonal â‰ˆ 12806â†’ ideal â‰ˆ 115   â†’ scale = 100
+ *   100 × 80   → diagonal ≈ 128  → ideal ≈ 1.15  → scale = 1
+ *   1000 × 800 → diagonal ≈ 1281 → ideal ≈ 11.5  → scale = 10
+ *   10000× 8000→ diagonal ≈ 12806→ ideal ≈ 115   → scale = 100
  */
 function defaultHatchScale(w: number, h: number): number {
   const diagonal = Math.hypot(w, h);

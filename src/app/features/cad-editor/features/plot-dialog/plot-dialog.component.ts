@@ -12,12 +12,15 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { translateDialog } from '../dialog-i18n';
 import { PlotDialogService, PlotDialogTab } from './plot-dialog.service';
 import { PlotWindowPickService } from './plot-window-pick.service';
 import { ExportManagerService } from '../../core/services/export/export-manager.service';
 import { PlotRendererService } from '../../core/services/export/plot-renderer.service';
 import { ToolManagerService } from '../../core/services/tool-manager.service';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 import {
   IPlotOptions,
   PlotFormat,
@@ -55,8 +58,9 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-plot-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [UiIconComponent, CommonModule, FormsModule, TranslocoDirective],
   template: `
+<ng-container *transloco="let t">
 @if (svc.isOpen()) {
   <div class="pd-overlay" (click)="onOverlayClick($event)">
     <div class="pd-dialog" (click)="$event.stopPropagation()">
@@ -70,7 +74,7 @@ import {
         </span>
         <div class="pd-header-right">
           <span class="pd-plotter-name">{{ plotterDisplayName() }}</span>
-          <button class="pd-close" (click)="cancel()" title="Close (Esc)">&#x2715;</button>
+          <button class="pd-close" (click)="cancel()" [title]="t('editor.dialog.common.closeEsc')">&#x2715;</button>
         </div>
       </div>
       <!-- ── Body ────────────────────────────────────────────────────────────── -->
@@ -79,23 +83,23 @@ import {
         <div class="pd-col">
           <!-- Page Setup -->
           <fieldset class="pd-fieldset">
-            <legend>Page setup</legend>
+            <legend>{{ t('editor.dialog.plot.pageSetup') }}</legend>
             <div class="pd-group">
               <div class="pd-row">
                 <input class="pd-input-text" style="flex:1" type="text" [(ngModel)]="newSetupName"
-                  placeholder="Name..." maxlength="60"
+                  [placeholder]="t('editor.dialog.plot.setupNamePlaceholder')" maxlength="60"
                   (keydown.enter)="saveSetup()">
-                  <button class="pd-btn pd-btn-primary" (click)="saveSetup()" [disabled]="!newSetupName.trim()" style="margin-left:6px">Save</button>
+                  <button class="pd-btn pd-btn-primary" (click)="saveSetup()" [disabled]="!newSetupName.trim()" style="margin-left:6px">{{ t('editor.dialog.common.save') }}</button>
                 </div>
                 @if (pageSetupCount() > 0) {
                   <div style="margin-top:4px">
                     <div class="pd-setup-list">
                       @for (s of svc.pageSetups(); track s) {
                         <div class="pd-setup-item">
-                          <div class="pd-setup-info" (click)="loadSetup(s.name)" title="Click to apply">
+                          <div class="pd-setup-info" (click)="loadSetup(s.name)" [title]="t('editor.dialog.plot.applySetup')">
                             <span class="pd-setup-name">{{ s.name }}</span>
                           </div>
-                          <button class="pd-setup-delete" (click)="deleteSetup(s.name)" title="Delete">✕</button>
+                          <button class="pd-setup-delete" (click)="deleteSetup(s.name)" [title]="t('editor.dialog.common.delete')"><ui-icon name="close" [size]="12" /></button>
                         </div>
                       }
                     </div>
@@ -105,15 +109,15 @@ import {
             </fieldset>
             <!-- Printer / Plotter -->
             <fieldset class="pd-fieldset">
-              <legend>Printer/plotter</legend>
+              <legend>{{ t('editor.dialog.plot.printerPlotter') }}</legend>
               <div class="pd-group">
-                <label class="pd-label">Name</label>
+                <label class="pd-label">{{ t('editor.dialog.common.name') }}</label>
                 <select class="pd-select" [(ngModel)]="opts.plotterKey" (ngModelChange)="onPlotterChange()">
                   @for (grp of plotterGroups; track grp) {
-                    <optgroup [label]="grp.label">
+                    <optgroup [label]="t(grp.labelKey)">
                       @for (d of grp.devices; track d) {
                         <option [value]="d.key" [disabled]="!d.available">
-                          {{ d.name }}{{ !d.available ? ' (coming soon)' : '' }}
+                          {{ d.available ? d.name : t('editor.dialog.plot.deviceComingSoon', { name: d.name }) }}
                         </option>
                       }
                     </optgroup>
@@ -121,23 +125,23 @@ import {
                 </select>
               </div>
               <div class="pd-group" style="margin-top:6px" [class.pd-disabled]="isExchange()">
-                <label class="pd-label">Background Color</label>
+                <label class="pd-label">{{ t('editor.dialog.plot.backgroundColor') }}</label>
                 <select class="pd-select" [(ngModel)]="opts.background" (ngModelChange)="touch()" [disabled]="isExchange()">
-                  <option value="white">White (for print)</option>
-                  <option value="dark">Dark</option>
-                  <option value="transparent" [disabled]="opts.format !== 'png'">Transparent (PNG only)</option>
+                  <option value="white">{{ t('editor.dialog.plot.bgWhite') }}</option>
+                  <option value="dark">{{ t('editor.dialog.plot.bgDark') }}</option>
+                  <option value="transparent" [disabled]="opts.format !== 'png'">{{ t('editor.dialog.plot.bgTransparent') }}</option>
                 </select>
               </div>
             </fieldset>
             <!-- Paper Size -->
             <fieldset class="pd-fieldset" [class.pd-disabled]="isExchange()">
-              <legend>Paper size</legend>
+              <legend>{{ t('editor.dialog.plot.paperSize') }}</legend>
               <div class="pd-group">
                 <div class="pd-row">
                   <div style="flex:1">
                     <select class="pd-select" [(ngModel)]="opts.paper" (ngModelChange)="touch()" [disabled]="isExchange()">
                       @for (cat of paperCategories; track cat) {
-                        <optgroup [label]="cat">
+                        <optgroup [label]="t(paperCategoryKey(cat))">
                           @for (p of papersByCategory(cat); track p) {
                             <option [value]="p.key">
                               {{ p.label }} ({{ formatPaperSize(p) }})
@@ -145,7 +149,7 @@ import {
                           }
                         </optgroup>
                       }
-                      <option value="Custom">Custom...</option>
+                      <option value="Custom">{{ t('editor.dialog.common.custom') }}</option>
                     </select>
                   </div>
                   <div class="pd-unit-toggle">
@@ -158,14 +162,14 @@ import {
                   <div class="pd-custom-paper" style="margin-top:4px">
                     <div class="pd-row">
                       <div class="pd-field">
-                        <label class="pd-label">Width</label>
+                        <label class="pd-label">{{ t('editor.dialog.plot.width') }}</label>
                         <div class="pd-row">
                           <input class="pd-num" type="number" min="10" [(ngModel)]="customW" (ngModelChange)="onCustomPaperChange()" style="width:70px">
                           <span class="pd-unit">{{ opts.paperUnits }}</span>
                         </div>
                       </div>
                       <div class="pd-field" style="margin-left:10px">
-                        <label class="pd-label">Height</label>
+                        <label class="pd-label">{{ t('editor.dialog.plot.height') }}</label>
                         <div class="pd-row">
                           <input class="pd-num" type="number" min="10" [(ngModel)]="customH" (ngModelChange)="onCustomPaperChange()" style="width:70px">
                           <span class="pd-unit">{{ opts.paperUnits }}</span>
@@ -178,27 +182,27 @@ import {
             </fieldset>
             <!-- Plot Area & Offset -->
             <fieldset class="pd-fieldset" [class.pd-disabled]="isExchange()">
-              <legend>Plot area & offset</legend>
+              <legend>{{ t('editor.dialog.plot.plotAreaOffset') }}</legend>
               <div class="pd-group">
-                <label class="pd-label">What to plot</label>
+                <label class="pd-label">{{ t('editor.dialog.plot.whatToPlot') }}</label>
                 <div class="pd-row">
                   <select class="pd-select" style="flex:1" [(ngModel)]="opts.area" (ngModelChange)="touch()" [disabled]="isExchange()">
-                    <option value="extents">Drawing Extents</option>
-                    <option value="display">Display (current view)</option>
-                    <option value="window">Window</option>
-                    <option value="selection">Selected Objects</option>
-                    <option value="limits">Drawing Limits</option>
-                    <option value="layout">Layout Extents</option>
+                    <option value="extents">{{ t('editor.dialog.plot.areaExtents') }}</option>
+                    <option value="display">{{ t('editor.dialog.plot.areaDisplay') }}</option>
+                    <option value="window">{{ t('editor.dialog.plot.areaWindow') }}</option>
+                    <option value="selection">{{ t('editor.dialog.plot.areaSelection') }}</option>
+                    <option value="limits">{{ t('editor.dialog.plot.areaLimits') }}</option>
+                    <option value="layout">{{ t('editor.dialog.plot.areaLayout') }}</option>
                   </select>
                   @if (opts.area === 'window') {
-                    <button class="pd-btn pd-btn-pick" (click)="pickWindow()" [disabled]="isExchange()">Pick&lt;</button>
+                    <button class="pd-btn pd-btn-pick" (click)="pickWindow()" [disabled]="isExchange()">{{ t('editor.dialog.plot.pickWindow') }}</button>
                   }
                 </div>
               </div>
               <div class="pd-group" style="margin-top:10px">
                 <label class="pd-check">
                   <input type="checkbox" [(ngModel)]="opts.plotOffset.center" (ngModelChange)="onCenterPlotChange()" [disabled]="isExchange()">
-                  Center the plot
+                  {{ t('editor.dialog.plot.centerPlot') }}
                 </label>
                 <div class="pd-row" style="margin-top:4px" [class.pd-disabled]="opts.plotOffset.center">
                   <div class="pd-field">
@@ -227,12 +231,12 @@ import {
               <div class="pd-col">
                 <!-- Plot Scale -->
                 <fieldset class="pd-fieldset" [class.pd-disabled]="isExchange()">
-                  <legend>Plot scale</legend>
+                  <legend>{{ t('editor.dialog.plot.plotScale') }}</legend>
                   <div class="pd-group">
-                    <label class="pd-label">Scale Preset</label>
+                    <label class="pd-label">{{ t('editor.dialog.plot.scalePreset') }}</label>
                     <select class="pd-select" [ngModel]="scaleKey()" (ngModelChange)="onScalePreset($event)" [disabled]="isExchange()">
                       @for (grp of scaleGroups; track grp) {
-                        <optgroup [label]="grp.label">
+                        <optgroup [label]="t(grp.labelKey)">
                           @for (s of grp.scales; track s) {
                             <option [value]="s.label">{{ s.label }}</option>
                           }
@@ -247,21 +251,21 @@ import {
                           <span class="pd-unit">{{ opts.paperUnits }}</span>
                           <span class="pd-scale-eq">=</span>
                           <input class="pd-num" style="width:55px" type="number" min="0.001" step="1" [(ngModel)]="customScaleWorld" (ngModelChange)="onCustomScaleChange()">
-                          <span class="pd-unit">units</span>
+                          <span class="pd-unit">{{ t('editor.dialog.plot.units') }}</span>
                         </div>
                       </div>
                     }
                     <label class="pd-check" style="margin-top:6px">
                       <input type="checkbox" [(ngModel)]="opts.scaleLineweights" (ngModelChange)="touch()" [disabled]="isExchange()">
-                      Scale lineweights
+                      {{ t('editor.dialog.plot.scaleLineweights') }}
                     </label>
                   </div>
                 </fieldset>
                 <!-- Style & Quality -->
                 <fieldset class="pd-fieldset">
-                  <legend>Plot style & quality</legend>
+                  <legend>{{ t('editor.dialog.plot.plotStyleQuality') }}</legend>
                   <div class="pd-group" [class.pd-disabled]="isExchange()">
-                    <label class="pd-label">Plot style table (pen assignments)</label>
+                    <label class="pd-label">{{ t('editor.dialog.plot.plotStyleTable') }}</label>
                     <select class="pd-select" [(ngModel)]="opts.plotStyleKey" (ngModelChange)="onPlotStyleChange()" [disabled]="isExchange()">
                       @for (s of plotStyleRegistry; track s) {
                         <option [value]="s.key">{{ s.label }}</option>
@@ -269,7 +273,7 @@ import {
                     </select>
                   </div>
                   <div class="pd-group" style="margin-top:6px" [class.pd-disabled]="isExchange()">
-                    <label class="pd-label">Quality (DPI)</label>
+                    <label class="pd-label">{{ t('editor.dialog.plot.quality') }}</label>
                     <select class="pd-select" [(ngModel)]="opts.dpi" (ngModelChange)="touch()" [disabled]="isExchange()">
                       @for (q of qualityPresets; track q) {
                         <option [ngValue]="q.dpi">{{ q.label }} ({{ q.dpi }} dpi)</option>
@@ -277,68 +281,68 @@ import {
                     </select>
                   </div>
                   <div class="pd-group" style="margin-top:6px">
-                    <label class="pd-label">Drawing orientation</label>
+                    <label class="pd-label">{{ t('editor.dialog.plot.drawingOrientation') }}</label>
                     <div class="pd-orientation">
                       <label class="pd-ori-opt" [class.active]="opts.orientation === 'portrait'">
                         <input type="radio" name="ori" value="portrait" [(ngModel)]="opts.orientation" (ngModelChange)="touch()" [disabled]="isExchange()">
-                        Portrait
+                        {{ t('editor.dialog.common.portrait') }}
                       </label>
                       <label class="pd-ori-opt" [class.active]="opts.orientation === 'landscape'">
                         <input type="radio" name="ori" value="landscape" [(ngModel)]="opts.orientation" (ngModelChange)="touch()" [disabled]="isExchange()">
-                        Landscape
+                        {{ t('editor.dialog.common.landscape') }}
                       </label>
                     </div>
                   </div>
                 </fieldset>
                 <!-- Advanced Settings / Plot options -->
                 <fieldset class="pd-fieldset">
-                  <legend>Plot options</legend>
+                  <legend>{{ t('editor.dialog.plot.plotOptions') }}</legend>
                   <div class="pd-group" [class.pd-disabled]="isExchange()">
-                    <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.plotLineweights" (ngModelChange)="touch()" [disabled]="isExchange()"> Plot object lineweights</label>
-                    <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.plotTransparency" (ngModelChange)="touch()" [disabled]="isExchange()"> Plot transparency</label>
-                    <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.plotStamp" (ngModelChange)="touch()" [disabled]="isExchange()"> Plot stamp on</label>
+                    <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.plotLineweights" (ngModelChange)="touch()" [disabled]="isExchange()"> {{ t('editor.dialog.plot.plotLineweights') }}</label>
+                    <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.plotTransparency" (ngModelChange)="touch()" [disabled]="isExchange()"> {{ t('editor.dialog.plot.plotTransparency') }}</label>
+                    <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.plotStamp" (ngModelChange)="touch()" [disabled]="isExchange()"> {{ t('editor.dialog.plot.plotStamp') }}</label>
                     @if (opts.plotStamp && !isExchange()) {
-                      <input class="pd-input-text" type="text" maxlength="80" [(ngModel)]="opts.plotStampLabel" (ngModelChange)="touch()" placeholder="Optional stamp label..." style="margin-top:4px">
+                      <input class="pd-input-text" type="text" maxlength="80" [(ngModel)]="opts.plotStampLabel" (ngModelChange)="touch()" [placeholder]="t('editor.dialog.plot.plotStampPlaceholder')" style="margin-top:4px">
                     }
                   </div>
                   @if (opts.format === 'pdf') {
                     <hr class="pd-divider" style="margin:8px 0">
                     <div class="pd-group">
-                      <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.pdfOptions.preserveVectors" (ngModelChange)="touch()"> Preserve vectors</label>
-                      <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.pdfOptions.searchableText" (ngModelChange)="touch()"> Searchable text</label>
-                      <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.pdfOptions.embedFonts" (ngModelChange)="touch()"> Embed fonts</label>
-                      <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.pdfOptions.exportLayers" (ngModelChange)="touch()"> Export layers</label>
+                      <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.pdfOptions.preserveVectors" (ngModelChange)="touch()"> {{ t('editor.dialog.plot.preserveVectors') }}</label>
+                      <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.pdfOptions.searchableText" (ngModelChange)="touch()"> {{ t('editor.dialog.plot.searchableText') }}</label>
+                      <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.pdfOptions.embedFonts" (ngModelChange)="touch()"> {{ t('editor.dialog.plot.embedFonts') }}</label>
+                      <label class="pd-check"><input type="checkbox" [(ngModel)]="opts.pdfOptions.exportLayers" (ngModelChange)="touch()"> {{ t('editor.dialog.plot.exportLayers') }}</label>
                     </div>
                   }
                   @if (isRaster()) {
                     <hr class="pd-divider" style="margin:8px 0">
                     <div class="pd-group">
-                      <label class="pd-label">Anti-Aliasing</label>
+                      <label class="pd-label">{{ t('editor.dialog.plot.antiAliasing') }}</label>
                       <select class="pd-select" [(ngModel)]="opts.rasterOptions.antiAlias" (ngModelChange)="touch()">
-                        <option value="off">Off</option>
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High (recommended)</option>
+                        <option value="off">{{ t('editor.dialog.plot.aaOff') }}</option>
+                        <option value="low">{{ t('editor.dialog.plot.aaLow') }}</option>
+                        <option value="medium">{{ t('editor.dialog.plot.aaMedium') }}</option>
+                        <option value="high">{{ t('editor.dialog.plot.aaHigh') }}</option>
                       </select>
                     </div>
                     <div class="pd-group" style="margin-top:6px">
-                      <label class="pd-label">Color Depth</label>
+                      <label class="pd-label">{{ t('editor.dialog.plot.colorDepth') }}</label>
                       <select class="pd-select" [(ngModel)]="opts.rasterOptions.colorDepth" (ngModelChange)="touch()">
                         <option value="8bit">8-bit</option>
                         <option value="16bit">16-bit</option>
                         <option value="24bit">24-bit</option>
-                        <option value="32bit">32-bit (alpha)</option>
+                        <option value="32bit">{{ t('editor.dialog.plot.colorDepth32') }}</option>
                       </select>
                     </div>
                   }
                   @if (opts.format === 'dxf') {
                     <div class="pd-group" style="margin-top:6px">
                       <hr class="pd-divider" style="margin:4px 0 8px 0">
-                      <label class="pd-label">DXF Version</label>
+                      <label class="pd-label">{{ t('editor.dialog.plot.dxfVersion') }}</label>
                       <select class="pd-select" [(ngModel)]="opts.dxfVersion" (ngModelChange)="touch()">
-                        <option value="R12">R12 (wide compatibility)</option>
-                        <option value="R2000">R2000 (recommended)</option>
-                        <option value="R2013">R2013 (planned)</option>
+                        <option value="R12">{{ t('editor.dialog.plot.dxfR12') }}</option>
+                        <option value="R2000">{{ t('editor.dialog.plot.dxfR2000') }}</option>
+                        <option value="R2013">{{ t('editor.dialog.plot.dxfR2013') }}</option>
                       </select>
                     </div>
                   }
@@ -347,27 +351,27 @@ import {
               <!-- ════════ COLUMN 3: PREVIEW ════════ -->
               <div class="pd-col-preview">
                 <div class="pd-preview-header">
-                  <span class="pd-preview-title">Plot Preview</span>
+                  <span class="pd-preview-title">{{ t('editor.dialog.plot.plotPreview') }}</span>
                   <div class="pd-preview-controls">
                     @if (geomInfo(); as g) {
                       <span class="pd-preview-badge">
-                        {{ paperLabel() }} {{ opts.orientation === 'landscape' ? 'Landscape' : 'Portrait' }} · {{ formatScale(g.ratio) }}
+                        {{ paperLabel() }} {{ t(opts.orientation === 'landscape' ? 'editor.dialog.common.landscape' : 'editor.dialog.common.portrait') }} · {{ formatScale(g.ratio) }}
                       </span>
                     }
-                    <button class="pd-prev-ctrl" (click)="zoomPreviewFit()" title="Fit to preview">⊡</button>
-                    <button class="pd-prev-ctrl" (click)="onPreviewFull()" title="Open full preview">⤢</button>
+                    <button class="pd-prev-ctrl" (click)="zoomPreviewFit()" [title]="t('editor.dialog.plot.fitToPreview')">⊡</button>
+                    <button class="pd-prev-ctrl" (click)="onPreviewFull()" [title]="t('editor.dialog.plot.openFullPreview')">⤢</button>
                   </div>
                 </div>
                 <div class="pd-preview-wrap" #previewWrap>
                   <canvas #previewCanvas class="pd-preview-canvas"></canvas>
                   @if (!previewHasContent) {
                     <div class="pd-preview-empty">
-                      <div>Nothing to plot in this area.</div>
+                      <div>{{ t('editor.dialog.plot.nothingToPlot') }}</div>
                     </div>
                   }
                   @if (windowPickService.isPicking()) {
                     <div class="pd-pick-hint">
-                      Click two corners on the canvas to define the plot window...
+                      {{ t('editor.dialog.plot.pickWindowHint') }}
                     </div>
                   }
                   <!-- Page shadow effect -->
@@ -380,29 +384,29 @@ import {
                   <div class="pd-sheet-info">
                     <div class="pd-sheet-grid">
                       <div class="pd-sheet-item">
-                        <span class="pd-sheet-label">Paper</span>
+                        <span class="pd-sheet-label">{{ t('editor.dialog.plot.paper') }}</span>
                         <span>{{ g.paperW | number:'1.0-1' }} × {{ g.paperH | number:'1.0-1' }} mm</span>
                       </div>
                       <div class="pd-sheet-item">
-                        <span class="pd-sheet-label">Scale</span>
+                        <span class="pd-sheet-label">{{ t('editor.dialog.plot.scale') }}</span>
                         <span>{{ formatScale(g.ratio) }}</span>
                       </div>
                       <div class="pd-sheet-item">
-                        <span class="pd-sheet-label">Drawing Area</span>
-                        <span>{{ g.worldW | number:'1.1-1' }} × {{ g.worldH | number:'1.1-1' }} units</span>
+                        <span class="pd-sheet-label">{{ t('editor.dialog.plot.drawingArea') }}</span>
+                        <span>{{ t('editor.dialog.plot.sheetUnits', { w: (g.worldW | number:'1.1-1'), h: (g.worldH | number:'1.1-1') }) }}</span>
                       </div>
                       <div class="pd-sheet-item">
-                        <span class="pd-sheet-label">Sheet Use</span>
+                        <span class="pd-sheet-label">{{ t('editor.dialog.plot.sheetUse') }}</span>
                         <span [class.pd-util-high]="g.utilPct > 90" [class.pd-util-low]="g.utilPct < 30">
                           {{ g.utilPct | number:'1.0-0' }}%
                         </span>
                       </div>
                       <div class="pd-sheet-item">
-                        <span class="pd-sheet-label">Resolution</span>
+                        <span class="pd-sheet-label">{{ t('editor.dialog.plot.resolution') }}</span>
                         <span>{{ opts.dpi }} dpi</span>
                       </div>
                       <div class="pd-sheet-item">
-                        <span class="pd-sheet-label">Plot Style</span>
+                        <span class="pd-sheet-label">{{ t('editor.dialog.plot.plotStyle') }}</span>
                         <span>{{ plotStyleShortName() }}</span>
                       </div>
                     </div>
@@ -411,11 +415,11 @@ import {
                   @if (isExchange()) {
                     <div class="pd-sheet-info">
                       <span class="pd-exchange-note">
-                        {{ opts.format.toUpperCase() }} exports the full model — no sheet layout applied.
+                        {{ t('editor.dialog.plot.exchangeNote', { format: opts.format.toUpperCase() }) }}
                         @if (opts.format === 'dxf') {
-                          <span>Version: {{ opts.dxfVersion }}</span>
+                          <span>{{ t('editor.dialog.plot.exchangeVersion', { version: opts.dxfVersion }) }}</span>
                         }
-                        Opens in AutoCAD, BricsCAD, DraftSight, NanoCAD.
+                        {{ t('editor.dialog.plot.exchangeOpensIn') }}
                       </span>
                     </div>
                   }
@@ -425,19 +429,20 @@ import {
             <!-- ── Footer ──────────────────────────────────────────────────────────── -->
             <div class="pd-footer">
               <div class="pd-footer-left">
-                <span class="pd-footer-hint">Enter = Confirm &nbsp;·&nbsp; Esc = Cancel</span>
-                <button class="pd-btn pd-btn-sm pd-btn-secondary" (click)="resetToDefaults()" title="Reset all settings to defaults">↺ Defaults</button>
+                <span class="pd-footer-hint">{{ t('editor.dialog.plot.footerHint') }}</span>
+                <button class="pd-btn pd-btn-sm pd-btn-secondary" (click)="resetToDefaults()" [title]="t('editor.dialog.plot.resetDefaults')"><ui-icon name="refresh" [size]="13" /> {{ t('editor.dialog.plot.defaults') }}</button>
               </div>
               <div class="pd-footer-actions">
-                <button class="pd-btn pd-btn-secondary" (click)="onPreviewFull()" [disabled]="isExchange()">Preview...</button>
-                <button class="pd-btn pd-btn-print" (click)="onBrowserPrint()" [disabled]="isExchange()">Print</button>
+                <button class="pd-btn pd-btn-secondary" (click)="onPreviewFull()" [disabled]="isExchange()">{{ t('editor.dialog.plot.previewButton') }}</button>
+                <button class="pd-btn pd-btn-print" (click)="onBrowserPrint()" [disabled]="isExchange()">{{ t('editor.dialog.plot.print') }}</button>
                 <button class="pd-btn pd-btn-primary" (click)="commit()">{{ actionVerb() }}</button>
-                <button class="pd-btn" (click)="cancel()">Cancel</button>
+                <button class="pd-btn" (click)="cancel()">{{ t('editor.dialog.common.cancel') }}</button>
               </div>
             </div>
           </div>
         </div>
       }
+</ng-container>
 `,
   styles: [`
     /* ── Base ── */
@@ -588,6 +593,8 @@ export class PlotDialogComponent implements AfterViewInit, OnDestroy {
   private readonly renderer  = inject(PlotRendererService);
   private readonly toolMgr   = inject(ToolManagerService);
   private readonly notify    = inject(NotificationService);
+  // Optional: embedded hosts and specs may construct the dialog without Transloco.
+  private readonly transloco = inject(TranslocoService, { optional: true });
 
   opts: IPlotOptions;
   customW = 210;
@@ -603,20 +610,37 @@ export class PlotDialogComponent implements AfterViewInit, OnDestroy {
 
   /** Plotter groups for the device selector optgroups. */
   readonly plotterGroups = [
-    { label: 'PDF Plotters', devices: PLOTTER_REGISTRY.filter(d => d.outputType === 'pdf') },
-    { label: 'Vector',       devices: PLOTTER_REGISTRY.filter(d => d.outputType === 'svg') },
-    { label: 'Raster',       devices: PLOTTER_REGISTRY.filter(d => ['png','jpg'].includes(d.outputType)) },
-    { label: 'CAD Exchange', devices: PLOTTER_REGISTRY.filter(d => ['dxf','dwg'].includes(d.outputType)) },
-    { label: 'System',       devices: PLOTTER_REGISTRY.filter(d => d.outputType === 'browser') },
+    { labelKey: 'editor.dialog.plot.plotterGroupPdf',         devices: PLOTTER_REGISTRY.filter(d => d.outputType === 'pdf') },
+    { labelKey: 'editor.dialog.plot.plotterGroupVector',      devices: PLOTTER_REGISTRY.filter(d => d.outputType === 'svg') },
+    { labelKey: 'editor.dialog.plot.plotterGroupRaster',      devices: PLOTTER_REGISTRY.filter(d => ['png','jpg'].includes(d.outputType)) },
+    { labelKey: 'editor.dialog.plot.plotterGroupCadExchange', devices: PLOTTER_REGISTRY.filter(d => ['dxf','dwg'].includes(d.outputType)) },
+    { labelKey: 'editor.dialog.plot.plotterGroupSystem',      devices: PLOTTER_REGISTRY.filter(d => d.outputType === 'browser') },
   ];
 
   /** Scale groups for the scale selector optgroups. */
   readonly scaleGroups = [
-    { label: 'Fit',      scales: SCALE_REGISTRY.filter(s => s.category === 'Fit') },
-    { label: 'Metric',   scales: SCALE_REGISTRY.filter(s => s.category === 'Metric') },
-    { label: 'Imperial', scales: SCALE_REGISTRY.filter(s => s.category === 'Imperial') },
-    { label: 'Custom',   scales: SCALE_REGISTRY.filter(s => s.category === 'Custom') },
+    { labelKey: 'editor.dialog.plot.scaleGroupFit',      scales: SCALE_REGISTRY.filter(s => s.category === 'Fit') },
+    { labelKey: 'editor.dialog.plot.scaleGroupMetric',   scales: SCALE_REGISTRY.filter(s => s.category === 'Metric') },
+    { labelKey: 'editor.dialog.plot.scaleGroupImperial', scales: SCALE_REGISTRY.filter(s => s.category === 'Imperial') },
+    { labelKey: 'editor.dialog.plot.scaleGroupCustom',   scales: SCALE_REGISTRY.filter(s => s.category === 'Custom') },
   ];
+
+  /** Translation key for a paper-size optgroup. ISO/ANSI/ARCH are standards names and stay as they are. */
+  paperCategoryKey(cat: PaperCategory): string {
+    const keys: Record<PaperCategory, string> = {
+      ISO: 'editor.dialog.plot.paperCatIso',
+      ANSI: 'editor.dialog.plot.paperCatAnsi',
+      ARCH: 'editor.dialog.plot.paperCatArch',
+      Engineering: 'editor.dialog.plot.paperCatEngineering',
+      Other: 'editor.dialog.plot.paperCatOther',
+    };
+    return keys[cat];
+  }
+
+  /** English-fallback translation for text the dialog resolves in code (canvas, popup window). */
+  private tr(key: string, english: string, params?: Record<string, unknown>): string {
+    return translateDialog(this.transloco, key, english, params);
+  }
 
   /** Quick setup templates. */
   readonly quickSetups = [
@@ -706,22 +730,25 @@ export class PlotDialogComponent implements AfterViewInit, OnDestroy {
   isBrowser():  boolean { return this.opts.format === 'browser'; }
 
   headerTitle(): string {
-    if (this.isExchange()) return 'Export — Model Exchange';
-    if (this.isBrowser()) return 'Print — System Printer';
-    return 'Plot — ' + (this.opts.plotterKey ?? 'Model');
+    if (this.isExchange()) return this.tr('editor.dialog.plot.titleExchange', 'Export — Model Exchange');
+    if (this.isBrowser()) return this.tr('editor.dialog.plot.titleBrowser', 'Print — System Printer');
+    return this.tr('editor.dialog.plot.titlePlot', 'Plot — {{plotter}}', { plotter: this.opts.plotterKey ?? 'Model' });
   }
 
   actionVerb(): string {
-    if (this.opts.format === 'pdf' || this.opts.format === 'browser') return 'Plot to PDF';
-    if (this.opts.format === 'svg') return 'Export SVG';
-    if (this.opts.format === 'dxf') return 'Export DXF';
-    if (this.opts.format === 'dwg') return 'Export DWG';
-    return 'Export ' + this.opts.format.toUpperCase();
+    if (this.opts.format === 'pdf' || this.opts.format === 'browser') return this.tr('editor.dialog.plot.plotToPdf', 'Plot to PDF');
+    if (this.opts.format === 'svg') return this.tr('editor.dialog.plot.exportSvg', 'Export SVG');
+    if (this.opts.format === 'dxf') return this.tr('editor.dialog.plot.exportDxf', 'Export DXF');
+    if (this.opts.format === 'dwg') return this.tr('editor.dialog.plot.exportDwg', 'Export DWG');
+    return this.tr('editor.dialog.plot.exportFormat', 'Export {{format}}', { format: this.opts.format.toUpperCase() });
   }
 
   formatBadge(): string {
     const meta = FORMAT_META[this.opts.format];
-    return meta ? (meta.vector ? 'VECTOR' : 'RASTER') : '';
+    if (!meta) return '';
+    return meta.vector
+      ? this.tr('editor.dialog.plot.badgeVector', 'VECTOR')
+      : this.tr('editor.dialog.plot.badgeRaster', 'RASTER');
   }
 
   setTab(tab: PlotDialogTab): void { this.svc.setTab(tab); }
@@ -782,7 +809,7 @@ export class PlotDialogComponent implements AfterViewInit, OnDestroy {
   }
 
   paperLabel(): string {
-    if (this.opts.paper === 'Custom') return 'Custom';
+    if (this.opts.paper === 'Custom') return this.tr('editor.dialog.plot.paperCustom', 'Custom');
     return getPaperByKey(this.opts.paper)?.label ?? this.opts.paper;
   }
 
@@ -940,11 +967,12 @@ export class PlotDialogComponent implements AfterViewInit, OnDestroy {
     const dataUrl = out.canvas.toDataURL('image/png');
     const win = window.open('', '_blank');
     if (!win) return;
+    const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
     win.document.write(`<!DOCTYPE html>
 <html>
 <head>
-  <title>Plot Preview - ${this.opts.format.toUpperCase()} (${this.opts.paper})</title>
+  <title>${esc(this.tr('editor.dialog.plot.previewWindowTitle', 'Plot Preview - {{format}} ({{paper}})', { format: this.opts.format.toUpperCase(), paper: this.opts.paper }))}</title>
   <style>
     body { margin: 0; padding: 20px; background: #101215; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; color: #fff; box-sizing: border-box; }
     .header { margin-bottom: 12px; font-size: 13px; color: #8a99a8; display: flex; gap: 20px; background: #1a1e24; padding: 8px 16px; border-radius: 6px; }
@@ -954,13 +982,13 @@ export class PlotDialogComponent implements AfterViewInit, OnDestroy {
 </head>
 <body>
   <div class="header">
-    <span>Format: <strong>${this.opts.format.toUpperCase()}</strong></span>
-    <span>Paper: <strong>${this.opts.paper}</strong></span>
-    <span>Scale: <strong>${this.opts.scale === 'fit' ? 'Fit to paper' : '1:' + this.opts.scale}</strong></span>
-    <span>Quality: <strong>150 DPI (Fast & Crisp)</strong></span>
+    <span>${esc(this.tr('editor.dialog.plot.previewFormat', 'Format'))}: <strong>${this.opts.format.toUpperCase()}</strong></span>
+    <span>${esc(this.tr('editor.dialog.plot.paper', 'Paper'))}: <strong>${esc(this.opts.paper)}</strong></span>
+    <span>${esc(this.tr('editor.dialog.plot.scale', 'Scale'))}: <strong>${this.opts.scale === 'fit' ? esc(this.tr('editor.dialog.plot.fitToPaper', 'Fit to paper')) : '1:' + this.opts.scale}</strong></span>
+    <span>${esc(this.tr('editor.dialog.plot.previewQuality', 'Quality'))}: <strong>${esc(this.tr('editor.dialog.plot.previewQualityValue', '150 DPI (Fast & Crisp)'))}</strong></span>
   </div>
   <div class="preview-box">
-    <img src="${dataUrl}" alt="High-Res Plot Preview" />
+    <img src="${dataUrl}" alt="${esc(this.tr('editor.dialog.plot.previewAlt', 'High-Res Plot Preview'))}" />
   </div>
 </body>
 </html>`);
@@ -983,11 +1011,11 @@ export class PlotDialogComponent implements AfterViewInit, OnDestroy {
       ctx.fillStyle = '#13161d'; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#3a3f4b'; ctx.fillRect(40, 30, canvas.width - 80, canvas.height - 60);
       ctx.fillStyle = '#5ab0ff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(this.opts.format.toUpperCase() + ' Export', canvas.width / 2, canvas.height / 2 - 16);
+      ctx.fillText(this.tr('editor.dialog.plot.exchangeCanvasTitle', '{{format}} Export', { format: this.opts.format.toUpperCase() }), canvas.width / 2, canvas.height / 2 - 16);
       ctx.fillStyle = '#888'; ctx.font = '11px sans-serif';
-      ctx.fillText('Full model export — no sheet layout', canvas.width / 2, canvas.height / 2 + 4);
+      ctx.fillText(this.tr('editor.dialog.plot.exchangeCanvasSubtitle', 'Full model export — no sheet layout'), canvas.width / 2, canvas.height / 2 + 4);
       if (this.opts.format === 'dxf') {
-        ctx.fillText('Version: ' + (this.opts.dxfVersion || 'R2000'), canvas.width / 2, canvas.height / 2 + 22);
+        ctx.fillText(this.tr('editor.dialog.plot.exchangeVersion', 'Version: {{version}}', { version: this.opts.dxfVersion || 'R2000' }), canvas.width / 2, canvas.height / 2 + 22);
       }
       this.previewHasContent = true;
       return;

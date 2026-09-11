@@ -7,6 +7,8 @@ import { CommandRegistryService } from '../../core/services/command-registry.ser
 import { CommandPromptService } from '../../core/services/command-prompt.service';
 import type { ICommandOption } from '../../core/models/command-prompt.model';
 import { SafeHtmlPipe } from '../../shared/components/safe-html.pipe';
+import { translateOr, injectTranslocoOptional } from '../../../../core/i18n/translate-or';
+import { translateOrParams } from '../shared/translate-or-params';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -243,6 +245,7 @@ export class CommandLineComponent {
   private catalog = inject(ToolCatalogService);
   private cmdRegistry = inject(CommandRegistryService);
   private cmdPromptSvc = inject(CommandPromptService);
+  private transloco = injectTranslocoOptional();
 
   readonly prompt = signal('');
   readonly query = signal('');
@@ -259,7 +262,7 @@ export class CommandLineComponent {
   /** Placeholder reflects the current command phase when a tool is active. */
   readonly placeholder = computed(() => {
     const state = this.cmdPromptSvc.state();
-    if (!state) return 'Type a command or tool name\u2026';
+    if (!state) return translateOr(this.transloco, 'editor.ui.commandLine.placeholder', 'Type a command or tool name\u2026');
     const opts = (state.options ?? []).length
       ? ` [${state.options.map((o: any) => o.key).join('/')}]` : '';
     return `${state.message.replace(/:$/, '')}${opts}`;
@@ -416,7 +419,7 @@ export class CommandLineComponent {
     if (exact) {
       this.activate(exact);
     } else {
-      this.prompt.set(`Unknown: ${rawVal}`);
+      this.prompt.set(translateOrParams(this.transloco, 'editor.ui.commandLine.unknownCommand', 'Unknown: {{input}}', { input: rawVal }));
       setTimeout(() => this.prompt.set(''), 2000);
       this.clearInput();
     }

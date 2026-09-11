@@ -506,12 +506,12 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       else this.blockEditor.discard();
     });
 
-    // â”€â”€ Print / Plot / Export / Publish commands (command bar + shortcuts) â”€â”€
+    // ── Print / Plot / Export / Publish commands (command bar + shortcuts) ──
     this.cmdRegistry.registerAction('plot', () => this.plotDialog.open({ format: 'pdf' }));
     this.cmdRegistry.registerAction('export', () => this.plotDialog.open({ format: 'pdf' }));
     this.cmdRegistry.registerAction('publish', () => {
       this.notify.info(
-        'PUBLISH â€” Batch Sheet-Set publishing coming in a future release. Use PLOT to export individual sheets.',
+        'PUBLISH — Batch Sheet-Set publishing coming in a future release. Use PLOT to export individual sheets.',
         7000,
       );
     });
@@ -522,13 +522,13 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cmdRegistry.registerAction('exportdxf', () => this.plotDialog.open({ format: 'dxf' }));
 
 
-    // â”€â”€ Layout / Paper Space commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Layout / Paper Space commands ──────────────────────────────────────
     this.cmdRegistry.registerAction('layout', () => {
       this.layoutManagerDialog.open();
     });
     this.cmdRegistry.registerAction('mview', () => {
       if (this.layoutMgr.isModelSpace()) {
-        this.notify.info('MVIEW â€” Switch to a Layout tab first to create viewports.', 4000);
+        this.notify.info('MVIEW — Switch to a Layout tab first to create viewports.', 4000);
         return;
       }
       this.toolMgr.setTool('mview');
@@ -536,7 +536,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cmdRegistry.registerAction('mv', () => this.cmdRegistry.execute('mview'));
     this.cmdRegistry.registerAction('pagesetup', () => {
       if (this.layoutMgr.isModelSpace()) {
-        this.notify.info('PAGESETUP â€” Switch to a Layout tab to configure its page setup.', 4000);
+        this.notify.info('PAGESETUP — Switch to a Layout tab to configure its page setup.', 4000);
         return;
       }
       this.pageSetupDialog.open(this.layoutMgr.activeLayoutId());
@@ -546,7 +546,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       const layout = this.layoutMgr.activeLayout();
       const firstVp = layout.viewports[0];
       if (firstVp) this.layoutMgr.enterMspace(firstVp.id);
-      else this.notify.info('MSPACE â€” Create a viewport (MVIEW) first.', 3000);
+      else this.notify.info('MSPACE — Create a viewport (MVIEW) first.', 3000);
     });
     this.cmdRegistry.registerAction('ms', () => this.cmdRegistry.execute('mspace'));
     this.cmdRegistry.registerAction('pspace', () => {
@@ -555,7 +555,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.cmdRegistry.registerAction('ps', () => this.cmdRegistry.execute('pspace'));
 
-    // â”€â”€ Clipboard commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Clipboard commands ─────────────────────────────────────────────────
     this.cmdRegistry.registerAction('copy', () => this.toolMgr.setTool('copy'));
     this.cmdRegistry.registerAction('copybase', () => {
       const pt = prompt('Specify base point (x,y):');
@@ -707,7 +707,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Drop handler â€” fired when a Library card or file is dragged and dropped onto the canvas.
+   * Drop handler — fired when a Library card or file is dragged and dropped onto the canvas.
    */
   onDrop(e: DragEvent): void {
     e.preventDefault();
@@ -734,7 +734,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Right-click on canvas â†’ show context menu with library-aware actions.
+   * Right-click on canvas → show context menu with library-aware actions.
    */
   onCanvasContextMenu(e: MouseEvent): void {
     e.preventDefault();
@@ -890,7 +890,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
           this.contextMenu.hide();
         },
       },
-      { label: 'â”€â”€ Draw Order â”€â”€', separator: true, action: () => { } },
+      { label: '── Draw Order ──', separator: true, action: () => { } },
       { label: 'Bring To Front', icon: '⬆', action: () => { this.contextMenu.hide(); this.drawOrder.bringToFront(selected, this.doc.activeFile); } },
       { label: 'Send To Back', icon: '⬇', action: () => { this.contextMenu.hide(); this.drawOrder.sendToBack(selected, this.doc.activeFile); } },
       { label: 'Bring Forward', icon: '↑', action: () => { this.contextMenu.hide(); this.drawOrder.bringForward(selected, this.doc.activeFile); } },
@@ -947,7 +947,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.contextMenu.show(x, y, items, rect.width, rect.height);
   }
 
-  /** Double-click on canvas â†’ open the properties panel pinned to the activated entity. */
+  /** Double-click on canvas → open the properties panel pinned to the activated entity. */
   onEntityActivated(ent?: Entity, sx?: number, sy?: number): void {
     if (ent && ent.type.startsWith('DIM')) {
       this.dimTextEditor.openForEdit(ent as any, sx!, sy!);
@@ -1159,11 +1159,11 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
-  // Single merged keydown handler â€” Angular Ivy only fires ONE @HostListener per
+  // Single merged keydown handler — Angular Ivy only fires ONE @HostListener per
   // event name per component class, so all keydown logic must live in one method.
   @HostListener('window:keydown', ['$event'])
   onKeyDown(e: KeyboardEvent): void {
-    // â”€â”€ Ctrl/Cmd global shortcuts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Ctrl/Cmd global shortcuts ─────────────────────────────────────────────
     // Undo/redo/select-all/copy/paste are always active regardless of focus
     // (e.g. command-line input), but NOT while the inline text/table editor
     // is open (those manage their own undo history).
@@ -1210,9 +1210,9 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      // â”€â”€ Plot / Export shortcuts (AutoCAD parity) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      //   Ctrl+P â†’ Plot dialog Â· Ctrl+Shift+P â†’ Quick Plot (last settings)
-      //   Ctrl+E â†’ Export dialog
+      // ── Plot / Export shortcuts (AutoCAD parity) ──────────────────────────
+      //   Ctrl+P → Plot dialog Â· Ctrl+Shift+P → Quick Plot (last settings)
+      //   Ctrl+E → Export dialog
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         if (this.plotDialog.isOpen()) return;
@@ -1249,11 +1249,11 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      // â”€â”€ Document Management shortcuts (AutoCAD parity) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      // Ctrl+Tab â†’ Next Drawing
-      // Ctrl+Shift+Tab â†’ Previous Drawing
-      // Ctrl+W â†’ Close Active Drawing
-      // Ctrl+Shift+T â†’ Reopen Last Closed
+      // ── Document Management shortcuts (AutoCAD parity) ────────────────────
+      // Ctrl+Tab → Next Drawing
+      // Ctrl+Shift+Tab → Previous Drawing
+      // Ctrl+W → Close Active Drawing
+      // Ctrl+Shift+T → Reopen Last Closed
       if ((e.ctrlKey || e.metaKey) && e.key === 'Tab') {
         e.preventDefault();
         if (e.shiftKey) {
@@ -1289,7 +1289,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    // â”€â”€ Keys below only apply when no text/table editor is active and focus
+    // ── Keys below only apply when no text/table editor is active and focus
     //    is NOT inside a plain text input/textarea/select.
     if (this.isEditingText(e) || this.textEditor.state() !== null || this.tableEditor.state() !== null) return;
 
@@ -1302,14 +1302,14 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
     }
-    // AutoCAD-style Enter / Space at idle â†’ repeat the last non-{select,pan} tool.
+    // AutoCAD-style Enter / Space at idle → repeat the last non-{select,pan} tool.
     if (e.key === 'Enter' || e.key === ' ') {
       if (this.dynInput.visible()) return;
       if (this.toolMgr.activeTool?.getAnchor?.()) return;
       if (this.toolMgr.activeToolName() === 'create_block' && this.toolMgr.activeTool?.getPhase?.() === 'select') return;
       if (this.toolMgr.toggleLastOrSelect()) {
         // stopImmediatePropagation prevents the canvas component's own
-        // window:keydown handler from running on the same event â€” that
+        // window:keydown handler from running on the same event — that
         // handler forwards the key to activeTool.onKeyDown, which would
         // hand Enter/Space straight to the tool we JUST activated.
         e.preventDefault();
@@ -1376,7 +1376,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   /*  Centralized shortcut actions                                          */
   /* -------------------------------------------------------------------- */
 
-  /** Ctrl+A â€” select every visible, unlocked entity across visible files. */
+  /** Ctrl+A — select every visible, unlocked entity across visible files. */
   private selectAll(): void {
     for (const file of this.doc.files) {
       if (!file.visible || file.locked) continue;
@@ -1390,7 +1390,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.vm.markContentDirty();
   }
 
-  /** Ctrl+C â€” copy selected entities to the CAD clipboard. */
+  /** Ctrl+C — copy selected entities to the CAD clipboard. */
   private copyToClipboard(): void {
     const sel = this.doc.getSelectedEntities();
     if (!sel.length) return;
@@ -1398,7 +1398,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.notify.info(`${sel.length} object${sel.length === 1 ? '' : 's'} copied to clipboard`, 1800);
   }
 
-  /** Ctrl+X â€” cut (copy + delete) selected entities. */
+  /** Ctrl+X — cut (copy + delete) selected entities. */
   private cutClipboard(): void {
     const sel = this.doc.getSelectedEntities();
     if (!sel.length) return;
@@ -1407,7 +1407,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Ctrl+V / PASTECLIP â€” activate the paste placement tool. Tries in order:
+   * Ctrl+V / PASTECLIP — activate the paste placement tool. Tries in order:
    *   1. In-memory CadClipboardService payload
    *   2. LocalStorage (cross-tab)
    *   3. System clipboard JSON (cross-instance)
@@ -1429,7 +1429,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Ctrl+Shift+V / PASTEORIG â€” paste at original coordinates (no tool, instant).
+   * Ctrl+Shift+V / PASTEORIG — paste at original coordinates (no tool, instant).
    */
   private pasteOriginal(): void {
     this.cadClipboard.readFromSystemClipboard().then((ok) => {
@@ -1445,7 +1445,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Ctrl+Alt+V / PASTEBLOCK â€” activate paste tool in PASTEBLOCK mode.
+   * Ctrl+Alt+V / PASTEBLOCK — activate paste tool in PASTEBLOCK mode.
    */
   private pasteAsBlock(): void {
     this.cadClipboard.readFromSystemClipboard().then((ok) => {
@@ -1458,7 +1458,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  /** Delete â€” remove the current selection through the undoable command stack. */
+  /** Delete — remove the current selection through the undoable command stack. */
   private deleteSelected(): boolean {
     const sel = this.doc.getSelectedEntities();
     if (!sel.length) return false;

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { Units } from '../../../core/api/api.models';
 import { CAD_THEMES, ICadTheme } from '../../cad-editor/core/services/theme.service';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
@@ -20,13 +21,14 @@ const PREVIEW_THEME_IDS = ['monokai', 'cad-light'] as const;
   selector: 'app-onboarding-defaults-step',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent],
+  imports: [TranslocoDirective, UiIconComponent],
   template: `
-    <h2 class="ob-step__title">Pick your defaults</h2>
-    <p class="ob-step__sub">New drawings start with these. Both can be changed per drawing at any time.</p>
+    <ng-container *transloco="let t">
+    <h2 class="ob-step__title">{{ t('onboarding.defaults.title') }}</h2>
+    <p class="ob-step__sub">{{ t('onboarding.defaults.subtitle') }}</p>
 
     <div class="ob-block">
-      <span class="ob-block__label" id="ob-units-label">Drawing units</span>
+      <span class="ob-block__label" id="ob-units-label">{{ t('onboarding.defaults.unitsLabel') }}</span>
       <div class="ob-seg" role="radiogroup" aria-labelledby="ob-units-label">
         @for (unit of units; track unit.id) {
           <button
@@ -35,18 +37,18 @@ const PREVIEW_THEME_IDS = ['monokai', 'cad-light'] as const;
             class="ob-seg__btn"
             [class.ob-seg__btn--on]="draft().units === unit.id"
             [attr.aria-checked]="draft().units === unit.id"
-            [attr.aria-label]="unit.name"
+            [attr.aria-label]="t(unit.nameKey)"
             (click)="pickUnits(unit.id)"
           >
             {{ unit.label }}
           </button>
         }
       </div>
-      <p class="ob-block__hint">{{ unitName() }}</p>
+      <p class="ob-block__hint">{{ unitNameKey() ? t(unitNameKey()) : '' }}</p>
     </div>
 
     <div class="ob-block">
-      <span class="ob-block__label" id="ob-theme-label">Appearance</span>
+      <span class="ob-block__label" id="ob-theme-label">{{ t('onboarding.defaults.appearance') }}</span>
       <div class="ob-themes" role="radiogroup" aria-labelledby="ob-theme-label">
         @for (theme of themes; track theme.id) {
           <button
@@ -74,6 +76,7 @@ const PREVIEW_THEME_IDS = ['monokai', 'cad-light'] as const;
         }
       </div>
     </div>
+    </ng-container>
   `,
   styles: [
     `
@@ -143,8 +146,8 @@ export class OnboardingDefaultsStepComponent {
     (PREVIEW_THEME_IDS as readonly string[]).includes(t.id),
   );
 
-  protected unitName(): string {
-    return UNIT_CHOICES.find((u) => u.id === this.draft().units)?.name ?? '';
+  protected unitNameKey(): string {
+    return UNIT_CHOICES.find((u) => u.id === this.draft().units)?.nameKey ?? '';
   }
 
   protected pickUnits(units: Units): void {

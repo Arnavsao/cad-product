@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent, UiIconName } from '../../../shared/ui/icon.component';
 
 /** One button in the bulk bar. */
 export interface BulkBarAction {
   id: string;
+  /** Already translated — the page owns its action vocabulary. */
   label: string;
   icon?: UiIconName;
   danger?: boolean;
@@ -32,10 +34,10 @@ export interface BulkBarAction {
   selector: 'app-bulk-bar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiIconComponent],
+  imports: [TranslocoDirective, UiButtonDirective, UiIconComponent],
   template: `
-    <div class="bb" role="status">
-      <span class="bb__count">{{ count() }} selected</span>
+    <div class="bb" role="status" *transloco="let t">
+      <span class="bb__count">{{ t('dashboard.components.bulkBar.selected', { count: count() }) }}</span>
       @for (item of actions(); track item.id) {
         <button
           type="button"
@@ -51,7 +53,9 @@ export interface BulkBarAction {
           {{ item.label }}
         </button>
       }
-      <button type="button" uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="clear.emit()">Clear</button>
+      <button type="button" uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="clear.emit()">
+        {{ t('dashboard.components.bulkBar.clear') }}
+      </button>
     </div>
   `,
   styles: [

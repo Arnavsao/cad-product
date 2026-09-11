@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../../environments/environment';
 import { CreateFeedbackRequest, FeedbackKind } from '../../../core/api/api.models';
 import { FeedbackApiService } from '../../../core/api/feedback-api.service';
@@ -26,71 +27,73 @@ type TopicId = 'question' | 'team' | 'invoicing' | 'bug' | 'idea';
 
 interface Topic {
   id: TopicId;
-  label: string;
-  hint: string;
+  labelKey: string;
+  hintKey: string;
   icon: UiIconName;
   /** The feedback kind the API stores. */
   kind: FeedbackKind;
-  /** Prepended to the message so a topic the API has no kind for is still sortable. */
+  /**
+   * Prepended to the message so a topic the API has no kind for is still
+   * sortable. A machine-readable tag read on the far side, so it stays English
+   * whatever language the sender wrote in.
+   */
   prefix: string;
-  placeholder: string;
+  placeholderKey: string;
 }
 
 const TOPICS: readonly Topic[] = [
   {
     id: 'question',
-    label: 'Question about the product',
-    hint: 'How do I, does it, can it',
+    labelKey: 'site.contact.topic.question.label',
+    hintKey: 'site.contact.topic.question.hint',
     icon: 'help',
     kind: 'question',
     prefix: '',
-    placeholder: 'What are you trying to do, and where did you get stuck?',
+    placeholderKey: 'site.contact.topic.question.placeholder',
   },
   {
     id: 'team',
-    label: 'Team or education plan',
-    hint: 'Seats, classrooms, student discount',
+    labelKey: 'site.contact.topic.team.label',
+    hintKey: 'site.contact.topic.team.hint',
     icon: 'users',
     kind: 'other',
     prefix: '[Team/edu plan] ',
-    placeholder: 'How many people, which institution or studio, and what you need from the plan.',
+    placeholderKey: 'site.contact.topic.team.placeholder',
   },
   {
     id: 'invoicing',
-    label: 'Invoicing',
-    hint: 'Annual invoices for Team plans',
+    labelKey: 'site.contact.topic.invoicing.label',
+    hintKey: 'site.contact.topic.invoicing.hint',
     icon: 'file',
     kind: 'other',
     prefix: '[Invoicing] ',
-    placeholder: 'The organization name, billing address and the number of seats to invoice.',
+    placeholderKey: 'site.contact.topic.invoicing.placeholder',
   },
   {
     id: 'bug',
-    label: 'Bug report',
-    hint: 'Something is broken or wrong',
+    labelKey: 'site.contact.topic.bug.label',
+    hintKey: 'site.contact.topic.bug.hint',
     icon: 'alert',
     kind: 'bug',
     prefix: '',
-    placeholder: 'What did you do, what did you expect, and what happened instead? Steps to reproduce help most.',
+    placeholderKey: 'site.contact.topic.bug.placeholder',
   },
   {
     id: 'idea',
-    label: 'Feature idea',
-    hint: 'Something you wish existed',
+    labelKey: 'site.contact.topic.idea.label',
+    hintKey: 'site.contact.topic.idea.hint',
     icon: 'sparkle',
     kind: 'idea',
     prefix: '',
-    placeholder: 'What would you like to be able to do, and what do you do today instead?',
+    placeholderKey: 'site.contact.topic.idea.placeholder',
   },
 ];
 
-/** The pricing FAQs most likely to be the reason someone opened this page. */
-const FAQ_PICKS: readonly string[] = [
-  'Do you offer invoicing for teams?',
-  'Is there a student discount?',
-  'What happens to my drawings if I stop paying?',
-  'Can I switch plans later?',
-];
+/**
+ * The pricing FAQs most likely to be the reason someone opened this page,
+ * picked by their stable ids so the selection survives translation.
+ */
+const FAQ_PICKS: readonly string[] = ['invoicing', 'student', 'stopPaying', 'switch'];
 
 /**
  * `/contact` — one form, posted to the same `/feedback` endpoint the dashboard
@@ -114,6 +117,7 @@ const FAQ_PICKS: readonly string[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    TranslocoDirective,
     UiButtonDirective,
     UiIconComponent,
     UiInputDirective,
@@ -131,10 +135,10 @@ export class ContactPage {
   private readonly router = inject(Router);
 
   protected readonly topics = TOPICS;
-  protected readonly faqs: readonly SiteAccordionItem[] = FAQS.filter((f) => FAQ_PICKS.includes(f.q)).map((f, i) => ({
+  protected readonly faqs: readonly SiteAccordionItem[] = FAQS.filter((f) => FAQ_PICKS.includes(f.id)).map((f, i) => ({
     id: `faq-${i}`,
-    title: f.q,
-    body: f.a,
+    titleKey: f.qKey,
+    bodyKey: f.aKey,
   }));
 
   protected readonly topicId = signal<TopicId>('question');

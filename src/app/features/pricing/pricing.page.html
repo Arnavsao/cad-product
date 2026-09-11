@@ -1,15 +1,15 @@
-<div class="pr">
+<div class="pr" *transloco="let t">
   <main class="pr__main">
     <section class="pr__hero">
       <site-heading
         [level]="1"
-        eyebrow="Plans &amp; pricing"
-        title="Simple pricing for browser-native CAD."
-        lede="Start free and stay free for occasional work. Upgrade when your drawings, or your studio, outgrow it. The full drafting toolset and DXF export are on every plan; the paid tiers add storage, history and collaboration."
+        [eyebrow]="t('site.pricing.hero.eyebrow')"
+        [title]="t('site.pricing.hero.title')"
+        [lede]="t('site.pricing.hero.lede')"
         align="center"
       />
 
-      <div class="pr__toggle" role="radiogroup" aria-label="Billing period">
+      <div class="pr__toggle" role="radiogroup" [attr.aria-label]="t('site.pricing.billing.label')">
         <button
           type="button"
           class="pr__toggle-btn"
@@ -18,7 +18,7 @@
           [attr.aria-checked]="!annual()"
           (click)="annual.set(false)"
         >
-          Monthly
+          {{ t('site.pricing.billing.monthly') }}
         </button>
         <button
           type="button"
@@ -28,33 +28,33 @@
           [attr.aria-checked]="annual()"
           (click)="annual.set(true)"
         >
-          Annual
-          <span class="pr__toggle-save">save 20%</span>
+          {{ t('site.pricing.billing.annual') }}
+          <span class="pr__toggle-save">{{ t('site.pricing.billing.save', { percent: annualSaving }) }}</span>
         </button>
       </div>
     </section>
 
-    <section class="pr__tiers" aria-label="Plans">
+    <section class="pr__tiers" [attr.aria-label]="t('site.pricing.tiers.label')">
       @for (tier of tiers; track tier.id) {
         <article class="pr__tier" [id]="tier.id" [class.pr__tier--featured]="tier.featured">
           @if (tier.featured) {
-            <span class="pr__tier-flag">Most popular</span>
+            <span class="pr__tier-flag">{{ t('site.pricing.tier.mostPopular') }}</span>
           }
-          <h2 class="pr__tier-name">{{ tier.name }}</h2>
-          <p class="pr__tier-tagline">{{ tier.tagline }}</p>
+          <h2 class="pr__tier-name">{{ t(tier.nameKey) }}</h2>
+          <p class="pr__tier-tagline">{{ t(tier.taglineKey) }}</p>
 
           <p class="pr__price">
             <span class="pr__price-amount">{{ currency }}{{ priceOf(tier) }}</span>
             @if (priceOf(tier) > 0) {
-              <span class="pr__price-unit">/user/month</span>
+              <span class="pr__price-unit">{{ t('site.pricing.price.perUserMonth') }}</span>
             }
           </p>
           @if (annual() && savingOf(tier) > 0) {
-            <p class="pr__price-note">billed annually — save {{ savingOf(tier) }}%</p>
+            <p class="pr__price-note">{{ t('site.pricing.price.billedAnnually', { percent: savingOf(tier) }) }}</p>
           } @else if (priceOf(tier) > 0) {
-            <p class="pr__price-note">billed monthly</p>
+            <p class="pr__price-note">{{ t('site.pricing.price.billedMonthly') }}</p>
           } @else {
-            <p class="pr__price-note">free forever</p>
+            <p class="pr__price-note">{{ t('site.pricing.price.freeForever') }}</p>
           }
 
           <!--
@@ -73,59 +73,56 @@
               [disabled]="!!buying()"
               (click)="startCheckout(target)"
             >
-              {{ ctaFor(tier) }}
+              {{ t(ctaKeyFor(tier)) }}
             </button>
           } @else {
             <a uiButton class="pr__tier-cta" [variant]="tier.featured ? 'primary' : 'secondary'" [routerLink]="ctaLink()">
-              {{ ctaFor(tier) }}
+              {{ t(ctaKeyFor(tier)) }}
             </a>
           }
 
           <ul class="pr__features">
-            @for (feature of tier.highlights; track feature) {
-              <li><ui-icon name="check" [size]="14" /> {{ feature }}</li>
+            @for (featureKey of tier.highlightKeys; track featureKey) {
+              <li><ui-icon name="check" [size]="14" /> {{ t(featureKey) }}</li>
             }
           </ul>
         </article>
       }
     </section>
 
-    <p class="pr__note" role="note">
-      Billing runs through Dodo Payments and is switched on per deployment. Until it is live for your account the paid
-      buttons take you to sign-up, and the Free tier limits shown here are recorded but not yet enforced.
-    </p>
+    <p class="pr__note" role="note">{{ t('site.pricing.note') }}</p>
 
     <section class="pr__compare" aria-labelledby="pr-compare-title">
-      <h2 id="pr-compare-title" class="pr__section-title">Compare plans</h2>
+      <h2 id="pr-compare-title" class="pr__section-title">{{ t('site.pricing.compare.title') }}</h2>
       <div class="pr__table-wrap">
         <table class="pr__table">
-          <caption class="ui-visually-hidden">Feature comparison across the Free, Pro and Team plans</caption>
+          <caption class="ui-visually-hidden">{{ t('site.pricing.compare.caption') }}</caption>
           <thead>
             <tr>
-              <th scope="col">Feature</th>
+              <th scope="col">{{ t('site.pricing.compare.feature') }}</th>
               @for (tier of tiers; track tier.id) {
-                <th scope="col">{{ tier.name }}</th>
+                <th scope="col">{{ t(tier.nameKey) }}</th>
               }
             </tr>
           </thead>
-          @for (group of comparison; track group.title) {
+          @for (group of comparison; track group.id) {
             <tbody>
               <tr class="pr__group">
-                <th scope="rowgroup" [attr.colspan]="tiers.length + 1">{{ group.title }}</th>
+                <th scope="rowgroup" [attr.colspan]="tiers.length + 1">{{ t(group.titleKey) }}</th>
               </tr>
-              @for (row of group.rows; track row.label) {
+              @for (row of group.rows; track row.id) {
                 <tr>
-                  <th scope="row">{{ row.label }}</th>
+                  <th scope="row">{{ t(row.labelKey) }}</th>
                   @for (tier of tiers; track tier.id) {
                     <td>
                       @if (cell(row, tier.id) === true) {
                         <ui-icon class="pr__yes" name="check" [size]="15" />
-                        <span class="ui-visually-hidden">Included</span>
+                        <span class="ui-visually-hidden">{{ t('site.pricing.compare.included') }}</span>
                       } @else if (cell(row, tier.id) === false) {
                         <span class="pr__no" aria-hidden="true">—</span>
-                        <span class="ui-visually-hidden">Not included</span>
+                        <span class="ui-visually-hidden">{{ t('site.pricing.compare.notIncluded') }}</span>
                       } @else {
-                        {{ cell(row, tier.id) }}
+                        {{ t(cellKey(row, tier.id)) }}
                       }
                     </td>
                   }
@@ -138,11 +135,16 @@
     </section>
 
     <section class="pr__faq" aria-labelledby="pr-faq-title">
-      <h2 id="pr-faq-title" class="pr__section-title">Questions</h2>
-      <site-accordion class="pr__faq-acc" [items]="faqItems" [initiallyOpen]="[faqItems[0].id]" />
+      <h2 id="pr-faq-title" class="pr__section-title">{{ t('site.pricing.faq.title') }}</h2>
+      <site-accordion class="pr__faq-acc" [items]="faqItems" [initiallyOpen]="[faqs[0].id]" />
     </section>
 
   </main>
-  <site-closing title="Ready to draw?" sub="No install, no licence server. Open a browser and start; upgrade only when the work asks for it." secondaryLabel="See the features" secondaryLink="/features" />
+  <site-closing
+    [title]="t('site.pricing.closing.title')"
+    [sub]="t('site.pricing.closing.sub')"
+    [secondaryLabel]="t('site.pricing.closing.secondary')"
+    secondaryLink="/features"
+  />
 
 </div>

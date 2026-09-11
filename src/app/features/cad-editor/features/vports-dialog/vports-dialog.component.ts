@@ -8,6 +8,8 @@ import {
   signal
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { translateDialog } from '../dialog-i18n';
 import { VportsDialogService } from './vports-dialog.service';
 import {
   IViewportConfigPreset,
@@ -22,7 +24,7 @@ import { ViewportManagerService } from '../../core/services/viewport-manager.ser
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-vports-dialog',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslocoDirective],
   templateUrl: './vports-dialog.component.html',
   styleUrls: ['./vports-dialog.component.scss']
 })
@@ -31,6 +33,16 @@ export class VportsDialogComponent implements AfterViewInit {
   protected modelVps = inject(ModelViewportService);
   protected layoutMgr = inject(LayoutManagerService);
   protected paperVps = inject(ViewportManagerService);
+  // Optional: embedded hosts and specs may construct the dialog without Transloco.
+  private readonly transloco = inject(TranslocoService, { optional: true });
+
+  /** Visual styles offered by the picker; the value is what the preview canvas keys on. */
+  readonly visualStyles: ReadonlyArray<{ value: string; labelKey: string; english: string }> = [
+    { value: '2D Wireframe', labelKey: 'editor.dialog.vports.vs2dWireframe', english: '2D Wireframe' },
+    { value: 'Conceptual',   labelKey: 'editor.dialog.vports.vsConceptual',  english: 'Conceptual' },
+    { value: 'Realistic',    labelKey: 'editor.dialog.vports.vsRealistic',   english: 'Realistic' },
+    { value: 'Shaded',       labelKey: 'editor.dialog.vports.vsShaded',      english: 'Shaded' },
+  ];
 
   @ViewChild('previewCanvas') previewCanvasRef!: ElementRef<HTMLCanvasElement>;
 
@@ -117,12 +129,13 @@ export class VportsDialogComponent implements AfterViewInit {
         ctx.textBaseline = 'middle';
 
         if (tw > 60 && th > 30) {
-          ctx.fillText(`View: *Current*`, tx + tw / 2, ty + th / 2 - 8);
+          ctx.fillText(translateDialog(this.transloco, 'editor.dialog.vports.previewView', 'View: {{view}}', { view: '*Current*' }), tx + tw / 2, ty + th / 2 - 8);
           ctx.font = '10px Segoe UI, sans-serif';
           ctx.fillStyle = '#94a3b8';
-          ctx.fillText(this.visualStyle, tx + tw / 2, ty + th / 2 + 8);
+          const vs = this.visualStyles.find(v => v.value === this.visualStyle);
+          ctx.fillText(vs ? translateDialog(this.transloco, vs.labelKey, vs.english) : this.visualStyle, tx + tw / 2, ty + th / 2 + 8);
         } else {
-          ctx.fillText(t.label || 'Top', tx + tw / 2, ty + th / 2);
+          ctx.fillText(t.label || translateDialog(this.transloco, 'editor.dialog.vports.viewTop', 'Top'), tx + tw / 2, ty + th / 2);
         }
       }
     }, 10);

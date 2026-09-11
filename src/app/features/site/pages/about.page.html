@@ -1,11 +1,12 @@
+<ng-container *transloco="let t">
 <!-- Hero -->
 <section class="ab__hero site-section site-section--tight">
   <div class="site-container">
     <site-heading
       [level]="1"
-      eyebrow="About"
-      title="CAD that respects the drawing."
-      lede="CADO is a browser-based 2D CAD editor with cloud drawings behind it, built to open a DXF exactly as AutoCAD renders it and to hand it back the same way. No installer, no licence server, no format of our own between you and your work."
+      [eyebrow]="t('site.about.hero.eyebrow')"
+      [title]="t('site.about.hero.title')"
+      [lede]="t('site.about.hero.lede')"
     />
   </div>
 </section>
@@ -13,15 +14,20 @@
 <!-- Principles -->
 <section class="ab__principles site-section site-section--tight" aria-labelledby="ab-principles">
   <div class="site-container">
-    <site-heading id="ab-principles" eyebrow="What we hold ourselves to" title="Four rules the code is checked against." lede="Each one is a decision that has already cost us something. They are listed here so you can hold us to them." />
+    <site-heading
+      id="ab-principles"
+      [eyebrow]="t('site.about.principles.eyebrow')"
+      [title]="t('site.about.principles.title')"
+      [lede]="t('site.about.principles.lede')"
+    />
 
     <ol class="ab__rules">
-      @for (p of principles; track p.title; let i = $index) {
+      @for (p of principles; track p.id; let i = $index) {
         <li class="ab__rule" [class.ab__rule--flip]="i % 2 === 1" siteReveal>
           <div class="ab__rule-text">
             <span class="ab__rule-n" aria-hidden="true">0{{ i + 1 }}</span>
-            <h3 class="ab__rule-title">{{ p.title }}</h3>
-            <p class="site-body">{{ p.body }}</p>
+            <h3 class="ab__rule-title">{{ t(p.titleKey) }}</h3>
+            <p class="site-body">{{ t(p.bodyKey) }}</p>
           </div>
 
           <div class="ab__rule-art" aria-hidden="true">
@@ -105,9 +111,9 @@
   <div class="site-container">
     <site-heading
       id="ab-build"
-      eyebrow="How it is built"
-      title="The drawing lives in your tab. The server keeps the receipts."
-      lede="Everything that touches geometry runs in the browser. The API exists so a drawing can be found again, shared and restored; it never parses a DXF or draws a line."
+      [eyebrow]="t('site.about.build.eyebrow')"
+      [title]="t('site.about.build.title')"
+      [lede]="t('site.about.build.lede')"
       align="center"
     />
 
@@ -117,13 +123,13 @@
           <div class="ab__arch-head">
             <span class="ab__arch-icon"><ui-icon [name]="block.icon" [size]="18" /></span>
             <div>
-              <h3 class="ab__arch-title">{{ block.title }}</h3>
+              <h3 class="ab__arch-title">{{ t(block.titleKey) }}</h3>
               <p class="ab__arch-tech">{{ block.tech }}</p>
             </div>
           </div>
           <ul class="ab__arch-list">
-            @for (item of block.does; track item) {
-              <li>{{ item }}</li>
+            @for (itemKey of block.doesKeys; track itemKey) {
+              <li>{{ t(itemKey) }}</li>
             }
           </ul>
         </li>
@@ -134,8 +140,7 @@
     </ol>
 
     <p class="ab__build-note" siteReveal="fade">
-      A save reserves the next version number in Postgres before the file is written, so two people saving at once can never
-      target the same object. The loser is offered Overwrite, Save as copy or Reload. Nothing is merged behind your back.
+      {{ t('site.about.build.note') }}
     </p>
   </div>
 </section>
@@ -144,28 +149,33 @@
 <section class="ab__timeline site-section" aria-labelledby="ab-timeline">
   <div class="site-container ab__timeline-grid">
     <div class="ab__timeline-intro">
-      <site-heading id="ab-timeline" eyebrow="Timeline" title="Where it has been, where it is going." lede="Dates are release dates. The current version is {{ currentVersion }}; the release notes have the detail." />
-      <a class="site-link ab__timeline-link" routerLink="/whats-new">Read the release notes</a>
+      <site-heading
+        id="ab-timeline"
+        [eyebrow]="t('site.about.timeline.eyebrow')"
+        [title]="t('site.about.timeline.title')"
+        [lede]="t('site.about.timeline.lede', { version: currentVersion })"
+      />
+      <a class="site-link ab__timeline-link" routerLink="/whats-new">{{ t('site.about.timeline.link') }}</a>
     </div>
 
     <ol class="ab__tl" siteReveal revealStagger="li">
-      @for (m of timeline; track m.title) {
+      @for (m of timeline; track m.id) {
         <li class="ab__tl-item" [class.ab__tl-item--now]="m.status === 'now'" [class.ab__tl-item--planned]="m.status === 'planned'">
           <span class="ab__tl-dot" aria-hidden="true"></span>
           <div class="ab__tl-meta">
             @if (dateFormat(m); as fmt) {
               <time class="ab__tl-date" [attr.datetime]="m.date">{{ m.date | date: fmt }}</time>
-            } @else {
-              <span class="ab__tl-date">{{ m.date }}</span>
+            } @else if (m.dateLabelKey) {
+              <span class="ab__tl-date">{{ t(m.dateLabelKey) }}</span>
             }
             <span
               class="site-pill"
               [class.site-pill--success]="m.status === 'shipped'"
               [class.site-pill--muted]="m.status === 'planned'"
-            >{{ statusLabel(m.status) }}</span>
+            >{{ t(statusKey(m.status)) }}</span>
           </div>
-          <h3 class="ab__tl-title">{{ m.title }}</h3>
-          <p class="ab__tl-body">{{ m.body }}</p>
+          <h3 class="ab__tl-title">{{ t(m.titleKey) }}</h3>
+          <p class="ab__tl-body">{{ t(m.bodyKey) }}</p>
         </li>
       }
     </ol>
@@ -175,14 +185,19 @@
 <!-- Candour -->
 <section class="ab__candour site-section site-section--tight" aria-labelledby="ab-candour">
   <div class="site-container site-container--narrow">
-    <site-heading id="ab-candour" eyebrow="Candour" title="What we will not gloss over." lede="Four things a sales page would leave out. You will find each of them within ten minutes of use, so they are better read here first." />
+    <site-heading
+      id="ab-candour"
+      [eyebrow]="t('site.about.candour.eyebrow')"
+      [title]="t('site.about.candour.title')"
+      [lede]="t('site.about.candour.lede')"
+    />
     <ul class="ab__plain" siteReveal revealStagger="li">
-      @for (c of candour; track c.title) {
+      @for (c of candour; track c.id) {
         <li class="ab__plain-item">
           <ui-icon name="alert" [size]="16" aria-hidden="true" />
           <div>
-            <h3 class="ab__plain-title">{{ c.title }}</h3>
-            <p class="ab__plain-body">{{ c.body }}</p>
+            <h3 class="ab__plain-title">{{ t(c.titleKey) }}</h3>
+            <p class="ab__plain-body">{{ t(c.bodyKey) }}</p>
           </div>
         </li>
       }
@@ -191,16 +206,16 @@
 </section>
 
 <!-- Links -->
-<nav class="ab__links site-section site-section--tight" aria-label="Elsewhere on the site">
+<nav class="ab__links site-section site-section--tight" [attr.aria-label]="t('site.about.links.label')">
   <div class="site-container">
     <ul class="ab__links-row" siteReveal revealStagger="li">
-      @for (l of links; track l.link) {
+      @for (l of links; track l.id) {
         <li>
           <a class="ab__links-card site-panel" [routerLink]="l.link">
             <span class="ab__links-icon"><ui-icon [name]="l.icon" [size]="18" /></span>
             <span class="ab__links-text">
-              <span class="ab__links-label">{{ l.label }}</span>
-              <span class="ab__links-hint">{{ l.hint }}</span>
+              <span class="ab__links-label">{{ t(l.labelKey) }}</span>
+              <span class="ab__links-hint">{{ t(l.hintKey) }}</span>
             </span>
             <ui-icon class="ab__links-chev" name="chevron-right" [size]="16" aria-hidden="true" />
           </a>
@@ -211,8 +226,9 @@
 </nav>
 
 <site-closing
-  title="Judge it by a drawing, not by this page."
-  sub="Open a DXF you know well and compare it with the sheet you issued. If anything differs, tell us; that is the kind of bug we fix first."
-  secondaryLabel="Read the docs"
+  [title]="t('site.about.closing.title')"
+  [sub]="t('site.about.closing.sub')"
+  [secondaryLabel]="t('site.about.closing.secondary')"
   secondaryLink="/docs"
 />
+</ng-container>

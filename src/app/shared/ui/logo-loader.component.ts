@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, numberAttribute } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { LOGO_TILE_PATHS, LOGO_VIEWBOX } from './logo.component';
 
 /**
@@ -28,8 +29,9 @@ import { LOGO_TILE_PATHS, LOGO_VIEWBOX } from './logo.component';
   selector: 'ui-logo-loader',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [TranslocoDirective],
   template: `
-    <div class="ll" role="status" aria-live="polite" [attr.aria-label]="label() || 'Loading'">
+    <div class="ll" role="status" aria-live="polite" *transloco="let t" [attr.aria-label]="label() || t('shared.logoLoader.loading')">
       <svg
         class="ll__mark"
         [attr.viewBox]="viewBox"

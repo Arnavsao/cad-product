@@ -30,10 +30,10 @@ type OffsetSource = LineEntity | CircleEntity | ArcEntity | PolylineEntity | Ell
 /**
  * AutoCAD-style OFFSET tool.
  *
- *   Phase 1 â€” pick source entity. Hover highlight on candidates. DI is
+ *   Phase 1 — pick source entity. Hover highlight on candidates. DI is
  *             hidden so the source-pick UX stays clean.
  *
- *   Phase 2 â€” cursor controls BOTH side and magnitude. The Dynamic Input
+ *   Phase 2 — cursor controls BOTH side and magnitude. The Dynamic Input
  *             panel below the cursor shows "Offset Distance" with the live
  *             value, matching Rect / Line / Circle UX. Distance is whichever
  *             the user typed into the DI field; if the field is empty, the
@@ -43,7 +43,7 @@ type OffsetSource = LineEntity | CircleEntity | ArcEntity | PolylineEntity | Ell
  *
  *   For closed shapes (rectangles, closed polylines, circles, ellipses) the
  *   tool detects whether the cursor is INSIDE or OUTSIDE the shape and
- *   offsets the entire boundary accordingly â€” moving every edge / radius in
+ *   offsets the entire boundary accordingly — moving every edge / radius in
  *   the same direction. This relies on `signedArea` to pick orientation
  *   and `pointInPolygon` (both in `geometry-utils`) so the algorithm works
  *   uniformly on freshly drawn rectangles, closed polylines, and DXF-
@@ -52,7 +52,7 @@ type OffsetSource = LineEntity | CircleEntity | ArcEntity | PolylineEntity | Ell
  *   `Esc` un-picks (or exits if already idle).
  *
  *   Preview is fully transient: a fresh entity object is constructed inside
- *   drawPreview each frame and discarded immediately â€” never inserted into
+ *   drawPreview each frame and discarded immediately — never inserted into
  *   `file.entities` until the commit click pushes AddEntityCmd.
  */
 export class OffsetTool implements ITool {
@@ -119,7 +119,7 @@ export class OffsetTool implements ITool {
 
   commitDynamicInput(values: Record<string, string>): boolean {
     // Enter (or Space) in DI commits the offset at the typed distance + the
-    // cursor's current side. Same effect as a left click â€” gives keyboard
+    // cursor's current side. Same effect as a left click — gives keyboard
     // users a parity path. Empty / invalid input keeps the field open and
     // lets cursor mode take over.
     if (!this.picked) return false;
@@ -162,7 +162,7 @@ export class OffsetTool implements ITool {
   /**
    * Shared commit path used by both onMouseDown (click) and commitDynamicInput
    * (Enter/Space inside DI). Pushes AddEntityCmd, updates lastDistance, and
-   * loops the tool back to source-pick â€” the same chained behavior AutoCAD's
+   * loops the tool back to source-pick — the same chained behavior AutoCAD's
    * OFFSET uses.
    */
   private commitOffsetAt(d: number): void {
@@ -182,7 +182,7 @@ export class OffsetTool implements ITool {
       OffsetTool.lastDistance = d;
     }
     if (this.multipleMode) {
-      // Stay in side-pick phase â€” keep picked, reset DI edits only.
+      // Stay in side-pick phase — keep picked, reset DI edits only.
       this.dyn.clearEdits();
     } else {
       this.picked = null;
@@ -218,7 +218,7 @@ export class OffsetTool implements ITool {
       offset.draw(ctx, this.vm, this.doc);
       ctx.restore();
     }
-    // Distance readout lives in the DI panel below the cursor â€” no floating
+    // Distance readout lives in the DI panel below the cursor — no floating
     // canvas label here, matching Rect/Line/Circle.
   }
 
@@ -287,7 +287,7 @@ export class OffsetTool implements ITool {
     }
   }
 
-  // â”€â”€ Type guards + geometry helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Type guards + geometry helpers ─────────────────────────────────────────
 
   private isOffsetable(ent: unknown): ent is OffsetSource {
     return ent instanceof LineEntity
@@ -349,7 +349,7 @@ export class OffsetTool implements ITool {
    * polar radius of the ellipse at the cursor's angle, subtracted from the
    * cursor's local radial distance. This is the same heuristic AutoCAD-Lite
    * implementations use to drive a Through-mode ellipse offset that "feels"
-   * proportional â€” it is NOT a true mathematical offset distance (a true
+   * proportional — it is NOT a true mathematical offset distance (a true
    * offset curve of an ellipse is a higher-order curve), but for picking a
    * sensible scale factor it works well.
    */
@@ -392,9 +392,9 @@ export class OffsetTool implements ITool {
     }
 
     if (source instanceof XLineEntity) {
-      // The normal to an XLINE (angle Î¸) is perpendicular: (âˆ’sin Î¸, cos Î¸).
+      // The normal to an XLINE (angle Î¸) is perpendicular: (−sin Î¸, cos Î¸).
       // Determine which side of the line the cursor is on via the sign of the
-      // signed distance: positive â†’ left-normal side; negative â†’ right-normal.
+      // signed distance: positive → left-normal side; negative → right-normal.
       const cos = Math.cos(source.angle);
       const sin = Math.sin(source.angle);
       // Left-normal (ccw 90Â° rotation of direction)
@@ -424,8 +424,8 @@ export class OffsetTool implements ITool {
     if (source instanceof EllipseEntity) {
       // Uniform rx/ry shift driven by inside/outside test in local coords.
       // Not a true mathematical offset (which is a higher-order curve), but
-      // gives a stable, AutoCAD-Lite-style result: cursor inside â†’ ellipse
-      // shrinks; cursor outside â†’ ellipse grows. Both axes shift by the same
+      // gives a stable, AutoCAD-Lite-style result: cursor inside → ellipse
+      // shrinks; cursor outside → ellipse grows. Both axes shift by the same
       // `d` so the result remains an ellipse (the shape is approximately
       // parallel to the original).
       const cos = Math.cos(source.rotation);
@@ -444,7 +444,7 @@ export class OffsetTool implements ITool {
       );
     }
 
-    // â”€â”€ POLYLINE / SPLINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── POLYLINE / SPLINE ─────────────────────────────────────────────────────────────
     // Closed polylines use orientation + point-in-polygon so every segment's
     // offset goes the same direction (outward when cursor is outside, inward
     // when inside). Open polylines/splines fall back to nearest-segment side
@@ -456,9 +456,9 @@ export class OffsetTool implements ITool {
     const N = pts.length;
     const segCount = isClosed ? N : N - 1;
 
-    // Step 1 â€” establish a per-segment normal sign convention.
+    // Step 1 — establish a per-segment normal sign convention.
     //
-    // Closed: signedArea > 0 â†’ CCW (in y-up math coords). For CCW polygons
+    // Closed: signedArea > 0 → CCW (in y-up math coords). For CCW polygons
     // the right-hand normal (rotate direction 90Â° CW = (dy, -dx)/len) points
     // OUTWARD from the interior. CW polygons (area < 0) use the left-hand
     // normal. We then flip every segment's outward direction when the cursor
@@ -493,7 +493,7 @@ export class OffsetTool implements ITool {
       offsetToLeft = ((sideX - sa.x) * nx + (sideY - sa.y) * ny) >= 0;
     }
 
-    // Step 2 â€” build each segment's offset endpoints.
+    // Step 2 — build each segment's offset endpoints.
     const offsetSegment = (i: number) => {
       const a = pts[i];
       const b = pts[(i + 1) % N];
@@ -537,7 +537,7 @@ export class OffsetTool implements ITool {
     const segs: ({ ax: number; ay: number; bx: number; by: number; dx: number; dy: number } | null)[] = [];
     for (let i = 0; i < segCount; i++) segs.push(offsetSegment(i));
 
-    // Step 3 â€” corner vertices = intersection of adjacent offset segments.
+    // Step 3 — corner vertices = intersection of adjacent offset segments.
     const intersect = (s1: NonNullable<typeof segs[number]>, s2: NonNullable<typeof segs[number]>): IPoint | null => {
       const denom = s1.dx * s2.dy - s1.dy * s2.dx;
       if (Math.abs(denom) < 1e-9) return null;

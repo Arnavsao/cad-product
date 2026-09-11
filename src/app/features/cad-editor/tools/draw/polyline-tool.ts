@@ -70,7 +70,7 @@ export class PolylineTool implements ITool {
     const entity = new PolylineEntity(pts, closed);
     entity.layer = this.doc.activeLayer;
 
-    // Attach bulge values â€” only if at least one arc segment exists
+    // Attach bulge values — only if at least one arc segment exists
     const hasBulge = this.vertices.some(v => v.bulge && Math.abs(v.bulge) > 1e-9);
     if (hasBulge) {
       entity.bulges = this.vertices.map(v => v.bulge ?? 0);
@@ -85,7 +85,7 @@ export class PolylineTool implements ITool {
     this.vm.markDirty();
   }
 
-  // â”€â”€ Arc geometry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Arc geometry ─────────────────────────────────────────────────────────────
 
   /**
    * Get the tangent direction of the last committed segment.
@@ -110,8 +110,8 @@ export class PolylineTool implements ITool {
    * the tangent (i.e. the arc degenerates to a straight line).
    *
    * Math:  the centre lies on the line `start + t * n` where n âŠ¥ tangent,
-   *        AND on the perpendicular bisector of the chord startâ†’end.
-   *   âŸ¹  t = â€“(|chord|Â²) / (2 Â· chord Â· n)
+   *        AND on the perpendicular bisector of the chord start→end.
+   *   âŸ¹  t = –(|chord|Â²) / (2 Â· chord Â· n)
    */
   private tangentArcGeom(start: IPoint, end: IPoint, tangent: IPoint): ArcGeom | null {
     // Normal to tangent (pointing left of travel direction)
@@ -131,7 +131,7 @@ export class PolylineTool implements ITool {
 
     const startA = Math.atan2(start.y - cy, start.x - cx);
     const endA   = Math.atan2(end.y   - cy, end.x   - cx);
-    // t > 0  â†”  centre is to the left of the tangent direction  â†”  CCW arc
+    // t > 0  ↔  centre is to the left of the tangent direction  ↔  CCW arc
     const ccw = t > 0;
 
     return { cx, cy, r, startA, endA, ccw };
@@ -152,13 +152,13 @@ export class PolylineTool implements ITool {
     } else {
       sweep = startA - endA;
       if (sweep <= 0) sweep += 2 * Math.PI;
-      sweep = -sweep; // CW â†’ negative sweep
+      sweep = -sweep; // CW → negative sweep
     }
 
     return Math.tan(sweep / 4); // AutoCAD bulge formula
   }
 
-  // â”€â”€ Canvas drawing helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Canvas drawing helpers ────────────────────────────────────────────────────
 
   /**
    * Stroke an arc segment on the canvas from `start` to `end` using a DXF bulge.
@@ -207,7 +207,7 @@ export class PolylineTool implements ITool {
     ctx.arc(centerS.x, centerS.y, rScreen, -g.startA, -g.endA, g.ccw);
   }
 
-  // â”€â”€ Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Preview ───────────────────────────────────────────────────────────────────
 
   private lastAnchor(): IPoint | null {
     return this.vertices.length ? this.vertices[this.vertices.length - 1] : null;
@@ -285,7 +285,7 @@ export class PolylineTool implements ITool {
     ctx.restore();
   }
 
-  // â”€â”€ Dynamic input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Dynamic input ─────────────────────────────────────────────────────────────
 
   getDynamicInputState(): IDynamicInputState | null {
     if (this.waitingForOption) {
@@ -374,7 +374,7 @@ export class PolylineTool implements ITool {
     return true;
   }
 
-  // â”€â”€ Keyboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Keyboard ──────────────────────────────────────────────────────────────────
 
   onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Enter' || e.key === ' ') {

@@ -1,18 +1,19 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UI_DIALOG_DATA, UiDialogRef } from '../../../shared/ui/dialog/ui-dialog-ref';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { UiInputDirective } from '../../../shared/ui/input.directive';
 
 export interface RenameDialogData {
-  /** Dialog heading, e.g. "Rename drawing". */
+  /** Dialog heading, already translated, e.g. "Rename drawing". */
   title: string;
-  /** Label above the field, e.g. "Name". */
+  /** Label above the field, already translated, e.g. "Name". */
   label: string;
   /** Current value; pre-selected so typing replaces it. */
   value: string;
-  /** Default "Rename". */
+  /** Already translated; defaults to "Rename". */
   confirmLabel?: string;
   /**
    * Optional commit hook. When given, the dialog calls it on submit and stays
@@ -39,12 +40,12 @@ export interface RenameDialogData {
   selector: 'app-rename-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective],
+  imports: [TranslocoDirective, A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective],
   template: `
-    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
+    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus *transloco="let t">
       <header class="ui-dialog__header">
         <h2 [id]="titleId">{{ data.title }}</h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="ref.close()">
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('dashboard.components.close')" (click)="ref.close()">
           <ui-icon name="close" />
         </button>
       </header>
@@ -63,14 +64,16 @@ export interface RenameDialogData {
           (keydown.enter)="submit()"
         />
         @if (!valid()) {
-          <p class="rd__hint" role="alert">A name is required.</p>
+          <p class="rd__hint" role="alert">{{ t('dashboard.components.rename.required') }}</p>
         } @else if (error(); as message) {
           <p class="rd__hint" role="alert">{{ message }}</p>
         }
       </div>
 
       <footer class="ui-dialog__footer">
-        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">Cancel</button>
+        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">
+          {{ t('dashboard.components.cancel') }}
+        </button>
         <button
           type="button"
           uiButton
@@ -79,7 +82,7 @@ export interface RenameDialogData {
           [disabled]="!valid() || saving()"
           (click)="submit()"
         >
-          {{ data.confirmLabel ?? 'Rename' }}
+          {{ data.confirmLabel ?? t('dashboard.components.menu.rename') }}
         </button>
       </footer>
     </div>

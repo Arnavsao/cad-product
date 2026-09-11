@@ -34,7 +34,7 @@ export class TableEditorService {
     this.state.set({ entity, originalSnapshot: snapshot, selectedCells: [[0, 0]], editingCell: null });
   }
 
-  /** User finished editing â€” record the modification command. */
+  /** User finished editing — record the modification command. */
   commit(): void {
     const s = this.state();
     if (!s) return;
@@ -118,7 +118,7 @@ export class TableEditorService {
     return base;
   }
 
-  // â”€â”€â”€ Format Getters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Format Getters ──────────────────────────────────────────────────────
   getActiveFont(): string {
     const s = this.state();
     if (!s || s.selectedCells.length === 0) return 'Arial';
@@ -178,7 +178,7 @@ export class TableEditorService {
     return !!(s.entity.cells[r][c] as any)[prop];
   }
 
-  // â”€â”€â”€ Format Setters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Format Setters ──────────────────────────────────────────────────────
   setFont(f: string) { this.mutateSelectedCells(c => c.font = f); }
   setFontSize(sz: number) { this.mutateSelectedCells(c => c.fontSize = sz); }
   toggleBool(prop: string) { this.mutateSelectedCells(c => c[prop] = !c[prop]); }

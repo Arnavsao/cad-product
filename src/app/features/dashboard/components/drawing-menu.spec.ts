@@ -1,6 +1,12 @@
 import { AccessLevel, DrawingFormat, DrawingSummaryDto, FolderDto } from '../../../core/api/api.models';
 import { accessOf, downloadNameFor, drawingMenuFor, hasAccess, toDrawingAction } from './drawing-menu';
 import { folderMenuFor, toFolderAction } from './folder-menu';
+import type { TranslateFn } from './translate-fn';
+import en from '../../../../../public/i18n/en.json';
+
+/** The real English strings, so the labels asserted below are what a user reads. */
+const t: TranslateFn = (key, params = {}) =>
+  ((en as Record<string, string>)[key] ?? key).replace(/\{\{\s*(\w+)\s*\}\}/g, (_, name: string) => String(params[name] ?? ''));
 
 /**
  * The menus are the whole of the client-side permission story: everything a
@@ -40,7 +46,7 @@ function folder(patch: Partial<FolderDto> = {}): FolderDto {
   };
 }
 
-const idsOf = (access?: AccessLevel) => drawingMenuFor(drawing({ access })).map((item) => item.id);
+const idsOf = (access?: AccessLevel) => drawingMenuFor(drawing({ access }), t).map((item) => item.id);
 
 describe('drawingMenuFor', () => {
   it('offers a viewer only the read-only actions', () => {
@@ -63,14 +69,14 @@ describe('drawingMenuFor', () => {
   });
 
   it('badges Share with the number of existing shares', () => {
-    const items = drawingMenuFor(drawing({ access: 'manage', shareCount: 2 }));
+    const items = drawingMenuFor(drawing({ access: 'manage', shareCount: 2 }), t);
     expect(items.find((i) => i.id === 'share')?.label).toBe('Share… (2)');
-    expect(drawingMenuFor(drawing({ access: 'manage' })).find((i) => i.id === 'share')?.label).toBe('Share…');
+    expect(drawingMenuFor(drawing({ access: 'manage' }), t).find((i) => i.id === 'share')?.label).toBe('Share…');
   });
 
   it('names no format in the Download label', () => {
     const label = (format: DrawingFormat) =>
-      drawingMenuFor(drawing({ format })).find((i) => i.id === 'download')?.label;
+      drawingMenuFor(drawing({ format }), t).find((i) => i.id === 'download')?.label;
     expect(label('dxf')).toBe('Download');
     expect(label('dwg')).toBe('Download');
   });
@@ -106,15 +112,15 @@ describe('downloadNameFor', () => {
 
 describe('folderMenuFor', () => {
   it('offers a viewer nothing but Open', () => {
-    expect(folderMenuFor(folder({ access: 'view' })).map((i) => i.id)).toEqual(['open']);
+    expect(folderMenuFor(folder({ access: 'view' }), t).map((i) => i.id)).toEqual(['open']);
   });
 
   it('lets an editor rename, move and delete', () => {
-    expect(folderMenuFor(folder({ access: 'edit' })).map((i) => i.id)).toEqual(['open', 'rename', 'move', 'delete']);
+    expect(folderMenuFor(folder({ access: 'edit' }), t).map((i) => i.id)).toEqual(['open', 'rename', 'move', 'delete']);
   });
 
   it('adds Share at manage', () => {
-    expect(folderMenuFor(folder({ access: 'manage' })).map((i) => i.id)).toEqual([
+    expect(folderMenuFor(folder({ access: 'manage' }), t).map((i) => i.id)).toEqual([
       'open',
       'share',
       'rename',

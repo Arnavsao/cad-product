@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
 import { FolderDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { FoldersApiService } from '../../../core/api/folders-api.service';
@@ -47,6 +48,7 @@ export class FolderActionsService {
   private readonly dialog = inject(UiDialogService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
 
   async run(action: FolderAction, folder: FolderDto): Promise<FolderActionResult> {
     switch (action) {
@@ -67,8 +69,8 @@ export class FolderActionsService {
   private async rename(folder: FolderDto): Promise<FolderActionResult> {
     let updated: FolderDto | null = null;
     const data: RenameDialogData = {
-      title: 'Rename folder',
-      label: 'Name',
+      title: this.t('dashboard.components.folderActions.renameTitle'),
+      label: this.t('dashboard.components.nameLabel'),
       value: folder.name,
       onSubmit: async (name) => {
         try {
@@ -76,9 +78,9 @@ export class FolderActionsService {
           return null;
         } catch (e) {
           if (e instanceof ApiError && e.code === 'NAME_TAKEN') {
-            return `A folder named "${name}" already exists here.`;
+            return this.t('dashboard.components.folderActions.nameTaken', { name });
           }
-          this.notify.error(messageOr(e, 'The folder could not be renamed.'));
+          this.notify.error(this.messageOr(e, 'dashboard.components.folderActions.renameFailed'));
           return null;
         }
       },
@@ -121,30 +123,30 @@ export class FolderActionsService {
       const moved = sameWorkspace
         ? await this.api.update(folder.id, { parentId: dest.parentId })
         : await this.api.move(folder.id, dest);
-      this.notify.success(`Moved "${moved.name}".`);
+      this.notify.success(this.t('dashboard.components.moved', { name: moved.name }));
       return { kind: 'removed', id: folder.id };
     } catch (e) {
-      this.notify.error(folderMoveFailure(e));
+      this.notify.error(this.moveFailure(e));
       return { kind: 'none' };
     }
   }
 
   private async remove(folder: FolderDto): Promise<FolderActionResult> {
     const ok = await this.dialog.confirm({
-      title: 'Delete folder?',
-      message: `"${folder.name}" will be deleted.`,
-      confirmLabel: 'Delete',
+      title: this.t('dashboard.components.folderActions.deleteTitle'),
+      message: this.t('dashboard.components.folderActions.deleteMessage', { name: folder.name }),
+      confirmLabel: this.t('dashboard.components.menu.delete'),
       danger: true,
     });
     if (!ok) return { kind: 'none' };
 
     try {
       await this.api.remove(folder.id);
-      this.notify.success(`"${folder.name}" was deleted.`);
+      this.notify.success(this.t('dashboard.components.folderActions.deleted', { name: folder.name }));
       return { kind: 'removed', id: folder.id };
     } catch (e) {
       if (!(e instanceof ApiError) || e.code !== 'FOLDER_NOT_EMPTY') {
-        this.notify.error(messageOr(e, 'The folder could not be deleted.'));
+        this.notify.error(this.messageOr(e, 'dashboard.components.folderActions.deleteFailed'));
         return { kind: 'none' };
       }
       return this.forceRemove(folder);
@@ -154,26 +156,32 @@ export class FolderActionsService {
   /** Second pass: say how many drawings this will trash, then do it. */
   private async forceRemove(folder: FolderDto): Promise<FolderActionResult> {
     const count = await this.countDrawings(folder.id);
-    const noun = count === 1 ? '1 drawing' : `${count} drawings`;
+    const name = folder.name;
     const ok = await this.dialog.confirm({
-      title: 'Folder is not empty',
-      message: count
-        ? `Move ${noun} to trash and delete "${folder.name}"?`
-        : `Delete "${folder.name}" and everything inside it?`,
-      confirmLabel: 'Move to trash and delete',
+      title: this.t('dashboard.components.folderActions.notEmptyTitle'),
+      message:
+        count === 0
+          ? this.t('dashboard.components.folderActions.forceDeleteEmpty', { name })
+          : count === 1
+            ? this.t('dashboard.components.folderActions.forceDeleteOne', { name })
+            : this.t('dashboard.components.folderActions.forceDeleteOther', { name, count }),
+      confirmLabel: this.t('dashboard.components.folderActions.forceDeleteConfirm'),
       danger: true,
     });
     if (!ok) return { kind: 'none' };
     try {
       const result = await this.api.remove(folder.id, true);
+      const trashed = result.trashedDrawings;
       this.notify.success(
-        result.trashedDrawings
-          ? `"${folder.name}" was deleted and ${result.trashedDrawings} ${result.trashedDrawings === 1 ? 'drawing' : 'drawings'} moved to the trash.`
-          : `"${folder.name}" was deleted.`,
+        !trashed
+          ? this.t('dashboard.components.folderActions.deleted', { name })
+          : trashed === 1
+            ? this.t('dashboard.components.folderActions.deletedTrashedOne', { name })
+            : this.t('dashboard.components.folderActions.deletedTrashedOther', { name, count: trashed }),
       );
       return { kind: 'removed', id: folder.id };
     } catch (e) {
-      this.notify.error(messageOr(e, 'The folder could not be deleted.'));
+      this.notify.error(this.messageOr(e, 'dashboard.components.folderActions.deleteFailed'));
       return { kind: 'none' };
     }
   }
@@ -187,27 +195,32 @@ export class FolderActionsService {
       return 0;
     }
   }
-}
 
-function messageOr(e: unknown, fallback: string): string {
-  return e instanceof Error && e.message ? e.message : fallback;
-}
-
-/** The folder-move refusals worth wording ourselves. */
-function folderMoveFailure(e: unknown): string {
-  if (e instanceof ApiError) {
-    switch (e.code) {
-      case 'NAME_TAKEN':
-        return 'A folder with that name already exists in the destination.';
-      case 'FOLDER_CYCLE':
-        return 'A folder cannot be moved inside itself.';
-      case 'CROSS_WORKSPACE_MOVE':
-        return 'That destination is in another workspace — use Move to… and pick the workspace.';
-      case 'FORBIDDEN':
-        return 'You do not have permission to put folders there.';
-      default:
-        break;
-    }
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.transloco.translate(key, params);
   }
-  return messageOr(e, 'The folder could not be moved.');
+
+  /** The server's message, or the translation of `fallbackKey`. */
+  private messageOr(e: unknown, fallbackKey: string): string {
+    return e instanceof Error && e.message ? e.message : this.t(fallbackKey);
+  }
+
+  /** The folder-move refusals worth wording ourselves. */
+  private moveFailure(e: unknown): string {
+    if (e instanceof ApiError) {
+      switch (e.code) {
+        case 'NAME_TAKEN':
+          return this.t('dashboard.components.folderActions.moveNameTaken');
+        case 'FOLDER_CYCLE':
+          return this.t('dashboard.components.folderActions.moveCycle');
+        case 'CROSS_WORKSPACE_MOVE':
+          return this.t('dashboard.components.crossWorkspaceMove');
+        case 'FORBIDDEN':
+          return this.t('dashboard.components.folderActions.moveForbidden');
+        default:
+          break;
+      }
+    }
+    return this.messageOr(e, 'dashboard.components.folderActions.moveFailed');
+  }
 }

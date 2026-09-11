@@ -38,85 +38,57 @@ export const routes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        title: 'CADO — Browser-native 2D CAD',
-        data: {
-          description:
-            'CADO is a full 2D CAD editor that runs in the browser: DXF import and export, layouts and plotting, blocks, associative dimensions, cloud drawings and an AI drafting assistant.',
-        },
+        data: { titleKey: 'site.shell.routes.home.title', descriptionKey: 'site.shell.routes.home.description' },
         loadComponent: () => import('./features/landing/landing.page').then((m) => m.LandingPage),
       },
       {
         path: 'product',
-        title: 'How CADO works · CADO',
-        data: {
-          description:
-            'Inside the CADO editor: model space and paper space, the drafting engine in your browser, versioned cloud saves, and how a DXF moves through it.',
-        },
+        data: { titleKey: 'site.shell.routes.product.title', descriptionKey: 'site.shell.routes.product.description' },
         loadComponent: () => import('./features/site/pages/product.page').then((m) => m.ProductPage),
       },
       {
         path: 'features',
-        title: 'Features · CADO',
-        data: {
-          description:
-            'Every drafting command in CADO with its AutoCAD alias: draw, annotate, modify, blocks, layouts, plotting, DXF round-trip and the AI assistant.',
-        },
+        data: { titleKey: 'site.shell.routes.features.title', descriptionKey: 'site.shell.routes.features.description' },
         loadComponent: () => import('./features/features/features.page').then((m) => m.FeaturesPage),
       },
       {
         path: 'use-cases',
-        title: 'Use cases · CADO',
-        data: {
-          description:
-            'How architects, engineers, students, studios and product teams use CADO — browser CAD for site plans, GA drawings, coursework and embedded drafting.',
-        },
+        data: { titleKey: 'site.shell.routes.useCases.title', descriptionKey: 'site.shell.routes.useCases.description' },
         loadComponent: () => import('./features/site/pages/use-cases.page').then((m) => m.UseCasesPage),
       },
       {
         path: 'pricing',
-        title: 'Plans & pricing · CADO',
-        data: {
-          description: 'CADO pricing: a free plan with the full drafting toolset and DXF export, Pro for people who draw every week, Team for studios.',
-        },
+        data: { titleKey: 'site.shell.routes.pricing.title', descriptionKey: 'site.shell.routes.pricing.description' },
         loadComponent: () => import('./features/pricing/pricing.page').then((m) => m.PricingPage),
       },
       {
         path: 'docs',
-        title: 'Documentation · CADO',
-        data: {
-          description:
-            'CADO documentation: getting started, the command reference with aliases, keyboard shortcuts, DXF compatibility, layouts and plotting, the AI assistant, sharing and embedding.',
-        },
+        data: { titleKey: 'site.shell.routes.docs.title', descriptionKey: 'site.shell.routes.docs.description' },
         loadComponent: () => import('./features/site/pages/docs.page').then((m) => m.DocsPage),
       },
       {
         path: 'about',
-        title: 'About · CADO',
-        data: { description: 'Why CADO exists, what it holds itself to, and where it is going.' },
+        data: { titleKey: 'site.shell.routes.about.title', descriptionKey: 'site.shell.routes.about.description' },
         loadComponent: () => import('./features/site/pages/about.page').then((m) => m.AboutPage),
       },
       {
         path: 'contact',
-        title: 'Contact · CADO',
-        data: { description: 'Talk to the CADO team: questions, team plans, invoicing, bug reports and feature ideas.' },
+        data: { titleKey: 'site.shell.routes.contact.title', descriptionKey: 'site.shell.routes.contact.description' },
         loadComponent: () => import('./features/site/pages/contact.page').then((m) => m.ContactPage),
       },
       {
         path: 'whats-new',
-        title: "What's New · CADO",
-        data: { description: 'Release notes for CADO, newest first.' },
+        data: { titleKey: 'site.shell.routes.whatsNew.title', descriptionKey: 'site.shell.routes.whatsNew.description' },
         loadComponent: () => import('./features/about/whats-new.page').then((m) => m.WhatsNewPage),
       },
       {
         path: 'terms',
-        title: 'Terms of Service · CADO',
-        data: { doc: 'terms' },
+        data: { titleKey: 'site.shell.routes.terms.title', doc: 'terms' },
         loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
       },
       {
         path: 'privacy',
-        title: 'Privacy Policy · CADO',
-        data: { doc: 'privacy' },
+        data: { titleKey: 'site.shell.routes.privacy.title', doc: 'privacy' },
         loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
       },
     ],

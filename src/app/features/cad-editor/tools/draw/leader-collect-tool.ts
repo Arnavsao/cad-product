@@ -11,16 +11,16 @@ import { snapshotEntity } from '../geometry-utils';
 import { hitTestAll } from '../select/select-tool';
 
 /**
- * MLEADERCOLLECT â€” Stack multiple leader landing ends into a vertical column.
+ * MLEADERCOLLECT — Stack multiple leader landing ends into a vertical column.
  *
  * Workflow (mirrors AutoCAD MLEADERCOLLECT):
  *   1. Click each leader to add it to the selection set.
  *      Press Enter / Space to finish selection.
  *   2. All selected leaders are repositioned so their landing ends form a
  *      vertical column at the first leader's landing X, spaced by
- *      1.5 Ã— text height. The arrowhead tips remain fixed.
+ *      1.5 × text height. The arrowhead tips remain fixed.
  *
- * This collects leaders into a tidy stack â€” useful when multiple annotations
+ * This collects leaders into a tidy stack — useful when multiple annotations
  * point to nearby geometry and their labels need to be grouped together.
  */
 export class LeaderCollectTool implements ITool {

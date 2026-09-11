@@ -7,14 +7,16 @@ import { DocumentService } from '../../core/services/document.service';
 import { LayoutManagerService } from '../../core/services/layout-manager.service';
 import { ViewModelService } from '../../core/services/view-model.service';
 import { DynamicInputService } from '../../core/services/dynamic-input.service';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-cad-status-bar',
   standalone: true,
-  imports: [],
+  imports: [UiIconComponent, TranslocoDirective],
   template: `
-    <div class="cad-status-bar">
+    <div class="cad-status-bar" *transloco="let t">
       <!-- Right: coords + snap badges -->
       <div class="status-right">
         <span class="status-coords">
@@ -27,11 +29,11 @@ import { DynamicInputService } from '../../core/services/dynamic-input.service';
           <span
             class="status-badge on"
             [style.color]="layoutMgr.workspaceMode() === 'MSPACE' ? '#f0a030' : '#499bea'"
-            [title]="layoutMgr.workspaceMode() === 'MSPACE' ? 'Model Space (through viewport) — dblclick outside to return to Paper Space' : 'Paper Space — dblclick viewport to enter Model Space'"
+            [title]="layoutMgr.workspaceMode() === 'MSPACE' ? t('editor.ui.statusBar.modelSpaceHint') : t('editor.ui.statusBar.paperSpaceHint')"
           >{{ layoutMgr.workspaceMode() }}</span>
         }
         @if (layoutMgr.isModelSpace() || layoutMgr.workspaceMode() === 'MSPACE') {
-          <div class="status-badge" style="min-width: 10px;display: flex; align-items: center; gap: 4px; border-right: 1px solid rgba(255,255,255,0.1); padding-right: 8px;" title="Annotation Scale (CANNOSCALE)">
+          <div class="status-badge" style="min-width: 10px;display: flex; align-items: center; gap: 4px; border-right: 1px solid rgba(255,255,255,0.1); padding-right: 8px;" [title]="t('editor.ui.statusBar.annotationScale')">
             <select
               [value]="doc.activeFile.cannoScale"
               (change)="onAnnoScaleChange($event)"
@@ -53,15 +55,15 @@ import { DynamicInputService } from '../../core/services/dynamic-input.service';
             class="status-badge osnap-main"
             [class.on]="snap.osnapEnabled()"
             (click)="snap.toggleOsnap()"
-            title="Object Snap (F3)"
+            [title]="t('editor.ui.statusBar.osnapTooltip')"
           >OSNAP</button>
           <button
             type="button"
             class="status-badge osnap-arrow"
             [class.on]="snap.osnapEnabled()"
             (click)="toggleOsnapMenu($event)"
-            title="Object Snap Settings"
-            aria-label="Object Snap Settings"
+            [title]="t('editor.ui.statusBar.osnapSettings')"
+            [attr.aria-label]="t('editor.ui.statusBar.osnapSettings')"
           >▾</button>
           @if (osnapMenuOpen()) {
             <div class="osnap-menu" role="menu">
@@ -73,13 +75,13 @@ import { DynamicInputService } from '../../core/services/dynamic-input.service';
                   [attr.aria-checked]="snap.isObjectSnapEnabled(mode.id)"
                   (click)="toggleObjectSnap(mode.id, $event)"
                 >
-                  <span class="osnap-check">{{ snap.isObjectSnapEnabled(mode.id) ? '✓' : '' }}</span>
+                  <span class="osnap-check">@if (snap.isObjectSnapEnabled(mode.id)) { <ui-icon name="check" [size]="12" /> }</span>
                   <span class="osnap-icon">{{ mode.icon }}</span>
-                  <span>{{ mode.label }}</span>
+                  <span>{{ t('editor.ui.statusBar.osnapMode.' + mode.id) }}</span>
                 </button>
               }
               <div class="osnap-menu-separator"></div>
-              <button type="button" class="osnap-menu-footer" (click)="enableAllObjectSnaps($event)">Object Snap Settings...</button>
+              <button type="button" class="osnap-menu-footer" (click)="enableAllObjectSnaps($event)">{{ t('editor.ui.statusBar.osnapEnableAll') }}</button>
             </div>
           }
         </div>
@@ -88,7 +90,7 @@ import { DynamicInputService } from '../../core/services/dynamic-input.service';
           class="status-badge"
           [class.on]="snap.gridEnabled()"
           (click)="snap.toggleGrid()"
-          title="Grid (F7)"
+          [title]="t('editor.ui.statusBar.gridTooltip')"
         >SNAP &amp; GRID</button>
         <button
           type="button"
@@ -96,28 +98,28 @@ import { DynamicInputService } from '../../core/services/dynamic-input.service';
           [class.on]="snap.isOrthoActive()"
           [class.override]="snap.orthoOverride()"
           (click)="snap.toggleOrtho()"
-          title="Ortho (F8) — hold Shift to temporarily invert"
+          [title]="t('editor.ui.statusBar.orthoTooltip')"
         >ORTHO</button>
         <button
           type="button"
           class="status-badge"
           [class.on]="snap.otrackEnabled()"
           (click)="snap.toggleOtrack()"
-          title="Object Snap Tracking (F11)"
+          [title]="t('editor.ui.statusBar.otrackTooltip')"
         >OTRACK</button>
         <button
           type="button"
           class="status-badge"
           [class.on]="snap.polarEnabled()"
           (click)="snap.togglePolar()"
-          title="Polar tracking (F10)"
+          [title]="t('editor.ui.statusBar.polarTooltip')"
         >POLAR</button>
         <button
           type="button"
           class="status-badge"
           [class.on]="dynInput.dynEnabled()"
           (click)="dynInput.toggleDyn()"
-          title="Dynamic Input — cursor command box (F12)"
+          [title]="t('editor.ui.statusBar.dynTooltip')"
         >DYN</button>
       </div>
     </div>

@@ -201,7 +201,7 @@ export class DxfImportService {
         }
       }
       if (dxfFile.layers.size === 0) {
-        // Fallback Layer 0 when the DXF has no LAYER table â€” match AutoCAD's
+        // Fallback Layer 0 when the DXF has no LAYER table — match AutoCAD's
         // default (ACI 7 magic color), not a custom gray.
         dxfFile.layers.set('Layer 0', new Layer('Layer 0'));
       }
@@ -262,7 +262,7 @@ export class DxfImportService {
       }
 
       // Collect all raw objects that were not mapped to any parsed entity.
-      // First, salvage any LEADER / MLEADER entities that dxf-parser dropped â€”
+      // First, salvage any LEADER / MLEADER entities that dxf-parser dropped —
       // it silently skips them, so they never reach createEntity() above.
       for (const [handle, ro] of rawObjMap.entries()) {
         if (ro.entityType === 'LEADER' || ro.entityType === 'MLEADER') {
@@ -289,7 +289,7 @@ export class DxfImportService {
             dxfFile.entities.push(lead);
             loadedCount++;
           }
-          rawObjMap.delete(handle); // consumed â€” don't add to rawUnparsedEntities
+          rawObjMap.delete(handle); // consumed — don't add to rawUnparsedEntities
         }
       }
 
@@ -299,7 +299,7 @@ export class DxfImportService {
 
       // Normalize coordinates so the drawing centroid sits at world origin and
       // the file lands next to any existing drawings. Both shifts are baked
-      // directly into entity coordinates so `dxfFile.x/y` stay at 0 â€” this is
+      // directly into entity coordinates so `dxfFile.x/y` stay at 0 — this is
       // the invariant tools rely on: cursor world coords == file-local coords.
       this.normalizeAndPlace(dxfFile);
 
@@ -1024,7 +1024,7 @@ export class DxfImportService {
         break;
       }
       case 'LEADER': {
-        // dxf-parser has no LEADER support â€” all real work is done in the
+        // dxf-parser has no LEADER support — all real work is done in the
         // raw-object salvage loop. This branch handles any rare case where
         // dxf-parser does surface a LEADER with vertices.
         let pts = (ent.vertices ?? ent.points ?? [])
@@ -1037,7 +1037,7 @@ export class DxfImportService {
         let hasArrow      = true;
         let nVertices     = 0;
 
-        // â”€â”€ Raw-tag extraction (correct DXF LEADER group codes per spec) â”€â”€â”€â”€â”€
+        // ── Raw-tag extraction (correct DXF LEADER group codes per spec) ─────
         const rawHandle = ent.handle ?? null;
         const rawObj = rawHandle ? rawObjMap.get(rawHandle) : null;
         if (rawObj) {
@@ -1147,7 +1147,7 @@ export class DxfImportService {
           ent.xline1Point ?? ent.linearOrAngularPoint1 ?? ent.firstDefinitionPoint ?? ent.start;
         const p2 =
           ent.xline2Point ?? ent.linearOrAngularPoint2 ?? ent.secondDefinitionPoint ?? ent.end;
-        // DXF group 10 â€” definition point of the dimension line itself.
+        // DXF group 10 — definition point of the dimension line itself.
         const defPt = ent.defaultPoint ?? ent.definitionPoint ?? ent.anchorPoint;
         // Jogged Radius dimensions use dimension type 4 and AcDbRadialDimensionLarge
         const dimType = ent.dimensionType ?? (ent.rawDxfObject && ent.rawDxfObject.dimensionType);
@@ -1282,7 +1282,7 @@ export class DxfImportService {
       case '3DSOLID':
       case 'IMAGE':
       case 'RAY':
-        // Silently skip â€” converting these poorly is worse than dropping them.
+        // Silently skip — converting these poorly is worse than dropping them.
         break;
       default:
         console.warn(`Unsupported DXF entity: ${ent.type}`);
@@ -1400,7 +1400,7 @@ export class DxfImportService {
       else if (t.code === 3)  dimStyleName = String(t.value); // dimension style name
       else if (t.code === 40) annotHeight  = Number(t.value); // text annotation height
       else if (t.code === 71) arrowFlag    = Number(t.value); // arrowhead flag
-      else if (t.code === 72) { /* leader path type â€” straight/spline; ignore for now */ }
+      else if (t.code === 72) { /* leader path type — straight/spline; ignore for now */ }
       else if (t.code === 76) nVertices    = Number(t.value); // number of vertices
       else if (t.code === 77) arrowStyle   = Number(t.value); // arrowhead style override
     }
@@ -1460,7 +1460,7 @@ export class DxfImportService {
    *
    *   1. The drawing's centroid sits at world origin (eliminates precision
    *      issues for surveyed/geo-referenced DXFs and gives tools a predictable
-   *      coordinate space â€” cursor world coords == file-local coords).
+   *      coordinate space — cursor world coords == file-local coords).
    *
    *   2. Multi-file imports land beside any already-loaded file in world
    *      space, without using `dxfFile.x/y` as a file transform (tools write
@@ -1474,13 +1474,13 @@ export class DxfImportService {
     const ownExtents = extentsOf(dxfFile.entities);
     if (!ownExtents) return;
 
-    // Step 1 â€” normalize: shift so the drawing centroid is at (0, 0).
+    // Step 1 — normalize: shift so the drawing centroid is at (0, 0).
     const ownCx = (ownExtents.minX + ownExtents.maxX) / 2;
     const ownCy = (ownExtents.minY + ownExtents.maxY) / 2;
     let placementDx = 0;
     let placementDy = 0;
 
-    // Step 2 â€” multi-file layout: when other files are already loaded, push
+    // Step 2 — multi-file layout: when other files are already loaded, push
     // this drawing to the right of the rightmost existing file (in world
     // space), keeping its centre on the existing files' vertical midline.
     if (this.doc.files.length > 0) {
@@ -1500,7 +1500,7 @@ export class DxfImportService {
 
     // Round-trip anchor: on DXF export, adding `importOffset` to every entity
     // coordinate restores the original drawing's world placement. Step-1
-    // (normalization) is undone; step-2 (editor layout) is not â€” the layout
+    // (normalization) is undone; step-2 (editor layout) is not — the layout
     // shift was a UX convenience, not part of the source DXF.
     dxfFile.importOffset = { x: ownCx - placementDx, y: ownCy - placementDy };
   }
@@ -1593,9 +1593,9 @@ function combinedWorldExtents(files: DxfFile[]): { minX: number; minY: number; m
 /**
  * Normalize a single HATCH boundary into the edge-list shape that HatchEntity expects.
  * dxf-parser produces three flavors depending on the source DXF:
- *   - `boundary.edges = [{ type, start, end, ... }]` â€” explicit edge list
- *   - `boundary.polyline = { vertices: [...] }` â€” closed/open polyline boundary
- *   - `boundary.polyline = [{x, y}, ...]` â€” bare vertex array (older builds)
+ *   - `boundary.edges = [{ type, start, end, ... }]` — explicit edge list
+ *   - `boundary.polyline = { vertices: [...] }` — closed/open polyline boundary
+ *   - `boundary.polyline = [{x, y}, ...]` — bare vertex array (older builds)
  */
 function normalizeHatchBoundary(b: any): any[] {
   if (Array.isArray(b?.edges)) return b.edges;
@@ -1743,7 +1743,7 @@ function applyDxfHatchData(hatch: HatchEntity, source: IDxfHatchData): void {
   hatch.gradientColor2 = color(source.gradient.colors[1]);
 }
 
-/** Average of all polygon vertices â€” used as the import seed point. */
+/** Average of all polygon vertices — used as the import seed point. */
 /**
  * Gives an imported hatch the frozen `boundarySpec` the editor works on.
  *

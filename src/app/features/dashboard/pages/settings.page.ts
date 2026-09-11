@@ -9,6 +9,10 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { merge } from 'rxjs';
+import { filter, scan } from 'rxjs/operators';
 import { PreferencesDto, Units } from '../../../core/api/api.models';
 import { MeService } from '../../../core/api/me.service';
 import { SupabaseAuthService } from '../../../core/auth/supabase-auth.service';
@@ -22,12 +26,13 @@ import { LanguageService } from '../../../core/i18n/language.service';
 import { BillingApiService } from '../../../core/api/billing-api.service';
 import { messageOf } from '../data/drawings-list.store';
 
-const UNITS: readonly { id: Units; label: string; name: string }[] = [
-  { id: 'mm', label: 'mm', name: 'Millimetres' },
-  { id: 'cm', label: 'cm', name: 'Centimetres' },
-  { id: 'm', label: 'm', name: 'Metres' },
-  { id: 'in', label: 'in', name: 'Inches' },
-  { id: 'ft', label: 'ft', name: 'Feet' },
+/** `label` is the unit symbol and stays untranslated; `nameKey` is the spoken name. */
+const UNITS: readonly { id: Units; label: string; nameKey: string }[] = [
+  { id: 'mm', label: 'mm', nameKey: 'dashboard.settings.unit.mm' },
+  { id: 'cm', label: 'cm', nameKey: 'dashboard.settings.unit.cm' },
+  { id: 'm', label: 'm', nameKey: 'dashboard.settings.unit.m' },
+  { id: 'in', label: 'in', nameKey: 'dashboard.settings.unit.in' },
+  { id: 'ft', label: 'ft', nameKey: 'dashboard.settings.unit.ft' },
 ];
 
 /** Supabase's own default minimum; kept next to the hint that states it. */
@@ -68,26 +73,27 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
   selector: 'app-settings-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiIconComponent, UiInputDirective, UiSkeletonComponent],
+  imports: [TranslocoDirective, UiButtonDirective, UiIconComponent, UiInputDirective, UiSkeletonComponent],
   template: `
+    <ng-container *transloco="let t">
     <header class="pg__head">
-      <h1 class="pg__title">Settings</h1>
+      <h1 class="pg__title">{{ t('dashboard.shell.settings') }}</h1>
       @if (saving()) {
-        <span class="st__status">Saving…</span>
+        <span class="st__status">{{ t('dashboard.settings.saving') }}</span>
       } @else if (savedOnce()) {
-        <span class="st__status st__status--ok"><ui-icon name="check" [size]="14" /> Saved</span>
+        <span class="st__status st__status--ok"><ui-icon name="check" [size]="14" /> {{ t('dashboard.settings.saved') }}</span>
       }
     </header>
 
     <section class="st__section">
-      <h2 class="st__heading">Preferences</h2>
+      <h2 class="st__heading">{{ t('dashboard.settings.preferences') }}</h2>
 
       <div class="st__field">
         <div class="st__label">
-          <span class="st__label-title">Drawing units</span>
-          <span class="st__label-hint">Applied to new drawings and to the coordinate readout.</span>
+          <span class="st__label-title">{{ t('dashboard.settings.units') }}</span>
+          <span class="st__label-hint">{{ t('dashboard.settings.unitsHint') }}</span>
         </div>
-        <div class="st__seg" role="radiogroup" aria-label="Drawing units">
+        <div class="st__seg" role="radiogroup" [attr.aria-label]="t('dashboard.settings.units')">
           @for (unit of units; track unit.id) {
             <button
               type="button"
@@ -95,7 +101,7 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
               class="st__seg-btn"
               [class.st__seg-btn--on]="prefs().units === unit.id"
               [attr.aria-checked]="prefs().units === unit.id"
-              [attr.aria-label]="unit.name"
+              [attr.aria-label]="t(unit.nameKey)"
               [disabled]="saving()"
               (click)="save({ units: unit.id })"
             >
@@ -107,14 +113,14 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
 
       <div class="st__field">
         <div class="st__label">
-          <span class="st__label-title">Autosave interval</span>
-          <span class="st__label-hint">How often a local recovery snapshot is taken while you draw.</span>
+          <span class="st__label-title">{{ t('dashboard.settings.autosave') }}</span>
+          <span class="st__label-hint">{{ t('dashboard.settings.autosaveHint') }}</span>
         </div>
         <label class="st__control">
-          <span class="ui-visually-hidden">Autosave interval</span>
+          <span class="ui-visually-hidden">{{ t('dashboard.settings.autosave') }}</span>
           <select uiInput [disabled]="saving()" (change)="onAutosave($event)">
             @for (seconds of intervals; track seconds) {
-              <option [value]="seconds" [selected]="seconds === prefs().autosaveIntervalSec">Every {{ seconds }} seconds</option>
+              <option [value]="seconds" [selected]="seconds === prefs().autosaveIntervalSec">{{ t('dashboard.settings.autosaveEvery', { seconds }) }}</option>
             }
           </select>
         </label>
@@ -122,11 +128,11 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
 
       <div class="st__field">
         <div class="st__label">
-          <span class="st__label-title">Language</span>
-          <span class="st__label-hint">Applies to the whole app, including the editor's command prompts.</span>
+          <span class="st__label-title">{{ t('dashboard.settings.language') }}</span>
+          <span class="st__label-hint">{{ t('dashboard.settings.languageHint') }}</span>
         </div>
         <label class="st__control">
-          <span class="ui-visually-hidden">Language</span>
+          <span class="ui-visually-hidden">{{ t('dashboard.settings.language') }}</span>
           <select uiInput [disabled]="saving()" (change)="onLanguage($event)">
             @for (locale of locales; track locale.code) {
               <!--
@@ -148,10 +154,10 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
 
       <div class="st__field st__field--stack">
         <div class="st__label">
-          <span class="st__label-title">Theme</span>
-          <span class="st__label-hint">Applies to the editor canvas and to the rest of the app.</span>
+          <span class="st__label-title">{{ t('dashboard.settings.theme') }}</span>
+          <span class="st__label-hint">{{ t('dashboard.settings.themeHint') }}</span>
         </div>
-        <div class="st__themes" role="radiogroup" aria-label="Theme">
+        <div class="st__themes" role="radiogroup" [attr.aria-label]="t('dashboard.settings.theme')">
           @for (theme of themes; track theme.id) {
             <button
               type="button"
@@ -178,37 +184,35 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
       return_url — can be scrolled to, and so the manage link is addressable.
     -->
     <section class="st__section" id="billing">
-      <h2 class="st__heading">Plan &amp; billing</h2>
+      <h2 class="st__heading">{{ t('dashboard.settings.billing') }}</h2>
 
       @if (!billingEnabled()) {
-        <p class="st__note">Billing is not enabled in this deployment.</p>
+        <p class="st__note">{{ t('dashboard.settings.billingDisabled') }}</p>
       } @else {
         <div class="st__field">
           <div class="st__label">
-            <span class="st__label-title">Current plan</span>
-            <span class="st__label-hint">{{ planHint() }}</span>
+            <span class="st__label-title">{{ t('dashboard.settings.currentPlan') }}</span>
+            <span class="st__label-hint">{{ t(planHint().key, planHint().params) }}</span>
           </div>
           <div class="st__plan">
-            <span class="st__plan-badge" [class.st__plan-badge--paid]="plan() !== 'free'">{{ planLabel() }}</span>
+            <span class="st__plan-badge" [class.st__plan-badge--paid]="plan() !== 'free'">{{ t(planLabelKey()) }}</span>
             @if (billing().cancelAtPeriodEnd) {
-              <span class="st__plan-warn">Cancels at period end</span>
+              <span class="st__plan-warn">{{ t('dashboard.settings.cancelsAtPeriodEnd') }}</span>
             }
           </div>
         </div>
 
         <div class="st__field">
           <div class="st__label">
-            <span class="st__label-title">Manage</span>
-            <span class="st__label-hint">
-              Change your card, download invoices or cancel. Opens our payment provider.
-            </span>
+            <span class="st__label-title">{{ t('dashboard.settings.manage') }}</span>
+            <span class="st__label-hint">{{ t('dashboard.settings.manageHint') }}</span>
           </div>
           <div class="st__actions">
             @if (plan() === 'free') {
-              <a uiButton variant="primary" routerLink="/pricing">View plans</a>
+              <a uiButton variant="primary" routerLink="/pricing">{{ t('dashboard.settings.viewPlans') }}</a>
             } @else {
               <button type="button" uiButton variant="secondary" [loading]="billingBusy()" (click)="openPortal()">
-                Manage billing
+                {{ t('dashboard.settings.manageBilling') }}
               </button>
             }
             <!--
@@ -217,7 +221,7 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
               paid can sit looking at "Free" with no recourse.
             -->
             <button type="button" uiButton variant="ghost" [loading]="refreshing()" (click)="refreshBilling()">
-              Refresh
+              {{ t('dashboard.recent.refresh') }}
             </button>
           </div>
         </div>
@@ -225,15 +229,15 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
     </section>
 
     <section class="st__section">
-      <h2 class="st__heading">Email notifications</h2>
+      <h2 class="st__heading">{{ t('dashboard.settings.emailNotifications') }}</h2>
 
       <div class="st__field">
         <div class="st__label">
-          <span class="st__label-title">Shares</span>
-          <span class="st__label-hint">When someone shares a drawing or folder with me.</span>
+          <span class="st__label-title">{{ t('dashboard.settings.shares') }}</span>
+          <span class="st__label-hint">{{ t('dashboard.settings.sharesHint') }}</span>
         </div>
         <label class="st__switch">
-          <span class="ui-visually-hidden">Email me when someone shares a drawing or folder with me</span>
+          <span class="ui-visually-hidden">{{ t('dashboard.settings.sharesAria') }}</span>
           <input
             type="checkbox"
             role="switch"
@@ -247,11 +251,11 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
 
       <div class="st__field">
         <div class="st__label">
-          <span class="st__label-title">Organization activity</span>
-          <span class="st__label-hint">When my role or access in an organization changes.</span>
+          <span class="st__label-title">{{ t('dashboard.settings.orgActivity') }}</span>
+          <span class="st__label-hint">{{ t('dashboard.settings.orgActivityHint') }}</span>
         </div>
         <label class="st__switch">
-          <span class="ui-visually-hidden">Email me when my role or access in an organization changes</span>
+          <span class="ui-visually-hidden">{{ t('dashboard.settings.orgActivityAria') }}</span>
           <input
             type="checkbox"
             role="switch"
@@ -263,58 +267,55 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
         </label>
       </div>
 
-      <p class="st__note st__note--spaced">
-        Invitations to join an organization are always delivered — they are the only way someone learns they
-        were invited, and an invitation sent to an address without an account has no preferences to check.
-      </p>
+      <p class="st__note st__note--spaced">{{ t('dashboard.settings.invitesNote') }}</p>
     </section>
 
     <section class="st__section">
-      <h2 class="st__heading">Account</h2>
+      <h2 class="st__heading">{{ t('dashboard.settings.account') }}</h2>
       @if (!auth.enabled()) {
-        <p class="st__note">Accounts are disabled in this deployment.</p>
+        <p class="st__note">{{ t('dashboard.settings.accountsDisabled') }}</p>
       } @else if (!auth.isLoaded()) {
         <ui-skeleton width="100%" height="180px" radius="var(--ui-radius-lg)" />
       } @else if (auth.loadError(); as message) {
         <div class="pg__error" role="alert">
           <ui-icon name="alert" [size]="18" />
           <div>
-            <p class="pg__error-title">The account panel could not be loaded.</p>
+            <p class="pg__error-title">{{ t('dashboard.settings.accountError') }}</p>
             <p class="pg__error-msg">{{ message }}</p>
           </div>
         </div>
       } @else {
         <dl class="st__facts">
-          <dt>Email</dt>
+          <dt>{{ t('common.email') }}</dt>
           <dd>{{ auth.userEmail() || '—' }}</dd>
-          <dt>Signed in with</dt>
+          <dt>{{ t('dashboard.settings.signedInWith') }}</dt>
           <dd>
             @if (providers().length) {
               {{ providers().join(', ') }}
             } @else {
-              Email and password
+              {{ t('dashboard.settings.emailAndPassword') }}
             }
           </dd>
         </dl>
         <p class="st__note">
-          Your email address and the providers you can sign in with are managed by your sign-in provider.
-          <a routerLink="/dashboard/profile">Edit your name</a> on Personal info.
+          {{ t('dashboard.settings.accountNote') }}
+          <a routerLink="/dashboard/profile">{{ t('dashboard.settings.editName') }}</a>
         </p>
 
         @if (auth.hasPasswordIdentity()) {
           <div class="st__password">
-            <h3 class="st__subheading">Password</h3>
+            <h3 class="st__subheading">{{ t('common.password') }}</h3>
             @if (passwordChanged()) {
-              <p class="st__ok" role="status"><ui-icon name="check" [size]="14" /> Password updated.</p>
+              <p class="st__ok" role="status"><ui-icon name="check" [size]="14" /> {{ t('dashboard.settings.passwordUpdated') }}</p>
             }
             <div class="st__password-row">
-              <label class="ui-visually-hidden" for="st-password">New password</label>
+              <label class="ui-visually-hidden" for="st-password">{{ t('dashboard.settings.newPassword') }}</label>
               <input
                 uiInput
                 id="st-password"
                 type="password"
                 autocomplete="new-password"
-                placeholder="New password"
+                [placeholder]="t('dashboard.settings.newPassword')"
                 [attr.minlength]="minPasswordLength"
                 [value]="newPassword()"
                 [disabled]="changingPassword()"
@@ -328,11 +329,11 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
                 [loading]="changingPassword()"
                 (click)="changePassword()"
               >
-                Change password
+                {{ t('dashboard.settings.changePassword') }}
               </button>
             </div>
             <p class="st__hint" [class.st__hint--bad]="!!passwordError()">
-              {{ passwordError() ?? 'At least ' + minPasswordLength + ' characters.' }}
+              {{ passwordError() ?? t('dashboard.settings.passwordMin', { min: minPasswordLength }) }}
             </p>
           </div>
         }
@@ -341,10 +342,11 @@ const AUTOSAVE_INTERVALS = [15, 30, 60, 120] as const;
       <div class="st__signout">
         <button type="button" uiButton variant="danger" (click)="signOut()">
           <ui-icon name="log-out" [size]="15" />
-          Sign out
+          {{ t('dashboard.settings.signOut') }}
         </button>
       </div>
     </section>
+    </ng-container>
   `,
   styles: [
     `
@@ -467,6 +469,7 @@ export class SettingsPage {
   private readonly language = inject(LanguageService);
   private readonly billingApi = inject(BillingApiService);
   private readonly notify = inject(NotificationService);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly minPasswordLength = MIN_PASSWORD_LENGTH;
   protected readonly newPassword = signal('');
@@ -499,25 +502,28 @@ export class SettingsPage {
   protected readonly billingBusy = signal(false);
   protected readonly refreshing = signal(false);
 
-  protected readonly planLabel = computed(() => {
+  protected readonly planLabelKey = computed(() => {
     const plan = this.plan();
-    return plan === 'free' ? 'Free' : plan === 'pro' ? 'Pro' : 'Team';
+    return plan === 'free' ? 'dashboard.settings.plan.free' : plan === 'pro' ? 'dashboard.settings.plan.pro' : 'dashboard.settings.plan.team';
   });
 
-  /** One line describing where the subscription stands. */
-  protected readonly planHint = computed(() => {
+  /** One line describing where the subscription stands — a key plus its params, resolved in the template. */
+  protected readonly planHint = computed<{ key: string; params?: Record<string, string> }>(() => {
     const b = this.billing();
     if (this.plan() === 'free') {
       // Distinguish "never subscribed" from "subscription ended" — the second
       // is a person who may well want to come back, and telling them their
       // plan simply says "Free" reads like their payment vanished.
-      return b.status === 'cancelled' ? 'Your subscription has ended.' : 'You are on the free plan.';
+      return { key: b.status === 'cancelled' ? 'dashboard.settings.planHint.ended' : 'dashboard.settings.planHint.free' };
     }
-    const when = b.currentPeriodEnd ? new Date(b.currentPeriodEnd).toLocaleDateString() : null;
-    if (b.status === 'trialing') return when ? `Trial ends ${when}.` : 'You are on a trial.';
-    if (b.status === 'past_due') return 'Your last payment failed. Update your card to keep access.';
-    if (b.cancelAtPeriodEnd) return when ? `Access continues until ${when}.` : 'Cancels at the end of the period.';
-    return when ? `Renews ${when}.` : 'Active.';
+    const when = b.currentPeriodEnd
+      ? new Date(b.currentPeriodEnd).toLocaleDateString(this.transloco.getActiveLang())
+      : null;
+    const dated = (key: string, fallback: string) => (when ? { key, params: { date: when } } : { key: fallback });
+    if (b.status === 'trialing') return dated('dashboard.settings.planHint.trialEnds', 'dashboard.settings.planHint.trial');
+    if (b.status === 'past_due') return { key: 'dashboard.settings.planHint.pastDue' };
+    if (b.cancelAtPeriodEnd) return dated('dashboard.settings.planHint.accessUntil', 'dashboard.settings.planHint.cancels');
+    return dated('dashboard.settings.planHint.renews', 'dashboard.settings.planHint.active');
   });
   protected readonly saving = signal(false);
   protected readonly savedOnce = signal(false);

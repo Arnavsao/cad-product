@@ -1,6 +1,7 @@
 import { Overlay } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { Injectable, Injector, Type, inject } from '@angular/core';
+import { TranslocoService } from '@jsverse/transloco';
 import { UiDialogComponent } from './ui-dialog.component';
 import { UI_DIALOG_DATA, UiDialogAction, UiDialogData, UiDialogRef } from './ui-dialog-ref';
 
@@ -47,6 +48,7 @@ export interface UiDialogConfig {
 export class UiDialogService {
   private readonly overlay = inject(Overlay);
   private readonly injector = inject(Injector);
+  private readonly transloco = inject(TranslocoService);
 
   /** Yes/No question. Resolves `true` only when the confirm action was chosen. */
   async confirm(opts: UiConfirmOptions): Promise<boolean> {
@@ -55,8 +57,8 @@ export class UiDialogService {
       message: opts.message,
       danger: opts.danger,
       actions: [
-        { id: 'cancel', label: opts.cancelLabel ?? 'Cancel', variant: 'secondary' },
-        { id: 'confirm', label: opts.confirmLabel ?? 'Confirm', variant: opts.danger ? 'danger' : 'primary' },
+        { id: 'cancel', label: opts.cancelLabel ?? this.transloco.translate('shared.dialog.cancel'), variant: 'secondary' },
+        { id: 'confirm', label: opts.confirmLabel ?? this.transloco.translate('shared.dialog.confirm'), variant: opts.danger ? 'danger' : 'primary' },
       ],
     };
     const result = await this.open<string, UiDialogData>(UiDialogComponent, data).afterClosed;
@@ -66,7 +68,7 @@ export class UiDialogService {
   /** Multi-way question (e.g. Overwrite / Save as copy / Reload). Resolves the chosen `id`, or `null` on cancel/dismiss. */
   async choose(opts: UiChooseOptions): Promise<string | null> {
     const actions: UiDialogAction[] = [...opts.actions];
-    if (opts.cancelLabel !== null) actions.unshift({ id: CANCEL_ID, label: opts.cancelLabel ?? 'Cancel', variant: 'secondary' });
+    if (opts.cancelLabel !== null) actions.unshift({ id: CANCEL_ID, label: opts.cancelLabel ?? this.transloco.translate('shared.dialog.cancel'), variant: 'secondary' });
     const data: UiDialogData = { title: opts.title, message: opts.message, actions };
     const result = await this.open<string, UiDialogData>(UiDialogComponent, data).afterClosed;
     return !result || result === CANCEL_ID ? null : result;

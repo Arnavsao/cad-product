@@ -6,12 +6,13 @@ import {
 import { FormsModule } from '@angular/forms';
 import { LibraryService } from '../../core/services/library.service';
 import { SaveToLibraryModalService } from './save-to-library-modal.service';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-save-to-library-modal',
   standalone: true,
-  imports: [FormsModule],
+  imports: [UiIconComponent, FormsModule],
   template: `
     @if (modal.state().open) {
       <div class="lib-modal-overlay" (click)="onOverlayClick($event)">
@@ -19,7 +20,7 @@ import { SaveToLibraryModalService } from './save-to-library-modal.service';
 
           <div class="lib-modal-header">
             <span class="lib-modal-title">Save to Library</span>
-            <button class="lib-modal-close" type="button" (click)="close()" title="Close">✕</button>
+            <button class="lib-modal-close" type="button" (click)="close()" title="Close"><ui-icon name="close" [size]="16" /></button>
           </div>
 
           <div class="lib-modal-body">

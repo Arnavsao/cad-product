@@ -11,7 +11,7 @@ import { PasteEntitiesCmd, DeleteMultipleCmd, CreateBlockCmd } from '../models/c
 import { TextEntity } from '../models/entity-extended.model';
 import { snapshotEntity } from '../../tools/geometry-utils';
 
-// â”€â”€â”€ DTO shapes stored in the payload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── DTO shapes stored in the payload ────────────────────────────────────────
 
 export interface LayerDTO {
   name: string;
@@ -52,12 +52,12 @@ export interface ClipboardPayload {
   /** Source drawing file id (for cross-project detection). */
   sourceDrawingId: string;
   /**
-   * Cloned entity instances â€” NOT plain DTOs. Kept live so re-paste is instant
+   * Cloned entity instances — NOT plain DTOs. Kept live so re-paste is instant
    * without re-hydration. These are the objects that `buildPasteEntities` clones
    * on each paste.
    */
   entities: Entity[];
-  /** JSON-safe flat snapshot of the same entities â€” used for LocalStorage / system clipboard. */
+  /** JSON-safe flat snapshot of the same entities — used for LocalStorage / system clipboard. */
   entitySnapshots: Record<string, unknown>[];
   layers: LayerDTO[];
   blocks: BlockDTO[];
@@ -69,7 +69,7 @@ export interface ClipboardPayload {
 const LS_KEY = 'cad_clipboard';
 const SYSTEM_CLIPBOARD_TYPE = 'aagento-cad-clipboard';
 
-// â”€â”€â”€ Service â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Service ─────────────────────────────────────────────────────────────────
 
 /**
  * AutoCAD-style clipboard singleton.
@@ -79,11 +79,11 @@ const SYSTEM_CLIPBOARD_TYPE = 'aagento-cad-clipboard';
  * so users can paste between browser tabs / editor instances.
  *
  * Commands wired in CadEditorComponent:
- *   Ctrl+C / COPY / COPYBASE  â†’ copy()
- *   Ctrl+X / CUTCLIP          â†’ cut()
- *   Ctrl+V / PASTECLIP        â†’ pasteAtPoint()  (via PasteTool)
- *   Ctrl+Shift+V / PASTEORIG  â†’ pasteOriginal() (instant, no tool)
- *   Ctrl+Alt+V / PASTEBLOCK   â†’ pasteAsBlock()  (via PasteTool block mode)
+ *   Ctrl+C / COPY / COPYBASE  → copy()
+ *   Ctrl+X / CUTCLIP          → cut()
+ *   Ctrl+V / PASTECLIP        → pasteAtPoint()  (via PasteTool)
+ *   Ctrl+Shift+V / PASTEORIG  → pasteOriginal() (instant, no tool)
+ *   Ctrl+Alt+V / PASTEBLOCK   → pasteAsBlock()  (via PasteTool block mode)
  */
 @Injectable({ providedIn: 'root' })
 export class CadClipboardService {
@@ -95,7 +95,7 @@ export class CadClipboardService {
   /** Current in-memory payload. Null when clipboard is empty. */
   payload: ClipboardPayload | null = null;
 
-  // â”€â”€â”€ Copy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Copy ───────────────────────────────────────────────────────────────
 
   /**
    * Copy selected entities into the clipboard.
@@ -129,7 +129,7 @@ export class CadClipboardService {
     this.writeToSystemClipboard(); // fire-and-forget; errors swallowed
   }
 
-  // â”€â”€â”€ Cut â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Cut ────────────────────────────────────────────────────────────────
 
   /** Cut: copy then delete source entities through the undo stack (single transaction). */
   cut(entities: Entity[]): void {
@@ -144,7 +144,7 @@ export class CadClipboardService {
     );
   }
 
-  // â”€â”€â”€ Paste helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Paste helpers ───────────────────────────────────────────────────────
 
   /**
    * Produce fresh, translated entity clones for a paste operation.
@@ -221,7 +221,7 @@ export class CadClipboardService {
     );
   }
 
-  // â”€â”€â”€ Layer / Block / Style Import â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Layer / Block / Style Import ────────────────────────────────────────
 
   ensureLayersExist(file: DxfFile): void {
     if (!this.payload?.layers.length) return;
@@ -266,7 +266,7 @@ export class CadClipboardService {
     }
   }
 
-  // â”€â”€â”€ LocalStorage persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── LocalStorage persistence ─────────────────────────────────────────────
 
   serializeToLocalStorage(): void {
     if (!this.payload) return;
@@ -320,7 +320,7 @@ export class CadClipboardService {
     }
   }
 
-  // â”€â”€â”€ System clipboard bridge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── System clipboard bridge ──────────────────────────────────────────────
 
   writeToSystemClipboard(): void {
     if (!this.payload || !('clipboard' in navigator) || !navigator.clipboard.writeText) return;
@@ -417,7 +417,7 @@ export class CadClipboardService {
     }
   }
 
-  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Helpers ─────────────────────────────────────────────────────────────
 
   /** Compute the bounding-box centre of a set of entities. */
   computeCenter(entities: Entity[]): IPoint {
@@ -509,7 +509,7 @@ export class CadClipboardService {
   }
 }
 
-// â”€â”€â”€ Snapshot helpers (module-level, no circular deps) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Snapshot helpers (module-level, no circular deps) ───────────────────────
 
 function entityToSnapshot(entity: Entity): Record<string, unknown> {
   const snap: Record<string, unknown> = {};
@@ -551,7 +551,7 @@ function snapshotToEntity(snap: Record<string, unknown>): Entity | null {
   }
 }
 
-// Lazy entity prototype registry â€” built once on first access.
+// Lazy entity prototype registry — built once on first access.
 const _protoRegistry = new Map<string, object>();
 let _protoRegistryLoaded = false;
 
@@ -595,7 +595,7 @@ async function buildProtoRegistry(): Promise<void> {
     register(ex.InsertEntity);
     register(img.ImageEntity);
     register(tbl.TableEntity);
-  } catch { /* module load failure â€” entity reconstruction will be skipped */ }
+  } catch { /* module load failure — entity reconstruction will be skipped */ }
 }
 
 // Kick off registry build immediately on service module load.
@@ -608,7 +608,7 @@ function getEntityPrototype(type: string): object | null {
 let _nextSnapId = 800_000;
 function nextSnapshotId(): number { return _nextSnapId++; }
 
-// â”€â”€â”€ Entity translation (inlined to avoid circular import with tools/geometry-utils) â”€â”€
+// ─── Entity translation (inlined to avoid circular import with tools/geometry-utils) ──
 
 /**
  * Translate a cloned entity in-place by (dx, dy).
@@ -697,7 +697,7 @@ function translateHatchEdge(edge: any, dx: number, dy: number): any {
   return ne;
 }
 
-// â”€â”€â”€ Deep clone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Deep clone ───────────────────────────────────────────────────────────────
 
 function deepClone(v: unknown): unknown {
   if (v === null || v === undefined || typeof v !== 'object') return v;

@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { WorkspaceService } from '../../../core/api/workspace.service';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -7,10 +8,12 @@ import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { UiMenuItem } from '../../../shared/ui/menu/ui-menu.component';
 import { UiMenuTriggerDirective } from '../../../shared/ui/menu/ui-menu-trigger.directive';
+import { injectTranslateFn } from './translate-fn';
 
-const MENU: readonly UiMenuItem[] = [
-  { id: 'blank', label: 'Blank drawing', icon: 'file' },
-  { id: 'template', label: 'From template…', icon: 'copy' },
+/** Menu entries; `labelKey` is resolved per language when the menu is built. */
+const MENU: readonly { id: string; labelKey: string; icon: UiMenuItem['icon'] }[] = [
+  { id: 'blank', labelKey: 'dashboard.components.newDrawing.blank', icon: 'file' },
+  { id: 'template', labelKey: 'dashboard.components.newDrawing.fromTemplate', icon: 'copy' },
 ];
 
 /**
@@ -30,9 +33,9 @@ const MENU: readonly UiMenuItem[] = [
   selector: 'app-new-drawing-menu',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiIconComponent, UiMenuTriggerDirective],
+  imports: [TranslocoDirective, UiButtonDirective, UiIconComponent, UiMenuTriggerDirective],
   template: `
-    <div class="nd">
+    <div class="nd" *transloco="let t">
       <button
         type="button"
         uiButton
@@ -43,16 +46,16 @@ const MENU: readonly UiMenuItem[] = [
         (click)="create('blank')"
       >
         <ui-icon name="plus" [size]="15" />
-        New drawing
+        {{ t('dashboard.components.newDrawing.label') }}
       </button>
       <button
         type="button"
         uiButton
         variant="primary"
         class="nd__caret"
-        aria-label="New drawing options"
+        [attr.aria-label]="t('dashboard.components.newDrawing.options')"
         [disabled]="creating()"
-        [uiMenuTrigger]="menu"
+        [uiMenuTrigger]="menu()"
         menuAlign="end"
         (uiMenuSelect)="create($event.id)"
       >
@@ -84,8 +87,13 @@ export class NewDrawingMenuComponent {
   private readonly router = inject(Router);
   /** New drawings land in whichever workspace the dashboard is showing. */
   private readonly workspace = inject(WorkspaceService);
+  private readonly transloco = inject(TranslocoService);
+  private readonly t = injectTranslateFn();
 
-  protected readonly menu = [...MENU];
+  protected readonly menu = computed<UiMenuItem[]>(() => {
+    const t = this.t();
+    return MENU.map(({ id, labelKey, icon }) => ({ id, label: t(labelKey), icon }));
+  });
   protected readonly creating = signal(false);
 
   protected async create(kind: string): Promise<void> {
@@ -93,17 +101,19 @@ export class NewDrawingMenuComponent {
     this.creating.set(true);
     try {
       const drawing = await this.drawings.create({
-        name: 'Untitled drawing',
+        name: this.transloco.translate('dashboard.components.newDrawing.untitled'),
         folderId: this.folderId(),
         organizationId: this.workspace.activeOrgId(),
       });
       this.created.emit(drawing.id);
       if (kind === 'template') {
-        this.notify.info('Templates are on the way — we created a blank drawing for now.');
+        this.notify.info(this.transloco.translate('dashboard.components.newDrawing.templatesSoon'));
       }
       await this.router.navigate(['/editor', drawing.id]);
     } catch (e) {
-      this.notify.error(e instanceof Error && e.message ? e.message : 'The drawing could not be created.');
+      this.notify.error(
+        e instanceof Error && e.message ? e.message : this.transloco.translate('dashboard.components.newDrawing.createFailed'),
+      );
     } finally {
       this.creating.set(false);
     }

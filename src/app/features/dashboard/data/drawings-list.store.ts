@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { TranslocoService } from '@jsverse/transloco';
 import { DrawingSort, DrawingSummaryDto, FolderDetailDto, FolderDto, ListScope } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { FoldersApiService } from '../../../core/api/folders-api.service';
@@ -55,6 +56,7 @@ export class DrawingsListStore {
   private readonly drawings = inject(DrawingsApiService);
   private readonly foldersApi = inject(FoldersApiService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly transloco = inject(TranslocoService);
 
   readonly items = signal<DrawingSummaryDto[]>([]);
   readonly folders = signal<FolderDto[]>([]);
@@ -137,7 +139,7 @@ export class DrawingsListStore {
       this.items.set([]);
       this.folders.set([]);
       this.total.set(0);
-      this.error.set(messageOf(e));
+      this.error.set(messageOf(e, this.transloco.translate(GENERIC_ERROR_KEY)));
     } finally {
       if (gen === this.generation) this.loading.set(false);
     }
@@ -267,7 +269,15 @@ function readPageSize(): number {
   }
 }
 
-/** Human message for any thrown value (`ApiError` already carries a good one). */
-export function messageOf(e: unknown): string {
-  return e instanceof Error && e.message ? e.message : 'Something went wrong. Please try again.';
+/** Key of the generic "Something went wrong" fallback; pass its translation as `fallback`. */
+export const GENERIC_ERROR_KEY = 'dashboard.components.genericError';
+
+/**
+ * Human message for any thrown value (`ApiError` already carries a good one).
+ *
+ * `fallback` should be `transloco.translate(GENERIC_ERROR_KEY)`; the English
+ * default only remains for callers that have not yet been given a translation.
+ */
+export function messageOf(e: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  return e instanceof Error && e.message ? e.message : fallback;
 }

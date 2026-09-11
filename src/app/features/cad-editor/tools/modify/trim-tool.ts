@@ -30,7 +30,7 @@ interface IFencePoint {
  *
  * Behavior is node-based: cuts happen only at intersection nodes (or, for
  * polylines, also at the polyline's own vertices). The "interval" containing
- * the click â€” bounded by the two nearest nodes â€” is what gets removed.
+ * the click — bounded by the two nearest nodes — is what gets removed.
  *
  * Supported targets:
  *   - LINE: split into 0/1/2 LineEntities depending on which interval is cut.
@@ -796,7 +796,7 @@ const norm360 = (v: number) => ((v % 360) + 360) % 360;
 /* -------------------------------------------------------------------------- */
 
 /**
- * Rebuild a polyline's vertex list(s) after removing the interval (cutStartâ†’cutEnd)
+ * Rebuild a polyline's vertex list(s) after removing the interval (cutStart→cutEnd)
  * on segment `segIdx`. Returns 1 polyline (if open & cut at an end, or if closed),
  * 2 polylines (open polyline cut in the middle), or 0 (degenerate).
  */
@@ -815,7 +815,7 @@ function buildPolylineAfterCut(
   const endAtVertex = t1 > 1 - eps;
 
   if (poly.closed) {
-    // Open the loop, walking from cutEnd â†’ pts[(segIdx+1)%N] â†’ ... â†’ pts[segIdx] â†’ cutStart.
+    // Open the loop, walking from cutEnd → pts[(segIdx+1)%N] → ... → pts[segIdx] → cutStart.
     const result: IPoint[] = [];
     if (!endAtVertex) result.push(cutEnd);
     for (let k = 1; k <= N; k++) {

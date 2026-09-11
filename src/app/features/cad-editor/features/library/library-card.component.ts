@@ -7,12 +7,13 @@ import {
 
 import type { ILibraryItem } from '../../core/models/library.model';
 import { LibraryService } from '../../core/services/library.service';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-library-card',
   standalone: true,
-  imports: [],
+  imports: [UiIconComponent],
   template: `
     <div
       class="lib-card"
@@ -53,7 +54,7 @@ import { LibraryService } from '../../core/services/library.service';
         type="button"
         title="More options"
         (click)="$event.stopPropagation(); menuOpen.set(!menuOpen())"
-      >⋯</button>
+      ><ui-icon name="more" [size]="14" /></button>
 
       <!-- Context dropdown -->
       @if (menuOpen()) {
@@ -61,10 +62,10 @@ import { LibraryService } from '../../core/services/library.service';
           <button class="lib-dd-item" (click)="emitAndClose('rename')">✏ Rename</button>
           <button class="lib-dd-item" (click)="emitAndClose('duplicate')">⊕ Duplicate</button>
           <button class="lib-dd-item" (click)="emitAndClose('favorite')">
-            {{ item().category === 'Favorites' ? '★ Unfavorite' : '☆ Favorite' }}
+            @if (item().category === 'Favorites') { <ui-icon name="star-filled" [size]="14" /> Unfavorite } @else { <ui-icon name="star" [size]="14" /> Favorite }
           </button>
           <div class="lib-dd-sep"></div>
-          <button class="lib-dd-item lib-dd-danger" (click)="emitAndClose('delete')">✕ Delete</button>
+          <button class="lib-dd-item lib-dd-danger" (click)="emitAndClose('delete')"><ui-icon name="trash" [size]="14" /> Delete</button>
         </div>
       }
     </div>

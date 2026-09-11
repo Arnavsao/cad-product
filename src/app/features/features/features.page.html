@@ -1,32 +1,28 @@
-<div class="fx">
+<div class="fx" *transloco="let t">
   <section class="fx__hero site-container">
     <site-heading
       [level]="1"
-      eyebrow="Features"
-      title="Everything a 2D drafting tool has to get right, and the browser gets out of the way."
-      lede="{{ appName }} is not a viewer with a pencil bolted on. It is a full drafting editor: the command set, the snaps, the layouts, the DXF fidelity and the file management, with an assistant on top. This page lists what is there, group by group, with the alias you would type."
+      [eyebrow]="t('site.shell.nav.features')"
+      [title]="t('site.features.hero.title')"
+      [lede]="t('site.features.hero.lede', { appName })"
       align="center"
     />
-    <site-cta class="site-cta--center fx__cta" primaryLabel="Start drawing free" secondaryLabel="See pricing" secondaryLink="/pricing" />
+    <site-cta class="site-cta--center fx__cta" [primaryLabel]="t('site.home.hero.primary')" [secondaryLabel]="t('site.components.cta.seePricing')" secondaryLink="/pricing" />
   </section>
 
   <section class="fx__caps site-container" aria-labelledby="caps-title">
-    <site-heading eyebrow="The fundamentals" title="Four things a drafting tool has to get right." lede="Scroll and each one draws itself, in the order you would draft it." align="center" id="caps-title" />
+    <site-heading [eyebrow]="t('site.features.caps.eyebrow')" [title]="t('site.features.caps.title')" [lede]="t('site.features.caps.lede')" align="center" id="caps-title" />
     <!-- 1 ─ DXF round-trip ─────────────────────────────────────── -->
     <article class="cap" uiReveal>
       <div class="cap__copy">
         <p class="cap__index">01</p>
-        <h2 class="cap__title">DXF round-trip</h2>
-        <p class="cap__body">
-          Open a file from your desk, edit it, write it back out. Layers, blocks, dimension styles and text all
-          survive the trip, so {{ appName }} slots into a toolchain that already runs on DXF instead of asking
-          everyone to move.
-        </p>
+        <h2 class="cap__title">{{ t('site.features.caps.dxf.title') }}</h2>
+        <p class="cap__body">{{ t('site.features.caps.dxf.body', { appName }) }}</p>
       </div>
 
       <figure class="cap__figure fig ui-sheet">
         <svg class="fig__svg" viewBox="0 0 480 320" preserveAspectRatio="none" role="img"
-             aria-label="A DXF file opening in the editor and exporting back out to DXF" focusable="false">
+             [attr.aria-label]="t('site.features.caps.dxf.alt')" focusable="false">
           <!-- Source and result documents, with a page fold. -->
           <path class="ui-ink ui-ink--walls fig__solid" pathLength="1"
                 d="M30 80H105L130 105V250H30Z M105 80V105H130" />
@@ -51,7 +47,7 @@
           <text class="ui-fade ui-ink--detail fig__label" x="80" y="275" text-anchor="middle">site.dxf</text>
           <text class="ui-fade ui-ink--detail fig__label" x="400" y="275" text-anchor="middle">site.dxf</text>
           <text class="ui-fade ui-ink--detail fig__label fig__label--accent" x="240" y="102"
-                text-anchor="middle">EDIT</text>
+                text-anchor="middle">{{ t('site.features.caps.dxf.editLabel') }}</text>
         </svg>
       </figure>
     </article>
@@ -59,17 +55,13 @@
     <article class="cap cap--flip" uiReveal>
       <div class="cap__copy">
         <p class="cap__index">02</p>
-        <h2 class="cap__title">Layouts and viewports</h2>
-        <p class="cap__body">
-          Model space is where you draw; paper space is where you decide what gets printed. Place viewports at a
-          real scale, fill in the titleblock, and plot the sheet to PDF or SVG — the same drawing can carry a
-          detail sheet and a general arrangement without duplicating any geometry.
-        </p>
+        <h2 class="cap__title">{{ t('site.features.caps.layouts.title') }}</h2>
+        <p class="cap__body">{{ t('site.features.caps.layouts.body') }}</p>
       </div>
 
       <figure class="cap__figure fig ui-sheet">
         <svg class="fig__svg" viewBox="0 0 480 320" preserveAspectRatio="none" role="img"
-             aria-label="A paper-space sheet with two viewports and a titleblock" focusable="false">
+             [attr.aria-label]="t('site.features.caps.layouts.alt')" focusable="false">
           <!-- Sheet edge and drawing margin. -->
           <path class="ui-ink ui-ink--walls fig__solid" pathLength="1" d="M30 30H450V290H30Z" />
           <path class="ui-ink ui-ink--doors fig__thin" pathLength="1" d="M46 46H434V274H46Z" />
@@ -87,8 +79,8 @@
           <!-- Titleblock. -->
           <path class="ui-ink ui-ink--detail fig__thin" pathLength="1"
                 d="M300 214H434V274H300Z M300 238H434 M300 256H434" />
-          <text class="ui-fade ui-ink--detail fig__label" x="64" y="232">SCALE 1:50</text>
-          <text class="ui-fade ui-ink--detail fig__label fig__label--accent" x="310" y="231">A3 — SHEET 1</text>
+          <text class="ui-fade ui-ink--detail fig__label" x="64" y="232">{{ t('site.features.caps.layouts.scaleLabel') }}</text>
+          <text class="ui-fade ui-ink--detail fig__label fig__label--accent" x="310" y="231">{{ t('site.features.caps.layouts.sheetLabel') }}</text>
         </svg>
       </figure>
     </article>
@@ -96,17 +88,13 @@
     <article class="cap" uiReveal>
       <div class="cap__copy">
         <p class="cap__index">03</p>
-        <h2 class="cap__title">Associative dimensions</h2>
-        <p class="cap__body">
-          A dimension is attached to the geometry, not typed next to it. Stretch the wall and the measurement
-          updates itself — which is the difference between a drawing you can trust and a drawing you have to
-          re-check. Twelve object snaps, dimension styles, hatch and tables come with it.
-        </p>
+        <h2 class="cap__title">{{ t('site.features.caps.dimensions.title') }}</h2>
+        <p class="cap__body">{{ t('site.features.caps.dimensions.body') }}</p>
       </div>
 
       <figure class="cap__figure fig ui-sheet">
         <svg class="fig__svg" viewBox="0 0 480 320" preserveAspectRatio="none" role="img"
-             aria-label="A rectangle being stretched, with its dimension updating from 2200 millimetres"
+             [attr.aria-label]="t('site.features.caps.dimensions.alt')"
              focusable="false">
           <!-- The geometry. -->
           <path class="ui-ink ui-ink--walls fig__solid" pathLength="1" d="M60 90H280V210H60Z" />
@@ -126,7 +114,7 @@
           <rect class="ui-fade ui-snap fig__snap" x="274" y="144" width="12" height="12" />
         </svg>
 
-        <span class="fig__dim-val ui-fade ui-ink--dims" aria-label="2200 millimetres">
+        <span class="fig__dim-val ui-fade ui-ink--dims" [attr.aria-label]="t('site.home.sheet.millimetres', { value: 2200 })">
           <span class="ui-dim-val ui-ink--dims" style="--ui-dim-to: 2200" aria-hidden="true"></span>
           <span aria-hidden="true">mm</span>
         </span>
@@ -136,17 +124,13 @@
     <article class="cap cap--flip" uiReveal>
       <div class="cap__copy">
         <p class="cap__index">04</p>
-        <h2 class="cap__title">Blocks and attributes</h2>
-        <p class="cap__body">
-          Draw a door once, then place it forty times. Every instance points back at one definition, so correcting
-          the original corrects the drawing — and attributes let each instance carry its own tag, which is what
-          turns a plan into a schedule.
-        </p>
+        <h2 class="cap__title">{{ t('site.features.caps.blocks.title') }}</h2>
+        <p class="cap__body">{{ t('site.features.caps.blocks.body') }}</p>
       </div>
 
       <figure class="cap__figure fig ui-sheet">
         <svg class="fig__svg" viewBox="0 0 480 320" preserveAspectRatio="none" role="img"
-             aria-label="One door block definition placed three times along a wall" focusable="false">
+             [attr.aria-label]="t('site.features.caps.blocks.alt')" focusable="false">
           <!-- The definition, inside its block boundary. -->
           <path class="ui-ink ui-ink--doors fig__ghost" pathLength="1" d="M40 90H150V230H40Z" />
           <path class="ui-ink ui-ink--walls fig__solid" pathLength="1"
@@ -167,7 +151,7 @@
 
           <text class="ui-fade ui-ink--detail fig__label fig__label--accent" x="100" y="262"
                 text-anchor="middle">DOOR-900</text>
-          <text class="ui-fade ui-ink--detail fig__label" x="355" y="262" text-anchor="middle">3 instances</text>
+          <text class="ui-fade ui-ink--detail fig__label" x="355" y="262" text-anchor="middle">{{ t('site.features.caps.blocks.instances', { count: 3 }) }}</text>
         </svg>
       </figure>
     </article>
@@ -175,7 +159,7 @@
 
   <section class="site-section site-band" aria-labelledby="fx-ex-title">
     <div class="site-container">
-      <site-heading eyebrow="Command reference" title="Every group, every command, its alias." lede="Type the alias at the command line or click the tool; the prompts that follow are the ones AutoCAD users expect, in fourteen languages." id="fx-ex-title" />
+      <site-heading [eyebrow]="t('site.components.explorer.commandReference')" [title]="t('site.features.commands.title')" [lede]="t('site.features.commands.lede')" id="fx-ex-title" />
       <div class="fx__explorer" siteReveal>
         <span id="draw"></span><span id="annotate"></span><span id="modify"></span><span id="blocks"></span><span id="layouts"></span><span id="files"></span><span id="ai"></span>
         <site-explorer orientation="vertical" [limit]="8" [initial]="initialGroup" />
@@ -186,8 +170,8 @@
   <section class="site-section site-container" aria-labelledby="snap-title">
     <div class="snaps">
       <div class="snaps__copy" siteReveal="left">
-        <site-heading eyebrow="Precision" title="Fourteen object snaps, plus tracking." lede="Every point you pick can lock to geometry that already exists. Ortho and polar tracking, a snap grid and dynamic input next to the cursor come with it, and all of them toggle from the status bar." id="snap-title" />
-        <p class="site-body">Snap markers use the AutoCAD glyphs, so the square, triangle and circle mean what they have always meant.</p>
+        <site-heading [eyebrow]="t('site.features.snaps.eyebrow')" [title]="t('site.features.snaps.title')" [lede]="t('site.features.snaps.lede')" id="snap-title" />
+        <p class="site-body">{{ t('site.features.snaps.glyphs') }}</p>
       </div>
       <ul class="snaps__grid" siteReveal revealStagger="li">
         @for (snap of snaps; track snap; let i = $index) {
@@ -202,18 +186,18 @@
 
   <section class="site-section site-band" aria-labelledby="fmt-title">
     <div class="site-container">
-      <site-heading eyebrow="Files" title="What goes in, what comes out." lede="DXF is the native exchange format and it is on every plan. Everything below is checked against AutoCAD, not against a spec sheet." align="center" id="fmt-title" />
+      <site-heading [eyebrow]="t('site.features.formats.eyebrow')" [title]="t('site.features.formats.title')" [lede]="t('site.features.formats.lede')" align="center" id="fmt-title" />
       <div class="fx__table-wrap site-panel" siteReveal>
         <table class="fx__table">
-          <caption class="ui-visually-hidden">File formats CADO reads and writes</caption>
-          <thead><tr><th scope="col">Format</th><th scope="col">Read</th><th scope="col">Write</th><th scope="col">Notes</th></tr></thead>
+          <caption class="ui-visually-hidden">{{ t('site.features.formats.caption') }}</caption>
+          <thead><tr><th scope="col">{{ t('site.features.formats.format') }}</th><th scope="col">{{ t('site.features.formats.read') }}</th><th scope="col">{{ t('site.features.formats.write') }}</th><th scope="col">{{ t('site.features.formats.notes') }}</th></tr></thead>
           <tbody>
             @for (row of formats; track row.format) {
               <tr>
                 <th scope="row">{{ row.format }}</th>
-                <td [class.fx__no]="row.read === '—'">{{ row.read }}</td>
-                <td [class.fx__no]="row.write === '—'">{{ row.write }}</td>
-                <td class="fx__note">{{ row.note }}</td>
+                <td [class.fx__no]="row.readKey === formatNone">{{ t(row.readKey) }}</td>
+                <td [class.fx__no]="row.writeKey === formatNone">{{ t(row.writeKey) }}</td>
+                <td class="fx__note">{{ t(row.noteKey) }}</td>
               </tr>
             }
           </tbody>
@@ -223,14 +207,14 @@
   </section>
 
   <section class="site-section site-container" aria-labelledby="cmp-title">
-    <site-heading eyebrow="Compared" title="A browser tab against an installed seat." lede="Where CADO is ahead, where it is level, and where it is honestly not there yet." id="cmp-title" />
+    <site-heading [eyebrow]="t('site.features.compare.eyebrow')" [title]="t('site.features.compare.title')" [lede]="t('site.features.compare.lede')" id="cmp-title" />
     <div class="fx__table-wrap site-panel fx__compare" siteReveal>
       <table class="fx__table">
-        <caption class="ui-visually-hidden">CADO compared with installed desktop CAD</caption>
-        <thead><tr><th scope="col"></th><th scope="col">{{ appName }}</th><th scope="col">Installed desktop CAD</th></tr></thead>
+        <caption class="ui-visually-hidden">{{ t('site.features.compare.caption') }}</caption>
+        <thead><tr><th scope="col"></th><th scope="col">{{ appName }}</th><th scope="col">{{ t('site.features.compare.desktop') }}</th></tr></thead>
         <tbody>
-          @for (row of compare; track row.label) {
-            <tr><th scope="row">{{ row.label }}</th><td class="fx__us">{{ row.cado }}</td><td>{{ row.desktop }}</td></tr>
+          @for (row of compare; track row.id) {
+            <tr><th scope="row">{{ t(row.labelKey) }}</th><td class="fx__us">{{ t(row.cadoKey) }}</td><td>{{ t(row.desktopKey) }}</td></tr>
           }
         </tbody>
       </table>
@@ -239,12 +223,12 @@
 
   <section class="site-section site-band" aria-labelledby="det-title">
     <div class="site-container site-container--narrow">
-      <site-heading eyebrow="Details" title="The things drafters ask before they trust a tool." align="center" id="det-title" />
+      <site-heading [eyebrow]="t('site.features.details.eyebrow')" [title]="t('site.features.details.title')" align="center" id="det-title" />
       <div class="fx__acc" siteReveal>
         <site-accordion [items]="details" [initiallyOpen]="['lineweights']" />
       </div>
     </div>
   </section>
 
-  <site-closing title="Open a drawing and try every one of these." sub="The editor is free to use and DXF export is not behind a paywall. Sign up, drop a file, start typing commands." secondaryLabel="How it works" secondaryLink="/product" />
+  <site-closing [title]="t('site.features.closing.title')" [sub]="t('site.features.closing.sub')" [secondaryLabel]="t('site.shell.footer.howItWorks')" secondaryLink="/product" />
 </div>

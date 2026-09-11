@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiIconComponent } from '../../shared/ui/icon.component';
@@ -22,45 +23,53 @@ const MIN_PASSWORD_LENGTH = 6;
   selector: 'app-reset-password',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AuthLayoutComponent, FormsModule, RouterLink, UiButtonDirective, UiIconComponent, UiInputDirective],
+  imports: [
+    AuthLayoutComponent,
+    FormsModule,
+    RouterLink,
+    TranslocoDirective,
+    UiButtonDirective,
+    UiIconComponent,
+    UiInputDirective,
+  ],
   template: `
-    <app-auth-layout>
+    <app-auth-layout *transloco="let t">
       @if (!auth.enabled()) {
         <div class="auth-notice" role="status">
           <ui-icon name="alert" [size]="18" />
           <div>
-            <strong>Authentication is not configured</strong>
-            <p>There is no account system in this deployment.</p>
-            <a uiButton variant="primary" routerLink="/editor">Open editor</a>
+            <strong>{{ t('auth.notConfigured.title') }}</strong>
+            <p>{{ t('auth.reset.notConfiguredBody') }}</p>
+            <a uiButton variant="primary" routerLink="/editor">{{ t('auth.notConfigured.openEditor') }}</a>
           </div>
         </div>
       } @else if (done()) {
         <div class="auth-card">
           <div class="auth-sent" role="status">
             <span class="auth-sent__mark" aria-hidden="true"><ui-icon name="check" [size]="20" /></span>
-            <h2>Password updated</h2>
-            <p>You are signed in with your new password.</p>
-            <a uiButton routerLink="/dashboard">Go to dashboard</a>
+            <h2>{{ t('auth.reset.updatedTitle') }}</h2>
+            <p>{{ t('auth.reset.updatedBody') }}</p>
+            <a uiButton routerLink="/dashboard">{{ t('auth.reset.goToDashboard') }}</a>
           </div>
         </div>
       } @else if (linkSent()) {
         <div class="auth-card">
           <div class="auth-sent" role="status">
             <span class="auth-sent__mark" aria-hidden="true"><ui-icon name="check" [size]="20" /></span>
-            <h2>Check your email</h2>
-            <p>We sent a recovery link to <strong>{{ email() }}</strong>. Open it to set a new password.</p>
-            <a uiButton variant="ghost" routerLink="/sign-in">Back to sign in</a>
+            <h2>{{ t('auth.magicSent.title') }}</h2>
+            <p [innerHTML]="t('auth.reset.sentBody', { email: email() })"></p>
+            <a uiButton variant="ghost" routerLink="/sign-in">{{ t('auth.signUp.backToSignIn') }}</a>
           </div>
         </div>
       } @else if (auth.isSignedIn()) {
         <!-- Recovery session: the user followed the emailed link. -->
         <div class="auth-card">
-          <h1 class="auth-card__title">Set a new password</h1>
-          <p class="auth-card__sub">Choose something you have not used here before.</p>
+          <h1 class="auth-card__title">{{ t('auth.reset.newTitle') }}</h1>
+          <p class="auth-card__sub">{{ t('auth.reset.newSubtitle') }}</p>
 
           <form class="auth-form" (ngSubmit)="savePassword()">
             <div class="auth-field">
-              <label class="auth-field__label" for="rp-password">New password</label>
+              <label class="auth-field__label" for="rp-password">{{ t('auth.reset.newPassword') }}</label>
               <input
                 uiInput
                 id="rp-password"
@@ -73,7 +82,7 @@ const MIN_PASSWORD_LENGTH = 6;
                 (input)="password.set(value($event))"
               />
               <p class="auth-hint" [class.auth-hint--bad]="tooShort()">
-                At least {{ minPasswordLength }} characters.
+                {{ t('auth.signUp.passwordHint', { min: minPasswordLength }) }}
               </p>
             </div>
 
@@ -82,18 +91,18 @@ const MIN_PASSWORD_LENGTH = 6;
             }
 
             <button type="submit" uiButton class="auth-submit" [disabled]="!canSave()" [loading]="busy()">
-              Update password
+              {{ t('auth.reset.submitNew') }}
             </button>
           </form>
         </div>
       } @else {
         <div class="auth-card">
-          <h1 class="auth-card__title">Reset your password</h1>
-          <p class="auth-card__sub">We will email you a link to set a new one.</p>
+          <h1 class="auth-card__title">{{ t('auth.reset.title') }}</h1>
+          <p class="auth-card__sub">{{ t('auth.reset.subtitle') }}</p>
 
           <form class="auth-form" (ngSubmit)="sendLink()">
             <div class="auth-field">
-              <label class="auth-field__label" for="rp-email">Email</label>
+              <label class="auth-field__label" for="rp-email">{{ t('common.email') }}</label>
               <input
                 uiInput
                 id="rp-email"
@@ -111,11 +120,11 @@ const MIN_PASSWORD_LENGTH = 6;
             }
 
             <button type="submit" uiButton class="auth-submit" [disabled]="!canSend()" [loading]="busy()">
-              Email me a link
+              {{ t('auth.reset.submitLink') }}
             </button>
           </form>
 
-          <p class="auth-alt">Remembered it? <a routerLink="/sign-in">Sign in</a></p>
+          <p class="auth-alt">{{ t('auth.reset.remembered') }} <a routerLink="/sign-in">{{ t('auth.signIn.title') }}</a></p>
         </div>
       }
     </app-auth-layout>

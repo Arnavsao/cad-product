@@ -8,6 +8,13 @@
  * someone drawing a floor plan.
  *
  * Keep newest first, and keep it in step with `CHANGELOG.md` when you cut a release.
+ *
+ * Deliberately NOT translated. Every entry describes one shipped change and is
+ * written once, at release time; a translated release note would either lag the
+ * release by however long translation takes or ship as an English string under
+ * a key, which is the same thing with more machinery. The page chrome around
+ * them (`whats-new.page.ts`) does go through i18n. If these are translated one
+ * day, it should be as a per-release batch, not string by string.
  */
 
 export type ReleaseChangeKind = 'added' | 'improved' | 'fixed';

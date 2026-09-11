@@ -10,6 +10,10 @@ import { CommandStackService } from '../../core/services/command-stack.service';
 import { AiModelService } from './services/ai-model.service';
 import type { AiTurnEvent, ActionResult, PendingPlan, ValidationIssue } from './models/ai-action.model';
 import type { LayoutReport, LayoutIssue } from './tools/views-intelligent-layout.tools';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { translateOr, injectTranslocoOptional } from '../../../../core/i18n/translate-or';
+import { translateOrParams } from '../shared/translate-or-params';
 
 interface ChatMessage {
   id: string;
@@ -30,9 +34,9 @@ function nextId() { return `msg_${++msgIdSeq}`; }
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-ai-agent-panel',
   standalone: true,
-  imports: [FormsModule],
+  imports: [UiIconComponent, FormsModule, TranslocoDirective],
   template: `
-    <div class="ai-panel">
+    <div class="ai-panel" *transloco="let t">
     
       <!-- Header: model selector + settings -->
       <div class="ai-header">
@@ -47,8 +51,8 @@ function nextId() { return `msg_${++msgIdSeq}`; }
         <button type="button" class="ai-gear-btn"
           [class.active]="showSettings()"
           (click)="showSettings.set(!showSettings())"
-        title="API key settings">⚙</button>
-        <button type="button" class="ai-clear-btn" (click)="clearHistory()" title="Clear conversation">🗑</button>
+        [title]="t('editor.ui.ai.apiKeySettings')"><ui-icon name="settings" [size]="15" /></button>
+        <button type="button" class="ai-clear-btn" (click)="clearHistory()" [title]="t('editor.ui.ai.clearConversation')"><ui-icon name="trash" [size]="15" /></button>
       </div>
     
       <!-- Settings popover: backend config -->
@@ -56,7 +60,7 @@ function nextId() { return `msg_${++msgIdSeq}`; }
         <div class="ai-settings">
           <!-- Ollama server URL (shown for local models) -->
           @if (isOllama()) {
-            <label class="ai-settings-label">Ollama server URL</label>
+            <label class="ai-settings-label">{{ t('editor.ui.ai.ollamaUrl') }}</label>
             <div class="ai-key-row">
               <input class="ai-key-input"
                 type="text"
@@ -65,26 +69,17 @@ function nextId() { return `msg_${++msgIdSeq}`; }
                 (ngModelChange)="onOllamaUrlChange($event)"
                 autocomplete="off" spellcheck="false" />
               </div>
-              <p class="ai-settings-note">
-                Self-hosted — no API key or rate limits. The server must allow this app's
-                origin (set OLLAMA_ORIGINS=* on the server).
-              </p>
+              <p class="ai-settings-note">{{ t('editor.ui.ai.ollamaNote') }}</p>
             }
             <!-- OpenRouter API key (shown for cloud models) -->
             @if (isOpenRouter()) {
               @if (needsDataConsent()) {
                 <div class="ai-settings-consent">
-                  <p class="ai-settings-note ai-settings-warn">
-                    ⚠ OpenRouter is a third-party, external AI provider. Using it sends a summary
-                    of your drawing (layers, entity counts/types, selection — not the raw file) and
-                    your prompts to OpenRouter's servers to generate a response.
-                  </p>
-                  <button type="button" class="ai-consent-btn" (click)="grantDataConsent()">
-                    I understand — continue
-                  </button>
+                  <p class="ai-settings-note ai-settings-warn">{{ t('editor.ui.ai.consentWarning') }}</p>
+                  <button type="button" class="ai-consent-btn" (click)="grantDataConsent()">{{ t('editor.ui.ai.consentAccept') }}</button>
                 </div>
               } @else {
-                <label class="ai-settings-label">OpenRouter API key</label>
+                <label class="ai-settings-label">{{ t('editor.ui.ai.openRouterKey') }}</label>
                 <div class="ai-key-row">
                   <input class="ai-key-input"
                     [type]="showKey() ? 'text' : 'password'"
@@ -97,17 +92,13 @@ function nextId() { return `msg_${++msgIdSeq}`; }
                     </button>
                   </div>
                   <p class="ai-settings-note" [class.ai-settings-warn]="needsKey()">
-                    {{ needsKey()
-                    ? '⚠ This model needs a key. Paste your OpenRouter key above.'
-                    : 'Stored only in this browser. Sent directly to OpenRouter. Never commit it.' }}
+                    {{ needsKey() ? t('editor.ui.ai.keyRequired') : t('editor.ui.ai.keyStorageNote') }}
                   </p>
                 }
               }
               <!-- Regex selected -->
               @if (modelSvc.selected.kind === 'local') {
-                <p class="ai-settings-note">
-                  Offline regex parser — no configuration needed.
-                </p>
+                <p class="ai-settings-note">{{ t('editor.ui.ai.offlineParserNote') }}</p>
               }
             </div>
           }
@@ -117,18 +108,18 @@ function nextId() { return `msg_${++msgIdSeq}`; }
     
             @if (messages().length === 0) {
               <div class="ai-welcome">
-                <p>Ask me to modify your drawing in plain English.</p>
+                <p>{{ t('editor.ui.ai.welcome') }}</p>
                 <div class="ai-examples">
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Change all circles to red')">Change all circles to red</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Hide layer DIM')">Hide layer DIM</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Move top view 5m to the right')">Move top view 5m right</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Distribute views evenly')">Distribute views evenly</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Reorganize all views into 3 columns')">Auto-reorganize (3 cols)</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Center all views')">Center all views</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Check layout for overlaps')">Check layout</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Zoom to top view')">Zoom to view</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Rename layer DIM to ANNOT')">Rename layer</button>
-                  <button type="button" class="ai-example-chip" (click)="sendExample('Generate a box culvert GAD 2m wide 1.5m high')">Generate culvert GAD</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Change all circles to red')">{{ t('editor.ui.ai.example.changeCirclesRed') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Hide layer DIM')">{{ t('editor.ui.ai.example.hideLayer') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Move top view 5m to the right')">{{ t('editor.ui.ai.example.moveView') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Distribute views evenly')">{{ t('editor.ui.ai.example.distributeViews') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Reorganize all views into 3 columns')">{{ t('editor.ui.ai.example.reorganize') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Center all views')">{{ t('editor.ui.ai.example.centerViews') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Check layout for overlaps')">{{ t('editor.ui.ai.example.checkLayout') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Zoom to top view')">{{ t('editor.ui.ai.example.zoomToView') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Rename layer DIM to ANNOT')">{{ t('editor.ui.ai.example.renameLayer') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Generate a box culvert GAD 2m wide 1.5m high')">{{ t('editor.ui.ai.example.generateGad') }}</button>
                 </div>
               </div>
             }
@@ -152,8 +143,8 @@ function nextId() { return `msg_${++msgIdSeq}`; }
                         class="ai-copy-btn"
                         [class.ai-copied]="copiedId() === msg.id"
                         (click)="copyMessage(msg)"
-                        [title]="copiedId() === msg.id ? 'Copied!' : 'Copy message'">
-                        {{ copiedId() === msg.id ? '✓' : '⎘' }}
+                        [title]="copiedId() === msg.id ? t('editor.ui.ai.copied') : t('editor.ui.ai.copyMessage')">
+                        @if (copiedId() === msg.id) { <ui-icon name="check" [size]="12" /> } @else { <ui-icon name="clipboard" [size]="12" /> }
                       </button>
                     }
                     <!-- Thinking indicator -->
@@ -187,19 +178,15 @@ function nextId() { return `msg_${++msgIdSeq}`; }
                           <span class="ai-risk-badge ai-risk-{{ msg.plan.riskClass }}">
                             {{ riskLabel(msg.plan.riskClass) }}
                           </span>
-                          <span class="ai-confirm-count">{{ msg.plan.affectedCount }} entities affected</span>
+                          <span class="ai-confirm-count">{{ t('editor.ui.ai.entitiesAffected', { count: msg.plan.affectedCount }) }}</span>
                         </div>
                         <div class="ai-confirm-preview">{{ msg.plan.preview }}</div>
                         <div class="ai-confirm-actions">
                           <button type="button" class="ai-btn ai-btn-apply"
                             [disabled]="thinking()"
-                            (click)="applyPlan(msg)">
-                            Apply
-                          </button>
+                            (click)="applyPlan(msg)">{{ t('editor.ui.ai.apply') }}</button>
                           <button type="button" class="ai-btn ai-btn-cancel"
-                            (click)="cancelPlan(msg)">
-                            Cancel
-                          </button>
+                            (click)="cancelPlan(msg)">{{ t('editor.ui.ai.cancel') }}</button>
                         </div>
                       </div>
                     }
@@ -208,9 +195,7 @@ function nextId() { return `msg_${++msgIdSeq}`; }
                       <div class="ai-applied-row">
                         @if (cmdStack.canUndo()) {
                           <button type="button" class="ai-btn ai-btn-undo"
-                            (click)="undo()">
-                            ↩ Undo
-                          </button>
+                            (click)="undo()">↩ {{ t('editor.ui.ai.undo') }}</button>
                         }
                       </div>
                     }
@@ -219,9 +204,11 @@ function nextId() { return `msg_${++msgIdSeq}`; }
                       <div class="ai-report-card">
                         <div class="ai-report-header">
                           <span class="ai-report-badge" [class.ai-report-pass]="msg.layoutReport.passed" [class.ai-report-fail]="!msg.layoutReport.passed">
-                            {{ msg.layoutReport.passed ? '✓ Passed' : '✗ Issues found' }}
+                            @if (msg.layoutReport.passed) { <ui-icon name="check" [size]="12" /> {{ t('editor.ui.ai.reportPassed') }} } @else { <ui-icon name="alert" [size]="12" /> {{ t('editor.ui.ai.reportIssues') }} }
                           </span>
-                          <span class="ai-report-meta">{{ msg.layoutReport.viewCount }} view{{ msg.layoutReport.viewCount === 1 ? '' : 's' }} analysed</span>
+                          <span class="ai-report-meta">{{ msg.layoutReport.viewCount === 1
+                              ? t('editor.ui.ai.viewsAnalysedOne', { count: msg.layoutReport.viewCount })
+                              : t('editor.ui.ai.viewsAnalysedOther', { count: msg.layoutReport.viewCount }) }}</span>
                         </div>
                         @if (msg.layoutReport.issues.length > 0) {
                           @for (issue of msg.layoutReport.issues; track issue) {
@@ -235,7 +222,7 @@ function nextId() { return `msg_${++msgIdSeq}`; }
                             </div>
                           }
                         } @else {
-                          <p class="ai-report-none">No layout issues found.</p>
+                          <p class="ai-report-none">{{ t('editor.ui.ai.noLayoutIssues') }}</p>
                         }
                       </div>
                     }
@@ -251,7 +238,7 @@ function nextId() { return `msg_${++msgIdSeq}`; }
               #inputEl
               class="ai-input"
               rows="2"
-              placeholder="Describe what you want to do…"
+              [placeholder]="t('editor.ui.ai.inputPlaceholder')"
               [(ngModel)]="inputText"
               (keydown)="onKeydown($event)"
               [disabled]="thinking()"
@@ -260,12 +247,12 @@ function nextId() { return `msg_${++msgIdSeq}`; }
               <button type="button" class="ai-send-btn"
                 [disabled]="!inputText().trim()"
                 (click)="send()">
-                ▶
+                <ui-icon name="play" [size]="14" />
               </button>
             }
             @if (thinking()) {
               <button type="button" class="ai-stop-btn"
-                (click)="stop()" title="Stop generating">
+                (click)="stop()" [title]="t('editor.ui.ai.stopGenerating')">
                 ■
               </button>
             }
@@ -668,6 +655,7 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
   protected orchestrator = inject(AiOrchestratorService);
   protected cmdStack = inject(CommandStackService);
   protected modelSvc = inject(AiModelService);
+  private transloco = injectTranslocoOptional();
 
   protected thinking = this.orchestrator.thinking;
   protected messages = signal<ChatMessage[]>([]);
@@ -736,7 +724,8 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
   protected trackMsg(_: number, m: ChatMessage) { return m.id; }
 
   protected riskLabel(r: 'safe' | 'review' | 'destructive'): string {
-    return r === 'safe' ? '✓ Safe' : r === 'review' ? '⚠ Review' : '⛔ Destructive';
+    const english = r === 'safe' ? '✓ Safe' : r === 'review' ? '⚠ Review' : '⛔ Destructive';
+    return translateOr(this.transloco, 'editor.ui.ai.risk.' + r, english);
   }
 
   protected issueIcon(sev: string): string {
@@ -790,7 +779,7 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
         this._thinkingMsgId = null;
         this._replaceMsg(thinkingId, {
           role: 'assistant',
-          content: `Error: ${err instanceof Error ? err.message : String(err)}`,
+          content: translateOrParams(this.transloco, 'editor.ui.ai.errorPrefix', 'Error: {{message}}', { message: err instanceof Error ? err.message : String(err) }),
           isError: true,
         });
       },
@@ -824,7 +813,7 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
       });
     } catch (err: unknown) {
       const msg2 = err instanceof Error ? err.message : String(err);
-      this._replaceMsg(thinkingId, { role: 'assistant', content: `Error: ${msg2}`, isError: true });
+      this._replaceMsg(thinkingId, { role: 'assistant', content: translateOrParams(this.transloco, 'editor.ui.ai.errorPrefix', 'Error: {{message}}', { message: msg2 }), isError: true });
     }
   }
 
@@ -832,7 +821,7 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
     if (!msg.plan) return;
     this.orchestrator.cancel(msg.plan.planId);
     this.messages.update(prev => prev.map(m =>
-      m.id === msg.id ? { ...m, plan: undefined, content: 'Cancelled.' } : m,
+      m.id === msg.id ? { ...m, plan: undefined, content: translateOr(this.transloco, 'editor.ui.ai.cancelled', 'Cancelled.') } : m,
     ));
   }
 
@@ -857,7 +846,7 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
     if (this._thinkingMsgId) {
       this._replaceMsg(this._thinkingMsgId, {
         role: 'assistant',
-        content: 'Stopped.',
+        content: translateOr(this.transloco, 'editor.ui.ai.stopped', 'Stopped.'),
       });
       this._thinkingMsgId = null;
     }
@@ -887,7 +876,7 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
       case 'plan':
         this._replaceMsg(thinkingId, {
           role: 'assistant',
-          content: `I'll make ${event.plan.affectedCount} change(s). Please review:`,
+          content: translateOrParams(this.transloco, 'editor.ui.ai.planIntro', "I'll make {{count}} change(s). Please review:", { count: event.plan.affectedCount }),
           plan: event.plan,
           issues: event.plan.issues,
         });

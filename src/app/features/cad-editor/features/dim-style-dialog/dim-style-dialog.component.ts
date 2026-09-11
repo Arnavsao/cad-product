@@ -3,6 +3,7 @@ import {
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { DimensionStyleRegistryService } from '../../core/services/dimension-style-registry.service';
 import { DimensionStyle } from '../../../../../cad-core/models/dimension/DimensionStyle';
 import { DimensionGeometryBuilder } from '../../../../../cad-core/models/dimension/DimensionGeometryBuilder';
@@ -14,7 +15,7 @@ import { DimStyleDialogService } from './dim-style-dialog.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-dim-style-dialog',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslocoDirective],
   templateUrl: './dim-style-dialog.component.html',
   styleUrls: ['./dim-style-dialog.component.scss']
 })
@@ -27,6 +28,18 @@ export class DimStyleDialogComponent implements OnInit, AfterViewInit {
   public editingStyle!: DimensionStyle;
 
   public svc = inject(DimStyleDialogService);
+
+  /** Colour choices for the three colour selects. ByBlock is an AutoCAD keyword and stays untranslated. */
+  public readonly colors: ReadonlyArray<{ value: string; labelKey?: string }> = [
+    { value: 'ByBlock' },
+    { value: 'Red',     labelKey: 'editor.dialog.dimStyle.colorRed' },
+    { value: 'Yellow',  labelKey: 'editor.dialog.dimStyle.colorYellow' },
+    { value: 'Green',   labelKey: 'editor.dialog.dimStyle.colorGreen' },
+    { value: 'Cyan',    labelKey: 'editor.dialog.dimStyle.colorCyan' },
+    { value: 'Blue',    labelKey: 'editor.dialog.dimStyle.colorBlue' },
+    { value: 'Magenta', labelKey: 'editor.dialog.dimStyle.colorMagenta' },
+    { value: 'White',   labelKey: 'editor.dialog.dimStyle.colorWhite' },
+  ];
 
   constructor(
     private dimRegistry: DimensionStyleRegistryService,

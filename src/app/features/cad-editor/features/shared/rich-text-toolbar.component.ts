@@ -5,14 +5,15 @@ import {
 
 import { FormsModule } from '@angular/forms';
 import { ColorPickerComponent } from './color-picker/color-picker.component';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-rich-text-toolbar',
   standalone: true,
-  imports: [FormsModule, ColorPickerComponent],
+  imports: [FormsModule, ColorPickerComponent, TranslocoDirective],
   template: `
-    <div class="te-toolbar" (mousedown)="$event.stopPropagation()">
+    <div class="te-toolbar" *transloco="let t" (mousedown)="$event.stopPropagation()">
       <select class="te-select" [ngModel]="font()" (ngModelChange)="fontChange.emit($event)">
         <option value="Arial">Arial</option>
         <option value="Helvetica">Helvetica</option>
@@ -25,43 +26,43 @@ import { ColorPickerComponent } from './color-picker/color-picker.component';
       </select>
     
       <input class="te-input-num" type="number" step="0.5" min="0.001"
-        [ngModel]="fontSize()" (ngModelChange)="fontSizeChange.emit($event)" title="Text Height">
+        [ngModel]="fontSize()" (ngModelChange)="fontSizeChange.emit($event)" [title]="t('editor.ui.textFormat.textHeight')">
     
         <div class="te-sep"></div>
     
-        <button class="te-btn" [class.active]="bold()" (click)="boldChange.emit(!bold())" title="Bold"><b>B</b></button>
-        <button class="te-btn" [class.active]="italic()" (click)="italicChange.emit(!italic())" title="Italic"><i>I</i></button>
-        <button class="te-btn" [class.active]="underline()" (click)="underlineChange.emit(!underline())" title="Underline"><u>U</u></button>
-        <button class="te-btn" [class.active]="strikethrough()" (click)="strikethroughChange.emit(!strikethrough())" title="Strikethrough"><s>S</s></button>
+        <button class="te-btn" [class.active]="bold()" (click)="boldChange.emit(!bold())" [title]="t('editor.ui.textFormat.bold')"><b>B</b></button>
+        <button class="te-btn" [class.active]="italic()" (click)="italicChange.emit(!italic())" [title]="t('editor.ui.textFormat.italic')"><i>I</i></button>
+        <button class="te-btn" [class.active]="underline()" (click)="underlineChange.emit(!underline())" [title]="t('editor.ui.textFormat.underline')"><u>U</u></button>
+        <button class="te-btn" [class.active]="strikethrough()" (click)="strikethroughChange.emit(!strikethrough())" [title]="t('editor.ui.textFormat.strikethrough')"><s>S</s></button>
     
         @if (showAlign()) {
           <div class="te-sep"></div>
-          <button class="te-btn" [class.active]="align() === 'left'" (click)="alignChange.emit('left')" title="Align Left">⫷</button>
-          <button class="te-btn" [class.active]="align() === 'center'" (click)="alignChange.emit('center')" title="Align Center">≡</button>
-          <button class="te-btn" [class.active]="align() === 'right'" (click)="alignChange.emit('right')" title="Align Right">⫸</button>
+          <button class="te-btn" [class.active]="align() === 'left'" (click)="alignChange.emit('left')" [title]="t('editor.ui.textFormat.alignLeft')">⫷</button>
+          <button class="te-btn" [class.active]="align() === 'center'" (click)="alignChange.emit('center')" [title]="t('editor.ui.textFormat.alignCenter')">≡</button>
+          <button class="te-btn" [class.active]="align() === 'right'" (click)="alignChange.emit('right')" [title]="t('editor.ui.textFormat.alignRight')">⫸</button>
         }
     
         @if (showValign()) {
           <div class="te-sep"></div>
-          <button class="te-btn" [class.active]="valign() === 'top'" (click)="valignChange.emit('top')" title="Align Top">⇡</button>
-          <button class="te-btn" [class.active]="valign() === 'middle'" (click)="valignChange.emit('middle')" title="Align Middle">⇕</button>
-          <button class="te-btn" [class.active]="valign() === 'bottom'" (click)="valignChange.emit('bottom')" title="Align Bottom">⇣</button>
+          <button class="te-btn" [class.active]="valign() === 'top'" (click)="valignChange.emit('top')" [title]="t('editor.ui.textFormat.alignTop')">⇡</button>
+          <button class="te-btn" [class.active]="valign() === 'middle'" (click)="valignChange.emit('middle')" [title]="t('editor.ui.textFormat.alignMiddle')">⇕</button>
+          <button class="te-btn" [class.active]="valign() === 'bottom'" (click)="valignChange.emit('bottom')" [title]="t('editor.ui.textFormat.alignBottom')">⇣</button>
         }
     
         <div class="te-sep"></div>
     
         <app-color-picker
-          title="Text Color"
+          [title]="t('editor.ui.textFormat.textColor')"
           [value]="textColor()"
-          [label]="'Text'"
+          [label]="t('editor.ui.textFormat.textColorShort')"
           (valueChange)="textColorChange.emit($event)">
         </app-color-picker>
     
         @if (showBgColor()) {
           <app-color-picker
-            title="Background Color"
+            [title]="t('editor.ui.textFormat.backgroundColor')"
             [value]="bgColor()"
-            [label]="'Fill'"
+            [label]="t('editor.ui.textFormat.fill')"
             (valueChange)="bgColorChange.emit($event)">
           </app-color-picker>
         }
@@ -72,7 +73,7 @@ import { ColorPickerComponent } from './color-picker/color-picker.component';
         @if (symbols() && symbols().length > 0) {
           <div class="te-sep"></div>
           <div class="te-dropdown">
-            <button class="te-btn" (click)="symbolMenuOpen = !symbolMenuOpen" title="Insert Symbol">Ω</button>
+            <button class="te-btn" (click)="symbolMenuOpen = !symbolMenuOpen" [title]="t('editor.ui.textFormat.insertSymbol')">Ω</button>
             @if (symbolMenuOpen) {
               <div class="te-dropdown-menu">
                 @for (sym of symbols(); track sym) {

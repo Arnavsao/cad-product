@@ -1,6 +1,7 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiDialogRef } from '../../shared/ui/dialog/ui-dialog-ref';
@@ -16,12 +17,12 @@ import { CURRENT_VERSION } from './release-notes';
   selector: 'app-about-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, RouterLink, UiButtonDirective, UiIconComponent],
+  imports: [A11yModule, RouterLink, TranslocoDirective, UiButtonDirective, UiIconComponent],
   template: `
-    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
+    <div class="ui-dialog" *transloco="let t" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
       <header class="ui-dialog__header">
-        <h2 [id]="titleId">About {{ appName }}</h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="ref.close()">
+        <h2 [id]="titleId">{{ t('about.title', { appName }) }}</h2>
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('shared.dialog.close')" (click)="ref.close()">
           <ui-icon name="close" />
         </button>
       </header>
@@ -31,30 +32,30 @@ import { CURRENT_VERSION } from './release-notes';
           <span class="ab__mark" aria-hidden="true"><ui-icon name="grid" [size]="20" /></span>
           <div>
             <p class="ab__name">{{ appName }}</p>
-            <p class="ab__tag">2D CAD in the browser</p>
+            <p class="ab__tag">{{ t('about.tagline') }}</p>
           </div>
         </div>
 
         <dl class="ab__facts">
-          <dt>Version</dt>
+          <dt>{{ t('about.version') }}</dt>
           <dd>{{ version }}</dd>
-          <dt>Build</dt>
-          <dd>{{ buildMode }}</dd>
+          <dt>{{ t('about.build') }}</dt>
+          <dd>{{ t(buildModeKey) }}</dd>
         </dl>
 
-        <nav class="ab__links" aria-label="About links">
-          <a routerLink="/whats-new" (click)="ref.close()">What's New</a>
-          <a routerLink="/pricing" (click)="ref.close()">Plans &amp; pricing</a>
-          <a routerLink="/terms" (click)="ref.close()">Terms</a>
-          <a routerLink="/privacy" (click)="ref.close()">Privacy</a>
+        <nav class="ab__links" [attr.aria-label]="t('about.linksAria')">
+          <a routerLink="/whats-new" (click)="ref.close()">{{ t('about.whatsNew') }}</a>
+          <a routerLink="/pricing" (click)="ref.close()">{{ t('about.pricing') }}</a>
+          <a routerLink="/terms" (click)="ref.close()">{{ t('about.terms') }}</a>
+          <a routerLink="/privacy" (click)="ref.close()">{{ t('about.privacy') }}</a>
         </nav>
 
-        <p class="ab__legal">© {{ year }} {{ appName }}. All rights reserved.</p>
+        <p class="ab__legal">{{ t('about.legal', { year, appName }) }}</p>
       </div>
 
       <footer class="ui-dialog__footer">
-        <button type="button" uiButton variant="secondary" (click)="openFeedback()">Send feedback</button>
-        <button type="button" uiButton (click)="ref.close()">Close</button>
+        <button type="button" uiButton variant="secondary" (click)="openFeedback()">{{ t('about.sendFeedback') }}</button>
+        <button type="button" uiButton (click)="ref.close()">{{ t('shared.dialog.close') }}</button>
       </footer>
     </div>
   `,
@@ -90,7 +91,7 @@ export class AboutDialogComponent {
   protected readonly titleId = 'about-dialog-title';
   protected readonly appName = environment.appName;
   protected readonly version = CURRENT_VERSION;
-  protected readonly buildMode = environment.production ? 'production' : 'development';
+  protected readonly buildModeKey = environment.production ? 'about.production' : 'about.development';
   protected readonly year = new Date().getFullYear();
 
   protected openFeedback(): void {

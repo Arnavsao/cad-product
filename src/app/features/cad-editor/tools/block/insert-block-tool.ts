@@ -37,7 +37,7 @@ export class InsertBlockTool implements ITool {
   activate(): void {
     const file = this.doc.activeFile;
 
-    // Pre-requested from panel â€” skip dialog
+    // Pre-requested from panel — skip dialog
     if (InsertBlockTool.requestedBlockName) {
       this.blockName = InsertBlockTool.requestedBlockName;
       InsertBlockTool.requestedBlockName = null;

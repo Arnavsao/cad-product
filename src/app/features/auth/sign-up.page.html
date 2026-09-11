@@ -1,49 +1,49 @@
-<app-auth-layout>
+<app-auth-layout *transloco="let t">
   @if (!auth.enabled()) {
     <div class="auth-notice" role="status">
       <ui-icon name="alert" [size]="18" />
       <div>
-        <strong>Authentication is not configured</strong>
+        <strong>{{ t('auth.notConfigured.title') }}</strong>
+        <!-- Code identifiers stay outside the translated string, as on the sign-in page. -->
         <p>
-          Set <code>supabaseUrl</code> and <code>supabaseAnonKey</code> in
-          <code>src/environments/environment.ts</code> to enable sign-up. Until then the editor runs without an
-          account.
+          {{ t('auth.notConfigured.body.before') }} <code>supabaseUrl</code>
+          {{ t('common.and') }} <code>supabaseAnonKey</code>
+          {{ t('auth.notConfigured.body.middle') }} <code>src/environments/environment.ts</code>
+          {{ t('auth.signUp.notConfiguredAfter') }}
         </p>
-        <a uiButton variant="primary" routerLink="/editor">Open editor</a>
+        <a uiButton variant="primary" routerLink="/editor">{{ t('auth.notConfigured.openEditor') }}</a>
       </div>
     </div>
   } @else if (auth.loadError(); as err) {
     <div class="auth-notice auth-notice--error" role="alert">
       <ui-icon name="alert" [size]="18" />
       <div>
-        <strong>Sign-up could not be loaded</strong>
+        <strong>{{ t('auth.signUp.loadFailedTitle') }}</strong>
         <p>{{ err }}</p>
-        <button type="button" uiButton variant="primary" (click)="retry()">Retry</button>
+        <button type="button" uiButton variant="primary" (click)="retry()">{{ t('common.retry') }}</button>
       </div>
     </div>
   } @else if (confirmSent()) {
     <div class="auth-card">
       <div class="auth-sent" role="status">
         <span class="auth-sent__mark" aria-hidden="true"><ui-icon name="check" [size]="20" /></span>
-        <h2>Confirm your email</h2>
-        <p>
-          We sent a confirmation link to <strong>{{ email() }}</strong>. Open it to finish creating your account.
-        </p>
-        <a uiButton variant="ghost" routerLink="/sign-in">Back to sign in</a>
+        <h2>{{ t('auth.signUp.confirmTitle') }}</h2>
+        <p [innerHTML]="t('auth.signUp.confirmBody', { email: email() })"></p>
+        <a uiButton variant="ghost" routerLink="/sign-in">{{ t('auth.signUp.backToSignIn') }}</a>
       </div>
     </div>
   } @else {
     <div class="auth-card">
-      <h1 class="auth-card__title">Create your account</h1>
-      <p class="auth-card__sub">Free to start. No card, no install.</p>
+      <h1 class="auth-card__title">{{ t('auth.signUp.title') }}</h1>
+      <p class="auth-card__sub">{{ t('auth.signUp.subtitle') }}</p>
 
       <app-oauth-buttons mode="signUp" (failed)="error.set($event)" />
 
-      <div class="auth-sep">or</div>
+      <div class="auth-sep">{{ t('common.or') }}</div>
 
       <form class="auth-form" (ngSubmit)="submit()">
         <div class="auth-field">
-          <label class="auth-field__label" for="su-name">Full name</label>
+          <label class="auth-field__label" for="su-name">{{ t('auth.signUp.fullName') }}</label>
           <input
             uiInput
             id="su-name"
@@ -57,7 +57,7 @@
         </div>
 
         <div class="auth-field">
-          <label class="auth-field__label" for="su-email">Email</label>
+          <label class="auth-field__label" for="su-email">{{ t('common.email') }}</label>
           <input
             uiInput
             id="su-email"
@@ -72,7 +72,7 @@
         </div>
 
         <div class="auth-field">
-          <label class="auth-field__label" for="su-password">Password</label>
+          <label class="auth-field__label" for="su-password">{{ t('common.password') }}</label>
           <input
             uiInput
             id="su-password"
@@ -86,7 +86,7 @@
             (input)="password.set(value($event))"
           />
           <p class="auth-hint" [class.auth-hint--bad]="passwordTooShort()">
-            At least {{ minPasswordLength }} characters.
+            {{ t('auth.signUp.passwordHint', { min: minPasswordLength }) }}
           </p>
         </div>
 
@@ -95,11 +95,13 @@
         }
 
         <button type="submit" uiButton class="auth-submit" [disabled]="!canSubmit()" [loading]="busy()">
-          Create account
+          {{ t('auth.signUp.submit') }}
         </button>
       </form>
 
-      <p class="auth-alt">Already have an account? <a routerLink="/sign-in">Sign in</a></p>
+      <p class="auth-alt">
+        {{ t('auth.signUp.haveAccount') }} <a routerLink="/sign-in">{{ t('auth.signIn.title') }}</a>
+      </p>
     </div>
   }
 </app-auth-layout>

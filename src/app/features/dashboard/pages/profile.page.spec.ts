@@ -6,6 +6,7 @@ import { SupabaseAuthService } from '../../../core/auth/supabase-auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { MAX_IMAGE_BYTES } from '../../../core/utils/image-resize';
 import { UiDialogService } from '../../../shared/ui/dialog/ui-dialog.service';
+import { provideI18nTesting } from '../../../../testing/i18n-testing';
 import { ProfilePage } from './profile.page';
 
 /** A real 8x8 PNG, so `resizeToSquare` can actually decode it. */
@@ -91,6 +92,7 @@ describe('ProfilePage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
+        provideI18nTesting(),
         { provide: SupabaseAuthService, useValue: auth },
         { provide: MeService, useValue: me },
         { provide: UiDialogService, useValue: dialog },

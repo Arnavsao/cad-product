@@ -76,10 +76,52 @@ export class LanguageService {
   }
 
   /**
+   * Whether the active language reflects a deliberate choice rather than a
+   * guess, in which case the account's stored value must not override it.
+   *
+   * Seeded from `localStorage`: a value there was put there by this person
+   * picking a language in this browser, so it outranks the account exactly as a
+   * pick made a moment ago does. Without that seeding a reload would restore
+   * the right language and then let a stale `/me` answer undo it — which is
+   * what made the picker look like it "saves English".
+   *
+   * @see applyRemote for the rest of what this guards against.
+   */
+  private chosen = !!findLocale(readStorage(STORAGE_KEY));
+
+  /**
    * Select a language by code. Unknown codes are ignored, so a stale value from
    * an account that once had a language we no longer ship cannot blank the UI.
+   *
+   * This is the *user's own* choice — the picker, or a host application acting
+   * for them. A value arriving from `/me` must go through {@link applyRemote}.
    */
   setLocale(code: string): void {
+    this.chosen = true;
+    if (!findLocale(code) || code === this.localeCode()) return;
+    this.localeCode.set(code);
+  }
+
+  /**
+   * Apply the language the account is stored with, without overruling a choice
+   * the person has just made in this session.
+   *
+   * `/me` and `PATCH /me/preferences` both echo the full preferences object,
+   * and both can land *after* the picker has moved on: the settings page asks
+   * for `/me` as it opens, so a slow answer would arrive seconds later carrying
+   * the old language and silently snap the UI back to it. That is exactly the
+   * "I pick German and it jumps back to English" report. A response can only
+   * ever describe the past, so a local choice always wins over one.
+   *
+   * There is no time window here on purpose. A response in flight is stale
+   * whether it takes 50 ms or 20 s, and picking a threshold would only move
+   * the bug to slower connections — where it already hurts most.
+   *
+   * The account still wins for someone who has never chosen: a new browser, or
+   * a first sign-in, takes the language their account is set to.
+   */
+  applyRemote(code: string | null | undefined): void {
+    if (!code || this.chosen) return;
     if (!findLocale(code) || code === this.localeCode()) return;
     this.localeCode.set(code);
   }

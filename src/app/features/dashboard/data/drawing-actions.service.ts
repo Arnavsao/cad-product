@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { ApiError } from '../../../core/services/http-manager.service';
@@ -66,11 +67,12 @@ export class DrawingActionsService {
   private readonly dialog = inject(UiDialogService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
 
   /** Open a drawing in the editor. DWG cannot be parsed yet, so it is refused. */
   async open(drawing: DrawingSummaryDto): Promise<void> {
     if (drawing.format === 'dwg') {
-      this.notify.warning('DWG drawings cannot be opened in the editor yet. Download it or convert it to DXF first.');
+      this.notify.warning(this.t('dashboard.components.drawingActions.dwgCannotOpen'));
       return;
     }
     await this.router.navigate(['/editor', drawing.id]);
@@ -111,8 +113,8 @@ export class DrawingActionsService {
   private async rename(drawing: DrawingSummaryDto): Promise<DrawingActionResult> {
     let updated: DrawingSummaryDto | null = null;
     const data: RenameDialogData = {
-      title: 'Rename drawing',
-      label: 'Name',
+      title: this.t('dashboard.components.drawingActions.renameTitle'),
+      label: this.t('dashboard.components.nameLabel'),
       value: drawing.name,
       onSubmit: async (name) => {
         try {
@@ -120,9 +122,9 @@ export class DrawingActionsService {
           return null;
         } catch (e) {
           if (e instanceof ApiError && e.code === 'NAME_TAKEN') {
-            return `A drawing named "${name}" already exists here.`;
+            return this.t('dashboard.components.drawingActions.nameTaken', { name });
           }
-          this.fail(e, 'The drawing could not be renamed.');
+          this.fail(e, 'dashboard.components.drawingActions.renameFailed');
           // Closes the dialog: retyping cannot fix this one.
           return null;
         }
@@ -135,10 +137,10 @@ export class DrawingActionsService {
   private async duplicate(drawing: DrawingSummaryDto): Promise<DrawingActionResult> {
     try {
       const copy = await this.api.duplicate(drawing.id);
-      this.notify.success(`Created "${copy.name}".`);
+      this.notify.success(this.t('dashboard.components.drawingActions.duplicated', { name: copy.name }));
       return { kind: 'created', drawing: copy };
     } catch (e) {
-      this.fail(e, 'The drawing could not be duplicated.');
+      this.fail(e, 'dashboard.components.drawingActions.duplicateFailed');
       return { kind: 'none' };
     }
   }
@@ -161,11 +163,11 @@ export class DrawingActionsService {
       const updated = sameWorkspace
         ? await this.api.patch(drawing.id, { folderId: dest.folderId })
         : await this.api.move(drawing.id, dest);
-      this.notify.success(`Moved "${updated.name}".`);
+      this.notify.success(this.t('dashboard.components.moved', { name: updated.name }));
       // The drawing left the folder (or the workspace) currently on screen.
       return { kind: 'removed', id: drawing.id };
     } catch (e) {
-      this.notify.error(moveFailure(e));
+      this.notify.error(this.moveFailure(e));
       return { kind: 'none' };
     }
   }
@@ -180,13 +182,13 @@ export class DrawingActionsService {
   async copyTo(drawing: DrawingSummaryDto, dest: DrawingDestination): Promise<DrawingActionResult> {
     try {
       const copy = await this.api.copy(drawing.id, dest);
-      this.notify.success(`Copied as "${copy.name}".`);
+      this.notify.success(this.t('dashboard.components.drawingActions.copied', { name: copy.name }));
       // Only claim a new row when the copy actually landed in the view on screen.
       const here =
         dest.organizationId === (drawing.organizationId ?? null) && dest.folderId === (drawing.folderId ?? null);
       return here ? { kind: 'created', drawing: copy } : { kind: 'none' };
     } catch (e) {
-      this.notify.error(moveFailure(e));
+      this.notify.error(this.moveFailure(e));
       return { kind: 'none' };
     }
   }
@@ -208,7 +210,7 @@ export class DrawingActionsService {
       link.click();
       link.remove();
     } catch (e) {
-      this.fail(e, 'The drawing could not be downloaded.');
+      this.fail(e, 'dashboard.components.drawingActions.downloadFailed');
     }
   }
 
@@ -239,18 +241,18 @@ export class DrawingActionsService {
 
   private async trash(drawing: DrawingSummaryDto): Promise<DrawingActionResult> {
     const ok = await this.dialog.confirm({
-      title: 'Move to trash?',
-      message: `"${drawing.name}" will be moved to the trash. You can restore it from there.`,
-      confirmLabel: 'Move to trash',
+      title: this.t('dashboard.components.drawingActions.trashTitle'),
+      message: this.t('dashboard.components.drawingActions.trashMessage', { name: drawing.name }),
+      confirmLabel: this.t('dashboard.components.drawingActions.trashConfirm'),
       danger: true,
     });
     if (!ok) return { kind: 'none' };
     try {
       await this.api.trashDrawing(drawing.id);
-      this.notify.success(`"${drawing.name}" was moved to the trash.`);
+      this.notify.success(this.t('dashboard.components.drawingActions.trashed', { name: drawing.name }));
       return { kind: 'removed', id: drawing.id };
     } catch (e) {
-      this.fail(e, 'The drawing could not be deleted.');
+      this.fail(e, 'dashboard.components.drawingActions.deleteFailed');
       return { kind: 'none' };
     }
   }
@@ -265,9 +267,9 @@ export class DrawingActionsService {
   async bulkMove(drawings: readonly DrawingSummaryDto[]): Promise<BulkResult | null> {
     const first = drawings[0];
     if (!first) return null;
-    const choice = await this.pickDestination(label(drawings), first, 'move');
+    const choice = await this.pickDestination(this.label(drawings), first, 'move');
     if (!choice) return null;
-    return this.runBulk(drawings, 'Moved', async (drawing) => {
+    return this.runBulk(drawings, 'moved', async (drawing) => {
       const sameWorkspace = choice.organizationId === (drawing.organizationId ?? null);
       if (sameWorkspace) await this.api.patch(drawing.id, { folderId: choice.folderId });
       else await this.api.move(drawing.id, choice);
@@ -277,9 +279,9 @@ export class DrawingActionsService {
   async bulkCopy(drawings: readonly DrawingSummaryDto[]): Promise<BulkResult | null> {
     const first = drawings[0];
     if (!first) return null;
-    const choice = await this.pickDestination(label(drawings), first, 'copy');
+    const choice = await this.pickDestination(this.label(drawings), first, 'copy');
     if (!choice) return null;
-    return this.runBulk(drawings, 'Copied', async (drawing) => {
+    return this.runBulk(drawings, 'copied', async (drawing) => {
       await this.api.copy(drawing.id, choice);
     });
   }
@@ -287,13 +289,13 @@ export class DrawingActionsService {
   async bulkTrash(drawings: readonly DrawingSummaryDto[]): Promise<BulkResult | null> {
     if (!drawings.length) return null;
     const ok = await this.dialog.confirm({
-      title: `Move ${label(drawings)} to trash?`,
-      message: 'They can be restored from the trash.',
-      confirmLabel: 'Move to trash',
+      title: this.t('dashboard.components.drawingActions.bulkTrashTitle', { items: this.label(drawings) }),
+      message: this.t('dashboard.components.drawingActions.bulkTrashMessage'),
+      confirmLabel: this.t('dashboard.components.drawingActions.trashConfirm'),
       danger: true,
     });
     if (!ok) return null;
-    return this.runBulk(drawings, 'Moved to trash', async (drawing) => {
+    return this.runBulk(drawings, 'trashed', async (drawing) => {
       await this.api.trashDrawing(drawing.id);
     });
   }
@@ -304,14 +306,14 @@ export class DrawingActionsService {
    */
   async bulkDownload(drawings: readonly DrawingSummaryDto[]): Promise<BulkResult | null> {
     if (!drawings.length) return null;
-    return this.runBulk(drawings, 'Downloaded', async (drawing) => {
+    return this.runBulk(drawings, 'downloaded', async (drawing) => {
       await this.download(drawing);
     });
   }
 
   private async runBulk(
     drawings: readonly DrawingSummaryDto[],
-    verb: string,
+    verb: BulkVerb,
     op: (drawing: DrawingSummaryDto) => Promise<void>,
   ): Promise<BulkResult> {
     const result: BulkResult = { done: [], failed: [] };
@@ -320,27 +322,39 @@ export class DrawingActionsService {
         await op(drawing);
         result.done.push(drawing.id);
       } catch (e) {
-        result.failed.push({ name: drawing.name, message: e instanceof Error ? e.message : 'Failed' });
+        result.failed.push({
+          name: drawing.name,
+          message: e instanceof Error && e.message ? e.message : this.t('dashboard.components.drawingActions.bulk.itemFailed'),
+        });
       }
     }
     this.summarise(verb, result);
     return result;
   }
 
-  /** One toast for the whole batch, naming at most two failures. */
-  private summarise(verb: string, result: BulkResult): void {
-    const noun = (n: number) => `${n} ${n === 1 ? 'drawing' : 'drawings'}`;
+  /**
+   * One toast for the whole batch, naming at most two failures. The "done"
+   * sentence and the "failed" sentence are separate keys, so a partial result
+   * is two sentences rather than one spliced together.
+   */
+  private summarise(verb: BulkVerb, result: BulkResult): void {
+    const done = result.done.length
+      ? this.t(`dashboard.components.drawingActions.bulk.${verb}${result.done.length === 1 ? 'One' : 'Other'}`, { count: result.done.length })
+      : '';
     if (!result.failed.length) {
-      if (result.done.length) this.notify.success(`${verb} ${noun(result.done.length)}.`);
+      if (done) this.notify.success(done);
       return;
     }
     const named = result.failed
       .slice(0, 2)
       .map((f) => `${f.name} (${f.message})`)
       .join('; ');
-    const rest = result.failed.length > 2 ? ` and ${result.failed.length - 2} more` : '';
-    const prefix = result.done.length ? `${verb} ${noun(result.done.length)}; ` : '';
-    this.notify.error(`${prefix}${result.failed.length} failed: ${named}${rest}.`);
+    const more = result.failed.length - 2;
+    const failed =
+      more > 0
+        ? this.t('dashboard.components.drawingActions.bulk.failedMore', { count: result.failed.length, names: named, more })
+        : this.t('dashboard.components.drawingActions.bulk.failed', { count: result.failed.length, names: named });
+    this.notify.error(done ? `${done} ${failed}` : failed);
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────
@@ -370,29 +384,39 @@ export class DrawingActionsService {
     }
   }
 
-  private fail(e: unknown, fallback: string): void {
-    this.notify.error(e instanceof Error && e.message ? e.message : fallback);
+  /** Toast the server's message, or the translation of `fallbackKey`. */
+  private fail(e: unknown, fallbackKey: string): void {
+    this.notify.error(e instanceof Error && e.message ? e.message : this.t(fallbackKey));
   }
-}
 
-/** "3 drawings" / the single drawing's own name. */
-function label(drawings: readonly DrawingSummaryDto[]): string {
-  return drawings.length === 1 ? drawings[0].name : `${drawings.length} drawings`;
-}
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.transloco.translate(key, params);
+  }
 
-/** The move/copy refusals worth wording ourselves; anything else keeps the server's. */
-function moveFailure(e: unknown): string {
-  if (e instanceof ApiError) {
-    switch (e.code) {
-      case 'NAME_TAKEN':
-        return 'Something with that name already exists in the destination.';
-      case 'CROSS_WORKSPACE_MOVE':
-        return 'That destination is in another workspace — use Move to… and pick the workspace.';
-      case 'FORBIDDEN':
-        return 'You do not have permission to put drawings there.';
-      default:
-        break;
+  /** "3 drawings" / the single drawing's own name. */
+  private label(drawings: readonly DrawingSummaryDto[]): string {
+    return drawings.length === 1
+      ? drawings[0].name
+      : this.t('dashboard.components.drawingCount', { count: drawings.length });
+  }
+
+  /** The move/copy refusals worth wording ourselves; anything else keeps the server's. */
+  private moveFailure(e: unknown): string {
+    if (e instanceof ApiError) {
+      switch (e.code) {
+        case 'NAME_TAKEN':
+          return this.t('dashboard.components.drawingActions.moveNameTaken');
+        case 'CROSS_WORKSPACE_MOVE':
+          return this.t('dashboard.components.crossWorkspaceMove');
+        case 'FORBIDDEN':
+          return this.t('dashboard.components.drawingActions.moveForbidden');
+        default:
+          break;
+      }
     }
+    return e instanceof Error && e.message ? e.message : this.t('dashboard.components.drawingActions.moveFailed');
   }
-  return e instanceof Error && e.message ? e.message : 'The drawing could not be moved.';
 }
+
+/** Which bulk sentence to toast; each has a `…One` / `…Other` key. */
+type BulkVerb = 'moved' | 'copied' | 'trashed' | 'downloaded';

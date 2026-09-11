@@ -11,8 +11,10 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Meta } from '@angular/platform-browser';
+import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { SupabaseAuthService } from '../../core/auth/supabase-auth.service';
@@ -25,21 +27,33 @@ import { MotionService } from './motion/motion.service';
 
 interface NavLink {
   path: string;
-  label: string;
+  /** Translation key of the link text. */
+  labelKey: string;
 }
 
 /** Primary navigation, in the order it appears in the header. */
 export const SITE_NAV: readonly NavLink[] = [
-  { path: '/product', label: 'Product' },
-  { path: '/features', label: 'Features' },
-  { path: '/use-cases', label: 'Use cases' },
-  { path: '/pricing', label: 'Pricing' },
-  { path: '/docs', label: 'Docs' },
-  { path: '/about', label: 'About' },
+  { path: '/product', labelKey: 'site.shell.nav.product' },
+  { path: '/features', labelKey: 'site.shell.nav.features' },
+  { path: '/use-cases', labelKey: 'site.shell.nav.useCases' },
+  { path: '/pricing', labelKey: 'site.shell.nav.pricing' },
+  { path: '/docs', labelKey: 'site.shell.nav.docs' },
+  { path: '/about', labelKey: 'site.shell.nav.about' },
 ];
 
-const DEFAULT_DESCRIPTION =
-  'CADO is a browser-based 2D CAD editor: DXF in and out, layouts and plotting, blocks, dimensions, cloud drawings and an AI drafting assistant.';
+/** Meta description when a child route declares none. */
+const DEFAULT_DESCRIPTION_KEY = 'site.shell.meta.defaultDescription';
+
+/**
+ * Route data the shell reads from the deepest activated child. Both hold
+ * translation keys; the shell resolves them and re-resolves on a language
+ * change, so neither the document title nor the meta description is ever
+ * stored in English in `app.routes.ts`.
+ */
+export interface SiteRouteData {
+  titleKey?: string;
+  descriptionKey?: string;
+}
 
 /**
  * Chrome around every public page: fixed header, footer, drafting-grid backdrop
@@ -53,8 +67,10 @@ const DEFAULT_DESCRIPTION =
  *    the session is known and then settle; nothing here waits on Supabase.
  *  - **Scroll is reset per page** (the router's own restoration cannot see
  *    Lenis) and every ScrollTrigger is recomputed once the new page has laid out.
- *  - **Meta description follows the route** through `data.description`, so a
- *    shared link to /pricing previews as pricing rather than as the home page.
+ *  - **Title and meta description follow the route** through
+ *    `data.titleKey` / `data.descriptionKey`, resolved with Transloco, so a
+ *    shared link to /pricing previews as pricing rather than as the home page
+ *    and both re-render when the language changes.
  */
 @Component({
   selector: 'app-site-shell',
@@ -64,6 +80,7 @@ const DEFAULT_DESCRIPTION =
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
+    TranslocoDirective,
     UiButtonDirective,
     UiGridBackdropComponent,
     UiIconComponent,
@@ -78,6 +95,8 @@ export class SiteShellComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly meta = inject(Meta);
+  private readonly titleService = inject(Title);
+  private readonly transloco = inject(TranslocoService);
   private readonly motion = inject(MotionService);
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
@@ -94,6 +113,7 @@ export class SiteShellComponent implements OnInit, OnDestroy {
   protected readonly homeLink = computed(() => (this.auth.isSignedIn() ? '/dashboard' : '/'));
 
   private stopSmoothScroll: (() => void) | null = null;
+  private metaSub: Subscription | null = null;
 
   ngOnInit(): void {
     this.router.events
@@ -114,6 +134,8 @@ export class SiteShellComponent implements OnInit, OnDestroy {
   private destroyed = false;
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.metaSub?.unsubscribe();
+    this.metaSub = null;
     this.stopSmoothScroll?.();
     this.stopSmoothScroll = null;
     this.document.body.style.removeProperty('overflow');
@@ -157,9 +179,24 @@ export class SiteShellComponent implements OnInit, OnDestroy {
     // Deepest child route's data wins.
     let snapshot = this.route.snapshot;
     while (snapshot.firstChild) snapshot = snapshot.firstChild;
-    const description = (snapshot.data['description'] as string | undefined) ?? DEFAULT_DESCRIPTION;
-    this.meta.updateTag({ name: 'description', content: description });
-    this.meta.updateTag({ property: 'og:description', content: description });
-    this.meta.updateTag({ name: 'twitter:description', content: description });
+    const data = snapshot.data as SiteRouteData;
+    this.applyRouteMeta(data.titleKey, data.descriptionKey ?? DEFAULT_DESCRIPTION_KEY);
+  }
+
+  /**
+   * Resolves the route's title and description keys and keeps them current:
+   * `selectTranslate` emits again when the language changes, so the tab title
+   * and the meta tags follow the language picker without a navigation.
+   */
+  private applyRouteMeta(titleKey: string | undefined, descriptionKey: string): void {
+    this.metaSub?.unsubscribe();
+    const keys = titleKey ? [titleKey, descriptionKey] : [descriptionKey];
+    this.metaSub = this.transloco.selectTranslate<string[]>(keys).subscribe((values) => {
+      const description = values[values.length - 1];
+      if (titleKey) this.titleService.setTitle(values[0]);
+      this.meta.updateTag({ name: 'description', content: description });
+      this.meta.updateTag({ property: 'og:description', content: description });
+      this.meta.updateTag({ name: 'twitter:description', content: description });
+    });
   }
 }

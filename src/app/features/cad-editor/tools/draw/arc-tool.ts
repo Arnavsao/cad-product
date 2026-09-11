@@ -63,12 +63,12 @@ export class ArcTool implements ITool {
   /**
    * Mode-switch keyword options.  Only allowed before any points are collected
    * so the user can choose a different arc method at the first prompt.
-   * 'C' = Center-first approach â†’ switches to cse (Centerâ€“Startâ€“End).
+   * 'C' = Center-first approach → switches to cse (Center–Start–End).
    */
   invokeOption(key: string): boolean {
     if (this.pts.length > 0 || this.contStart) return false;
     switch (key.toUpperCase()) {
-      case 'C': // Center-first â†’ Centerâ€“Startâ€“End
+      case 'C': // Center-first → Center–Start–End
         this.mode = 'cse'; this.dyn.clearEdits(); this.vm.markDirty(); return true;
       default:
         return false;
@@ -142,7 +142,7 @@ export class ArcTool implements ITool {
   }
 
   private computeArc(): { arc: ArcEntity | null, done: boolean } | null {
-    // â”€â”€ 3-point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 3-point ──────────────────────────────────────────────────────────────
     if (this.mode === '3p') {
       if (this.pts.length === 0) return null;
       if (this.pts.length === 1) return { arc: null, done: false };
@@ -158,7 +158,7 @@ export class ArcTool implements ITool {
       return { arc, done };
     }
 
-    // â”€â”€ Start, End, Angle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Start, End, Angle ────────────────────────────────────────────────────
     if (this.mode === 'sea') {
       if (this.pts.length === 0) return null;
       if (this.pts.length === 1) return { arc: null, done: false };
@@ -170,7 +170,7 @@ export class ArcTool implements ITool {
       return { arc: this.buildArcSEA(S, E, angleDeg), done };
     }
 
-    // â”€â”€ Start, End, Direction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Start, End, Direction ────────────────────────────────────────────────
     if (this.mode === 'sed') {
       if (this.pts.length === 0) return null;
       if (this.pts.length === 1) return { arc: null, done: false };
@@ -182,7 +182,7 @@ export class ArcTool implements ITool {
       return { arc: this.buildArcSED(S, E, dirDeg), done };
     }
 
-    // â”€â”€ Start, End, Radius â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Start, End, Radius ───────────────────────────────────────────────────
     if (this.mode === 'ser') {
       if (this.pts.length === 0) return null;
       if (this.pts.length === 1) return { arc: null, done: false };
@@ -200,7 +200,7 @@ export class ArcTool implements ITool {
       return { arc, done };
     }
 
-    // â”€â”€ Continue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Continue ─────────────────────────────────────────────────────────────
     if (this.mode === 'cont') {
       if (!this.contStart) return null;
       const E = this.pts.length >= 1 ? this.pts[0] : this.cur;
@@ -209,7 +209,7 @@ export class ArcTool implements ITool {
       return arc ? { arc, done } : { arc: null, done: false };
     }
 
-    // â”€â”€ SC / CS modes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── SC / CS modes ─────────────────────────────────────────────────────────
     if (this.pts.length === 0) return null;
     if (this.pts.length === 1) return { arc: null, done: false };
 
@@ -312,7 +312,7 @@ export class ArcTool implements ITool {
   }
 
   getDynamicInputState(): IDynamicInputState | null {
-    // â”€â”€ 3p â”€â”€
+    // ── 3p ──
     if (this.mode === '3p') {
       if (this.pts.length === 1) {
         const end = this.effectivePhase1End();
@@ -339,7 +339,7 @@ export class ArcTool implements ITool {
       return null;
     }
 
-    // â”€â”€ SEA â”€â”€
+    // ── SEA ──
     if (this.mode === 'sea' && this.pts.length === 2) {
       const S = this.pts[0], E = this.pts[1];
       const liveAngle = this.seaLiveAngle(S, E, this.cur);
@@ -349,7 +349,7 @@ export class ArcTool implements ITool {
       };
     }
 
-    // â”€â”€ SED â”€â”€
+    // ── SED ──
     if (this.mode === 'sed' && this.pts.length === 2) {
       const S = this.pts[0];
       const liveDir = Math.atan2(this.cur.y - S.y, this.cur.x - S.x) * 180 / Math.PI;
@@ -359,7 +359,7 @@ export class ArcTool implements ITool {
       };
     }
 
-    // â”€â”€ SER â”€â”€
+    // ── SER ──
     if (this.mode === 'ser' && this.pts.length === 2) {
       const S = this.pts[0], E = this.pts[1];
       const liveArc = this.make3PArc(S, this.cur, E);
@@ -369,7 +369,7 @@ export class ArcTool implements ITool {
       };
     }
 
-    // â”€â”€ SC/CS angle or length â”€â”€
+    // ── SC/CS angle or length ──
     if (this.pts.length === 2) {
       if (this.mode.endsWith('a')) {
         const isSC = this.mode.startsWith('sc');
@@ -460,7 +460,7 @@ export class ArcTool implements ITool {
     this.dyn.setState(null);
   }
 
-  // â”€â”€ 3p helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 3p helpers ───────────────────────────────────────────────────────────────
 
   private effectivePhase1End(): IPoint {
     const p1 = this.pts[0];
@@ -520,7 +520,7 @@ export class ArcTool implements ITool {
     return new ArcEntity(cx, cy, r, sa, ea, preferCCW);
   }
 
-  // â”€â”€ SEA helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── SEA helpers ───────────────────────────────────────────────────────────────
 
   /** Included angle (degrees) encoded by cursor position relative to chord SE.
    *  Positive = CCW arc bulging toward cursor, negative = CW. */
@@ -528,9 +528,9 @@ export class ArcTool implements ITool {
     const chord = Math.hypot(E.x - S.x, E.y - S.y);
     if (chord < 1e-9) return 0;
     const midX = (S.x + E.x) / 2, midY = (S.y + E.y) / 2;
-    const nx = -(E.y - S.y) / chord, ny = (E.x - S.x) / chord; // left-perp of Sâ†’E
+    const nx = -(E.y - S.y) / chord, ny = (E.x - S.x) / chord; // left-perp of S→E
     const sagitta = (cursor.x - midX) * nx + (cursor.y - midY) * ny;
-    // Cursor on same side as sagitta â†’ CCW arc, opposite â†’ CW
+    // Cursor on same side as sagitta → CCW arc, opposite → CW
     return -4 * Math.atan2(sagitta, chord / 2) * 180 / Math.PI;
   }
 
@@ -553,7 +553,7 @@ export class ArcTool implements ITool {
     return new ArcEntity(cx, cy, R, sa, ea, ccw);
   }
 
-  // â”€â”€ SED helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── SED helpers ───────────────────────────────────────────────────────────────
 
   /** Build arc from start S, end E, and tangent direction at S (degrees from +X). */
   private buildArcSED(S: IPoint, E: IPoint, dirDeg: number): ArcEntity | null {
@@ -562,7 +562,7 @@ export class ArcTool implements ITool {
     const nx = -Math.sin(dirRad), ny = Math.cos(dirRad);
     const dx = S.x - E.x, dy = S.y - E.y;
     const dDotN = dx * nx + dy * ny;
-    if (Math.abs(dDotN) < 1e-9) return null; // Sâ†’E parallel to tangent â†’ straight line
+    if (Math.abs(dDotN) < 1e-9) return null; // S→E parallel to tangent → straight line
     const t = -(dx * dx + dy * dy) / (2 * dDotN);
     const cx = S.x + t * nx, cy = S.y + t * ny;
     const R = Math.abs(t);
@@ -572,7 +572,7 @@ export class ArcTool implements ITool {
     return new ArcEntity(cx, cy, R, sa, ea, t > 0);
   }
 
-  // â”€â”€ Continue helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Continue helpers ──────────────────────────────────────────────────────────
 
   private getContParams(): { start: IPoint; dirDeg: number } | null {
     const entities = this.doc.activeFile.entities;

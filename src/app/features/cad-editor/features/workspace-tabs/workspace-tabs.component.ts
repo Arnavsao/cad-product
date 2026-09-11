@@ -12,6 +12,8 @@ import { FormsModule } from '@angular/forms';
 import { LayoutManagerService } from '../../core/services/layout-manager.service';
 import { PageSetupDialogService } from '../page-setup/page-setup-dialog.service';
 import type { Layout } from '../../core/models/layout.model';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 interface ITabContextMenu {
   visible: boolean;
@@ -24,10 +26,11 @@ interface ITabContextMenu {
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-workspace-tabs',
   standalone: true,
-  imports: [FormsModule],
+  imports: [UiIconComponent, FormsModule, TranslocoDirective],
   styleUrl: './workspace-tabs.component.scss',
   template: `
-    <div class="ws-tabs" role="tablist" aria-label="Workspace tabs">
+    <ng-container *transloco="let t">
+    <div class="ws-tabs" role="tablist" [attr.aria-label]="t('editor.ui.workspaceTabs.ariaLabel')">
 
       <!-- Tab items -->
       @for (layout of layoutMgr.layouts(); track layout.id) {
@@ -37,7 +40,7 @@ interface ITabContextMenu {
           [class.model-tab]="layout.isModel"
           [attr.role]="'tab'"
           [attr.aria-selected]="layoutMgr.activeLayoutId() === layout.id"
-          [attr.title]="layout.isModel ? 'Model Space' : layout.name"
+          [attr.title]="layout.isModel ? t('editor.ui.workspaceTabs.modelSpace') : layout.name"
           (click)="onTabClick(layout)"
           (dblclick)="onTabDblClick(layout, $event)"
           (contextmenu)="onTabRightClick(layout, $event)"
@@ -67,7 +70,7 @@ interface ITabContextMenu {
               class="ws-tab-mode"
               [class.pspace]="layoutMgr.workspaceMode() === 'PSPACE'"
               [class.mspace]="layoutMgr.workspaceMode() === 'MSPACE'"
-              [title]="layoutMgr.workspaceMode() === 'MSPACE' ? 'Model Space (through viewport)' : 'Paper Space'"
+              [title]="layoutMgr.workspaceMode() === 'MSPACE' ? t('editor.ui.workspaceTabs.modelSpaceThroughViewport') : t('editor.ui.workspaceTabs.paperSpace')"
             >{{ layoutMgr.workspaceMode() }}</span>
           }
         </div>
@@ -77,9 +80,9 @@ interface ITabContextMenu {
       <button
         class="ws-tab-add"
         type="button"
-        title="New Layout (right-click for options)"
+        [title]="t('editor.ui.workspaceTabs.newLayoutTooltip')"
         (click)="addLayout()"
-        aria-label="Add layout"
+        [attr.aria-label]="t('editor.ui.workspaceTabs.addLayout')"
       >+</button>
 
     </div>
@@ -93,17 +96,17 @@ interface ITabContextMenu {
         (click)="$event.stopPropagation()"
       >
         <button class="ws-ctx-item" type="button" (click)="ctxRename()">
-          ✏ Rename
+          ✏ {{ t('editor.ui.workspaceTabs.rename') }}
         </button>
         <button class="ws-ctx-item" type="button" (click)="ctxDuplicate()">
-          ⊕ Duplicate
+          ⊕ {{ t('editor.ui.workspaceTabs.duplicate') }}
         </button>
         <button class="ws-ctx-item" type="button" (click)="ctxPageSetup()">
-          📐 Page Setup…
+          <ui-icon name="ruler" [size]="14" /> {{ t('editor.ui.workspaceTabs.pageSetup') }}
         </button>
         <div class="ws-ctx-sep"></div>
         <button class="ws-ctx-item" type="button" (click)="ctxExportPdf()">
-          ⬇ Export PDF
+          <ui-icon name="download" [size]="14" /> {{ t('editor.ui.workspaceTabs.exportPdf') }}
         </button>
         <div class="ws-ctx-sep"></div>
         <button
@@ -111,9 +114,10 @@ interface ITabContextMenu {
           type="button"
           (click)="ctxDelete()"
           [disabled]="isOnlyLayout(ctxMenu().layoutId)"
-        >✕ Delete</button>
+        ><ui-icon name="trash" [size]="14" /> {{ t('editor.ui.workspaceTabs.delete') }}</button>
       </div>
     }
+    </ng-container>
   `,
 })
 export class WorkspaceTabsComponent {

@@ -8,6 +8,10 @@ import { Layer, DxfFile } from '../../core/models/layer.model';
 import { ColorPickerComponent } from '../shared/color-picker/color-picker.component';
 import { CommandStackService } from '../../core/services/command-stack.service';
 import { ModifyLayerPropertyCmd, ModifyPropertiesCmd, CompoundCmd } from '../../core/models/command.model';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { injectTranslocoOptional } from '../../../../core/i18n/translate-or';
+import { translateOrParams } from '../shared/translate-or-params';
 
 /**
  * AutoCAD Layer Properties Manager parity.
@@ -23,8 +27,8 @@ const LAYER_LINETYPES: string[] = [
   'Continuous', 'DASHED', 'HIDDEN', 'CENTER', 'PHANTOM', 'DOT', 'DASHDOT', 'DASHDOTDOT',
 ];
 
-const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
-  { value: -3, label: 'Default' },
+const LAYER_LINEWEIGHTS: { value: number; label: string; labelKey?: string }[] = [
+  { value: -3, label: 'Default', labelKey: 'editor.ui.lineweight.default' },
   { value: 0, label: '0.00 mm' },
   { value: 5, label: '0.05 mm' },
   { value: 9, label: '0.09 mm' },
@@ -55,12 +59,12 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-layers-panel',
   standalone: true,
-  imports: [FormsModule, ColorPickerComponent],
+  imports: [UiIconComponent, FormsModule, ColorPickerComponent, TranslocoDirective],
   template: `
-    <div class="layers-panel">
+    <div class="layers-panel" *transloco="let t">
       <div class="header-tools">
-        <input type="text" class="layer-search" placeholder="Search layers…" [(ngModel)]="layerFilter" (click)="$event.stopPropagation()">
-        <button type="button" class="panel-btn" (click)="addLayer()" title="New layer">+ Layer</button>
+        <input type="text" class="layer-search" [placeholder]="t('editor.ui.layers.search')" [(ngModel)]="layerFilter" (click)="$event.stopPropagation()">
+        <button type="button" class="panel-btn" (click)="addLayer()" [title]="t('editor.ui.layers.newLayerTooltip')">{{ t('editor.ui.layers.newLayer') }}</button>
       </div>
     
       <!-- Subscribe to version signal so list refreshes -->
@@ -74,16 +78,16 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
                 (click)="setActiveLayer(file, entry.name)">
                 <button class="icon-btn" (click)="toggleLayerVisible(entry.lay); $event.stopPropagation()"
                   [class.off]="!entry.lay.visible"
-                  [title]="entry.lay.visible ? 'Turn layer off' : 'Turn layer on'">{{ entry.lay.visible ? '◉' : '◌' }}</button>
+                  [title]="entry.lay.visible ? t('editor.ui.layers.turnOff') : t('editor.ui.layers.turnOn')">@if (entry.lay.visible) { <ui-icon name="eye" [size]="14" /> } @else { <ui-icon name="eye-off" [size]="14" /> }</button>
                 <button class="icon-btn" (click)="toggleLayerFrozen(entry.lay); $event.stopPropagation()"
                   [class.off]="entry.lay.frozen"
-                  [title]="entry.lay.frozen ? 'Thaw layer' : 'Freeze layer'">{{ entry.lay.frozen ? '❄' : '☀' }}</button>
+                  [title]="entry.lay.frozen ? t('editor.ui.layers.thaw') : t('editor.ui.layers.freeze')">@if (entry.lay.frozen) { <ui-icon name="snowflake" [size]="14" /> } @else { <ui-icon name="sun" [size]="14" /> }</button>
                 <button class="icon-btn" (click)="toggleLayerLock(entry.lay); $event.stopPropagation()"
                   [class.off]="entry.lay.locked"
-                  [title]="entry.lay.locked ? 'Unlock layer' : 'Lock layer'">{{ entry.lay.locked ? '🔒' : '🔓' }}</button>
+                  [title]="entry.lay.locked ? t('editor.ui.layers.unlock') : t('editor.ui.layers.lock')">@if (entry.lay.locked) { <ui-icon name="lock" [size]="14" /> } @else { <ui-icon name="unlock" [size]="14" /> }</button>
                 <button class="icon-btn" (click)="toggleLayerPrint(entry.lay); $event.stopPropagation()"
                   [class.off]="!entry.lay.print"
-                  [title]="entry.lay.print ? 'Plot: on' : 'Plot: off (no-plot)'">{{ entry.lay.print ? '⎙' : '⊘' }}</button>
+                  [title]="entry.lay.print ? t('editor.ui.layers.plotOn') : t('editor.ui.layers.plotOff')">@if (entry.lay.print) { <ui-icon name="printer" [size]="14" /> } @else { <ui-icon name="printer-off" [size]="14" /> }</button>
                 <span class="layer-color-cell" (click)="$event.stopPropagation()">
                   <app-color-picker
                     [value]="entry.lay.color"
@@ -113,7 +117,7 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
                   [value]="entry.lay.lineType"
                   (click)="$event.stopPropagation()"
                   (change)="setLayerLinetype(entry.lay, $any($event.target).value)"
-                  title="Layer linetype">
+                  [title]="t('editor.ui.layers.linetype')">
                   @for (lt of linetypeOptions; track lt) {
                     <option [value]="lt" [selected]="lt.toUpperCase() === entry.lay.lineType.toUpperCase()">{{ lt }}</option>
                   }
@@ -122,13 +126,13 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
                   [value]="entry.lay.lineWeight"
                   (click)="$event.stopPropagation()"
                   (change)="setLayerLineweight(entry.lay, $any($event.target).value)"
-                  title="Layer lineweight">
+                  [title]="t('editor.ui.layers.lineweight')">
                   @for (o of lineweightOptions; track o.value) {
-                    <option [value]="o.value" [selected]="o.value === entry.lay.lineWeight">{{ o.label }}</option>
+                    <option [value]="o.value" [selected]="o.value === entry.lay.lineWeight">{{ o.labelKey ? t(o.labelKey) : o.label }}</option>
                   }
                 </select>
                 @if (!entry.lay.isProtected) {
-                  <button class="icon-btn icon-del" (click)="deleteLayer(file, entry.lay); $event.stopPropagation()" title="Delete layer">Ã—</button>
+                  <button class="icon-btn icon-del" (click)="deleteLayer(file, entry.lay); $event.stopPropagation()" [title]="t('editor.ui.layers.delete')"><ui-icon name="trash" [size]="14" /></button>
                 }
               </div>
             }
@@ -141,7 +145,7 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
     .layers-panel { display: flex; flex-direction: column; height: 100%; background: transparent; color: var(--cad-text-primary); font-size: 12px; overflow: hidden; }
     /* The row carries more columns than the drawer is wide, so the list scrolls
        horizontally instead of clipping the lineweight column off the edge. */
-    .layer-list { flex: 1; overflow: auto; }
+    .layer-list { flex: 1; overflow-y: auto; overflow-x: hidden; }
     .header-tools {
       display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
       padding: 6px 12px; border-bottom: 1px solid var(--cad-border);
@@ -161,27 +165,51 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
       border-radius: 3px; cursor: pointer; font-size: 11px;
       &:hover { background: var(--cad-bg-hover); }
     }
+    /*
+     * Two-line row so the panel never scrolls sideways: toggles, colour, name
+     * and delete on the first line; linetype and lineweight on the second,
+     * sharing the remaining width. The name is the only elastic cell and
+     * ellipsises; nothing here has a fixed width larger than the panel.
+     */
     .layer-row {
-      display: flex; align-items: center; gap: 4px;
-      min-width: max-content;
-      padding: 4px 10px 4px 12px;
+      display: grid;
+      grid-template-columns: repeat(4, auto) auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        'vis frz lck plt col name del'
+        'lt  lt  lt  lt  lw  lw   lw';
+      align-items: center;
+      column-gap: 4px;
+      row-gap: 4px;
+      min-width: 0;
+      padding: 5px 10px 6px 12px;
       border-bottom: 1px solid var(--cad-border);
       cursor: pointer; color: var(--cad-text-primary);
       &:hover { background: var(--cad-bg-hover); }
       &.active { background: var(--cad-bg-active); }
-      .layer-name { flex: 1 1 44px; min-width: 34px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .icon-btn:nth-child(1) { grid-area: vis; }
+      .icon-btn:nth-child(2) { grid-area: frz; }
+      .icon-btn:nth-child(3) { grid-area: lck; }
+      .icon-btn:nth-child(4) { grid-area: plt; }
+      .layer-color-cell { grid-area: col; display: flex; align-items: center; }
+      .layer-name, .layer-rename-input { grid-area: name; }
+      .icon-del { grid-area: del; justify-self: end; }
+      .layer-select.lt { grid-area: lt; }
+      .layer-select.lw { grid-area: lw; }
+      .layer-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .layer-rename-input {
-        flex: 1; min-width: 0;
+        min-width: 0; width: 100%;
         background: var(--cad-bg-input); color: var(--cad-text-primary);
         border: 1px solid var(--cad-accent); border-radius: 2px;
         padding: 0 4px; font-size: 11px; outline: none;
       }
     }
     .icon-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px;
       background: transparent; color: var(--cad-text-dim);
-      border: 1px solid transparent; padding: 1px 4px;
-      border-radius: 2px; cursor: pointer; font-size: 10px;
-      flex: 0 0 auto; line-height: 1.4;
+      border: 1px solid transparent; padding: 0;
+      border-radius: 3px; cursor: pointer;
+      flex: 0 0 auto;
       &:hover { background: var(--cad-bg-hover); border-color: var(--cad-border); color: var(--cad-text-primary); }
       &.icon-del:hover { color: var(--cad-red); border-color: var(--cad-red); }
       /* Off / frozen / locked / no-plot states read as dimmed, matching the
@@ -189,8 +217,8 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
       &.off { color: var(--cad-text-dim); opacity: 0.55; }
     }
     .layer-select {
-      flex: 0 0 auto;
-      max-width: 70px;
+      width: 100%;
+      min-width: 0;
       background: var(--cad-bg-input, #181825);
       color: var(--cad-text-primary);
       border: 1px solid var(--cad-border);
@@ -202,8 +230,6 @@ const LAYER_LINEWEIGHTS: { value: number; label: string }[] = [
       cursor: pointer;
       &:hover { border-color: var(--cad-accent); }
       &:focus { border-color: var(--cad-accent); }
-      &.lt { width: 62px; }
-      &.lw { width: 54px; }
     }
   `],
 })
@@ -211,6 +237,7 @@ export class LayersPanelComponent {
   protected doc = inject(DocumentService);
   private vm = inject(ViewModelService);
   private cmds = inject(CommandStackService);
+  private transloco = injectTranslocoOptional();
 
   layerFilter = '';
 
@@ -398,7 +425,7 @@ export class LayersPanelComponent {
 
     if (!newName || newName === lay.name) return;
     if (file.layers.has(newName)) {
-      alert(`Layer "${newName}" already exists.`);
+      alert(translateOrParams(this.transloco, 'editor.ui.layers.alreadyExists', 'Layer "{{name}}" already exists.', { name: newName }));
       return;
     }
 

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { OrganizationsApiService } from '../../../core/api/organizations-api.service';
 import { WorkspaceService } from '../../../core/api/workspace.service';
 import { ApiError } from '../../../core/services/http-manager.service';
@@ -32,23 +33,23 @@ import { DashboardEventsService } from '../data/dashboard-events.service';
   selector: 'app-join-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiButtonDirective, UiIconComponent, UiSkeletonComponent],
+  imports: [TranslocoDirective, RouterLink, UiButtonDirective, UiIconComponent, UiSkeletonComponent],
   template: `
-    <main class="jn">
+    <main class="jn" *transloco="let t">
       <section class="jn__card">
         @if (state() === 'joining') {
-          <h1 class="jn__title">Joining…</h1>
+          <h1 class="jn__title">{{ t('dashboard.join.joining') }}</h1>
           <ui-skeleton [lines]="2" height="16px" />
         } @else if (state() === 'error') {
           <div class="jn__mark jn__mark--bad" aria-hidden="true"><ui-icon name="alert" [size]="22" /></div>
-          <h1 class="jn__title">This invitation cannot be used</h1>
+          <h1 class="jn__title">{{ t('dashboard.join.cannotUse') }}</h1>
           <p class="jn__text">{{ error() }}</p>
-          <a uiButton variant="primary" routerLink="/dashboard">Go to dashboard</a>
+          <a uiButton variant="primary" routerLink="/dashboard">{{ t('dashboard.join.goToDashboard') }}</a>
         } @else {
           <div class="jn__mark" aria-hidden="true"><ui-icon name="check" [size]="22" /></div>
-          <h1 class="jn__title">You're in</h1>
-          <p class="jn__text">Taking you to the dashboard…</p>
-          <a uiButton variant="primary" routerLink="/dashboard/drawings">Go to My Drawings</a>
+          <h1 class="jn__title">{{ t('dashboard.join.youreIn') }}</h1>
+          <p class="jn__text">{{ t('dashboard.join.takingYou') }}</p>
+          <a uiButton variant="primary" routerLink="/dashboard/drawings">{{ t('dashboard.join.goToDrawings') }}</a>
         }
       </section>
     </main>
@@ -83,6 +84,7 @@ export class JoinPage {
   private readonly notify = inject(NotificationService);
   private readonly events = inject(DashboardEventsService);
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly state = signal<'joining' | 'joined' | 'error'>('joining');
   protected readonly error = signal('');
@@ -95,7 +97,7 @@ export class JoinPage {
     const token = (this.token() ?? '').trim();
     if (!token) {
       this.state.set('error');
-      this.error.set('The link is missing its invitation code.');
+      this.error.set(this.transloco.translate('dashboard.join.missingCode'));
       return;
     }
 
@@ -103,24 +105,24 @@ export class JoinPage {
       const org = await this.api.join({ token });
       this.workspace.adopt(org);
       this.state.set('joined');
-      this.notify.success(`You joined "${org.name}".`);
+      this.notify.success(this.transloco.translate('dashboard.join.joined', { name: org.name }));
       this.events.bump();
       await this.router.navigateByUrl('/dashboard/drawings');
     } catch (e) {
       if (e instanceof ApiError && e.code === 'ALREADY_MEMBER') {
         await this.workspace.refresh().catch(() => undefined);
         this.state.set('joined');
-        this.notify.info('You are already a member of that organization.');
+        this.notify.info(this.transloco.translate('dashboard.join.alreadyMember'));
         await this.router.navigateByUrl('/dashboard/drawings');
         return;
       }
       this.state.set('error');
       this.error.set(
         e instanceof ApiError && e.status === 404
-          ? 'The invitation has expired, was revoked, or was addressed to a different email address.'
+          ? this.transloco.translate('dashboard.join.expired')
           : e instanceof Error && e.message
             ? e.message
-            : 'The invitation could not be redeemed.',
+            : this.transloco.translate('dashboard.join.failed'),
       );
     }
   }

@@ -4,6 +4,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
  * Section heading: eyebrow, title, one-paragraph lede. Rendered as an `h2` by
  * default; pass `level="1"` for a page's own heading so the outline stays one
  * `h1` per page.
+ *
+ * Inputs are display strings: the parent translates (`[title]="t('…')"`).
  */
 @Component({
   selector: 'site-heading',

@@ -1,5 +1,6 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { FolderDto, FolderPathEntry } from '../../../core/api/api.models';
 import { FoldersApiService } from '../../../core/api/folders-api.service';
 import { WorkspaceService } from '../../../core/api/workspace.service';
@@ -9,6 +10,7 @@ import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { UiInputDirective } from '../../../shared/ui/input.directive';
 import { UiSkeletonComponent } from '../../../shared/ui/skeleton.component';
 import { hasAccess } from './drawing-menu';
+import { injectTranslateFn } from './translate-fn';
 
 /** "Move" refuses the current location; "copy" accepts it. */
 export type MoveToDialogMode = 'move' | 'copy';
@@ -68,19 +70,21 @@ export interface MoveToDialogResult {
   selector: 'app-move-to-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective, UiSkeletonComponent],
+  imports: [TranslocoDirective, A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective, UiSkeletonComponent],
   template: `
-    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
+    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus *transloco="let t">
       <header class="ui-dialog__header">
-        <h2 [id]="titleId">{{ isCopy ? 'Copy' : 'Move' }} "{{ data.itemName }}"</h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="ref.close()">
+        <h2 [id]="titleId">
+          {{ t(isCopy ? 'dashboard.components.moveTo.titleCopy' : 'dashboard.components.moveTo.titleMove', { name: data.itemName }) }}
+        </h2>
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('dashboard.components.close')" (click)="ref.close()">
           <ui-icon name="close" />
         </button>
       </header>
 
       @if (workspaces().length > 1) {
         <div class="mv__ws">
-          <label class="mv__ws-label" [attr.for]="wsId">Workspace</label>
+          <label class="mv__ws-label" [attr.for]="wsId">{{ t('dashboard.components.moveTo.workspace') }}</label>
           <select uiInput [id]="wsId" [value]="orgId() ?? ''" (change)="onWorkspace($event)">
             @for (option of workspaces(); track option.id ?? 'personal') {
               <option [value]="option.id ?? ''">{{ option.name }}</option>
@@ -89,7 +93,7 @@ export interface MoveToDialogResult {
         </div>
       }
 
-      <nav class="mv__crumbs" aria-label="Destination folder">
+      <nav class="mv__crumbs" [attr.aria-label]="t('dashboard.components.moveTo.destination')">
         <button type="button" class="mv__crumb" [disabled]="!trail().length" (click)="goTo(-1)">{{ rootName() }}</button>
         @for (crumb of trail(); track crumb.id; let i = $index; let last = $last) {
           <ui-icon name="chevron-right" [size]="13" />
@@ -102,9 +106,9 @@ export interface MoveToDialogResult {
           <ui-skeleton [lines]="4" height="32px" />
         } @else if (error(); as message) {
           <p class="mv__error" role="alert">{{ message }}</p>
-          <button type="button" uiButton size="sm" (click)="reload()"><ui-icon name="refresh" [size]="14" /> Retry</button>
+          <button type="button" uiButton size="sm" (click)="reload()"><ui-icon name="refresh" [size]="14" /> {{ t('common.retry') }}</button>
         } @else if (!folders().length) {
-          <p class="mv__empty">No sub-folders here.</p>
+          <p class="mv__empty">{{ t('dashboard.components.moveTo.empty') }}</p>
         } @else {
           <ul class="mv__list">
             @for (folder of folders(); track folder.id) {
@@ -122,11 +126,11 @@ export interface MoveToDialogResult {
 
       <footer class="ui-dialog__footer">
         <span class="mv__target">
-          {{ isCopy ? 'Copy' : 'Move' }} to <strong>{{ targetName() }}</strong>
+          {{ t(isCopy ? 'dashboard.components.moveTo.targetCopy' : 'dashboard.components.moveTo.targetMove', { target: targetName() }) }}
         </span>
-        <button type="button" uiButton variant="secondary" (click)="ref.close()">Cancel</button>
+        <button type="button" uiButton variant="secondary" (click)="ref.close()">{{ t('dashboard.components.cancel') }}</button>
         <button type="button" uiButton variant="primary" [disabled]="isCurrent()" (click)="confirm()">
-          {{ isCopy ? 'Copy here' : 'Move here' }}
+          {{ t(isCopy ? 'dashboard.components.moveTo.copyHere' : 'dashboard.components.moveTo.moveHere') }}
         </button>
       </footer>
     </div>
@@ -169,7 +173,6 @@ export interface MoveToDialogResult {
       .mv__empty { margin: 0; color: var(--ui-text-dim); }
       .mv__error { margin: 0 0 10px; color: var(--ui-danger); }
       .mv__target { flex: 1; min-width: 0; font-size: var(--ui-text-sm); color: var(--ui-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .mv__target strong { color: var(--ui-text-strong); font-weight: 600; }
     `,
   ],
 })
@@ -178,6 +181,8 @@ export class MoveToDialogComponent {
   protected readonly ref = inject(UiDialogRef) as UiDialogRef<MoveToDialogResult>;
   private readonly api = inject(FoldersApiService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly transloco = inject(TranslocoService);
+  private readonly t = injectTranslateFn();
 
   protected readonly titleId = `move-to-title-${++seq}`;
   protected readonly wsId = `move-to-ws-${seq}`;
@@ -192,7 +197,7 @@ export class MoveToDialogComponent {
 
   /** Personal plus every org the caller can write to. */
   protected readonly workspaces = computed<{ id: string | null; name: string }[]>(() => [
-    { id: null, name: 'Personal' },
+    { id: null, name: this.t()('dashboard.components.workspace.personal') },
     ...this.workspace
       .organizations()
       .filter((org) => org.role !== 'viewer')
@@ -201,8 +206,11 @@ export class MoveToDialogComponent {
 
   protected readonly rootName = computed(() => {
     const id = this.orgId();
-    if (id === null) return 'My Drawings';
-    return this.workspace.organizations().find((o) => o.id === id)?.name ?? 'Organization';
+    const t = this.t();
+    if (id === null) return t('dashboard.components.myDrawings');
+    return (
+      this.workspace.organizations().find((o) => o.id === id)?.name ?? t('dashboard.components.moveTo.organizationFallback')
+    );
   });
 
   protected readonly targetId = computed<string | null>(() => {
@@ -265,7 +273,9 @@ export class MoveToDialogComponent {
       );
     } catch (e) {
       this.folders.set([]);
-      this.error.set(e instanceof Error && e.message ? e.message : 'Folders could not be loaded.');
+      this.error.set(
+        e instanceof Error && e.message ? e.message : this.transloco.translate('dashboard.components.moveTo.loadFailed'),
+      );
     } finally {
       this.loading.set(false);
     }

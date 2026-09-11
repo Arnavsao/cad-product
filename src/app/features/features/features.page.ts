@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { UiRevealDirective } from '../../shared/ui/reveal.directive';
 import { SiteAccordionComponent, type SiteAccordionItem } from '../site/components/accordion.component';
@@ -7,7 +8,7 @@ import { SiteClosingComponent } from '../site/components/closing.component';
 import { SiteCtaComponent } from '../site/components/cta.component';
 import { SiteExplorerComponent } from '../site/components/explorer.component';
 import { SiteHeadingComponent } from '../site/components/heading.component';
-import { COMPARE, FORMATS, OBJECT_SNAPS } from '../site/data/site-content';
+import { COMPARE, FORMATS, FORMAT_NONE, OBJECT_SNAPS } from '../site/data/site-content';
 import { SiteRevealDirective } from '../site/motion/reveal.directive';
 
 /** AutoCAD's snap marker glyphs on a 24×24 grid, in `OBJECT_SNAPS` order. */
@@ -28,50 +29,24 @@ const SNAP_GLYPHS: readonly string[] = [
   'M6 20L14 4 M10 20L18 4', // parallel: two slanted lines
 ];
 
-const DETAILS: readonly SiteAccordionItem[] = [
-  {
-    id: 'lineweights',
-    title: 'Do lineweights and colours plot the way AutoCAD plots them?',
-    body: 'Yes. Entities carry ACI colours and true lineweights, lineweights are honoured on screen and in the PDF, and a drawing whose default colour is white on a dark theme plots black on the white sheet, the same swap AutoCAD makes. Plot styles offer colour, monochrome and grayscale.',
-  },
-  {
-    id: 'dimstyles',
-    title: 'Are dimensions really associative, and do dimension styles survive import?',
-    body: 'A dimension is attached to the geometry it measures; stretch the wall and the value updates. DXF dimension styles import with their arrowheads, text height and precision, and per-dimension overrides in XDATA (including the plot-scale factor DIMLFAC) are honoured, so an imported drawing shows the values AutoCAD shows.',
-  },
-  {
-    id: 'text',
-    title: 'What happens to text, fonts and MText formatting?',
-    body: 'Single-line text and MText import with their styles; fonts are resolved per style, control codes and encodings are decoded, and MText is edited in place with an on-canvas editor. Find and replace works across text, attributes and table cells.',
-  },
-  {
-    id: 'layouts',
-    title: 'Can I have more than one layout, each with its own paper?',
-    body: 'Yes. Each layout tab has its own page setup (paper, orientation, margins, scale, plot style) and any number of viewports at their own scales. Viewports defined in an imported DXF are adopted and written back on export.',
-  },
-  {
-    id: 'themes',
-    title: 'Can I work on a light canvas?',
-    body: 'Twelve themes, eight dark and four light, recolour the chrome, canvas, grid and accents together. Monokai is the default; the choice follows your account across devices.',
-  },
-  {
-    id: 'languages',
-    title: 'Which languages does the interface speak?',
-    body: 'Fourteen: the same set AutoCAD ships, command prompts included. English, Čeština, Deutsch, Español, Français, Magyar, Italiano, 日本語, 한국어, Polski, Português (Brasil), Русский, 简体中文 and 繁體中文. Translations other than English are drafted from established AutoCAD terminology and not yet professionally reviewed.',
-    tag: 'Drafted',
-  },
-  {
-    id: 'offline',
-    title: 'What if my connection drops mid-drawing?',
-    body: 'Drafting never needed the network: parsing, rendering, snapping and plotting all run in the tab. A save made offline is kept in the browser flagged for sync and sent when the connection returns; a recovery snapshot protects against a closed tab.',
-  },
-  {
-    id: 'three-d',
-    title: 'Is there 3D?',
-    body: 'Not yet. CADO is a 2D drafting editor. A phased plan for parametric 3D exists for after the 2D product is complete; nothing from it ships today.',
-    tag: 'Roadmap',
-  },
-];
+/** The FAQ-style details. `tagKey` marks answers about drafted or roadmap work. */
+const DETAILS: readonly SiteAccordionItem[] = (
+  [
+    ['lineweights'],
+    ['dimstyles'],
+    ['text'],
+    ['layouts'],
+    ['themes'],
+    ['languages', 'site.features.details.tags.drafted'],
+    ['offline'],
+    ['three-d', 'site.features.details.tags.roadmap'],
+  ] as const
+).map(([id, tagKey]) => ({
+  id,
+  titleKey: `site.features.details.${id}.title`,
+  bodyKey: `site.features.details.${id}.body`,
+  tagKey,
+}));
 
 /**
  * Public features page (`/features`), rendered inside the site shell.
@@ -86,6 +61,7 @@ const DETAILS: readonly SiteAccordionItem[] = [
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    TranslocoDirective,
     UiRevealDirective,
     SiteAccordionComponent,
     SiteClosingComponent,
@@ -105,6 +81,8 @@ export class FeaturesPage {
   protected readonly formats = FORMATS;
   protected readonly compare = COMPARE;
   protected readonly details = DETAILS;
+  /** The read/write cell value that renders as a dash and is styled as "not supported". */
+  protected readonly formatNone = FORMAT_NONE;
 
   protected glyph(i: number): string {
     return SNAP_GLYPHS[i] ?? SNAP_GLYPHS[0];

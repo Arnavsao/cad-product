@@ -19,6 +19,8 @@ import {
   ChangeDetectionStrategy
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { translateOr } from '../../../../core/i18n/translate-or';
 import { PageSetupDialogService } from './page-setup-dialog.service';
 import { LayoutManagerService } from '../../core/services/layout-manager.service';
 import {
@@ -33,22 +35,24 @@ import {
 import type { IPageSetup } from '../../core/models/layout.model';
 import { defaultPageSetup } from '../../core/models/layout.model';
 import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-page-setup-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [UiIconComponent, CommonModule, FormsModule, TranslocoDirective],
   template: `
+    <ng-container *transloco="let t">
     @if (dialogSvc.isOpen()) {
       <div class="ps-overlay" (click)="onOverlayClick($event)">
-        <div class="ps-dialog" role="dialog" aria-modal="true" aria-label="Page Setup">
+        <div class="ps-dialog" role="dialog" aria-modal="true" [attr.aria-label]="t('editor.dialog.common.pageSetup')">
 
           <!-- Header -->
           <div class="ps-header">
-            <span class="ps-icon">📐</span>
-            <span class="ps-title">Page Setup — {{ layoutName() }}</span>
-            <button class="ps-close" type="button" (click)="cancel()" aria-label="Close">✕</button>
+            <span class="ps-icon"><ui-icon name="ruler" [size]="18" /></span>
+            <span class="ps-title">{{ t('editor.dialog.pageSetup.title', { layout: layoutName() }) }}</span>
+            <button class="ps-close" type="button" (click)="cancel()" [attr.aria-label]="t('editor.dialog.common.close')"><ui-icon name="close" [size]="16" /></button>
           </div>
 
           <!-- Body -->
@@ -56,10 +60,10 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
 
             <!-- Paper size -->
             <div class="ps-row">
-              <label class="ps-label">Paper Size</label>
+              <label class="ps-label">{{ t('editor.dialog.pageSetup.paperSize') }}</label>
               <select class="ps-select" [(ngModel)]="form.paper" (ngModelChange)="onPaperChange()">
                 @for (p of papers; track p.key) {
-                  <option [value]="p.key">{{ p.label }}</option>
+                  <option [value]="p.key">{{ p.labelKey ? t(p.labelKey) : p.label }}</option>
                 }
               </select>
             </div>
@@ -67,29 +71,29 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
             <!-- Custom paper dimensions -->
             @if (form.paper === 'Custom') {
               <div class="ps-row ps-row-double">
-                <label class="ps-label">Width (mm)</label>
+                <label class="ps-label">{{ t('editor.dialog.pageSetup.widthMm') }}</label>
                 <input class="ps-input" type="number" [(ngModel)]="form.customPaperMm!.w" min="10" max="5000" step="1"/>
-                <label class="ps-label">Height (mm)</label>
+                <label class="ps-label">{{ t('editor.dialog.pageSetup.heightMm') }}</label>
                 <input class="ps-input" type="number" [(ngModel)]="form.customPaperMm!.h" min="10" max="5000" step="1"/>
               </div>
             }
 
             <!-- Orientation -->
             <div class="ps-row">
-              <label class="ps-label">Orientation</label>
+              <label class="ps-label">{{ t('editor.dialog.pageSetup.orientation') }}</label>
               <div class="ps-toggle-group">
                 <button
                   type="button"
                   class="ps-toggle"
                   [class.active]="form.orientation === 'portrait'"
                   (click)="form.orientation = 'portrait'"
-                >⬆ Portrait</button>
+                ><ui-icon name="portrait" [size]="14" /> {{ t('editor.dialog.common.portrait') }}</button>
                 <button
                   type="button"
                   class="ps-toggle"
                   [class.active]="form.orientation === 'landscape'"
                   (click)="form.orientation = 'landscape'"
-                >➡ Landscape</button>
+                ><ui-icon name="landscape" [size]="14" /> {{ t('editor.dialog.common.landscape') }}</button>
               </div>
             </div>
 
@@ -103,19 +107,19 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
 
             <!-- Scale -->
             <div class="ps-row">
-              <label class="ps-label">Plot Scale</label>
+              <label class="ps-label">{{ t('editor.dialog.pageSetup.plotScale') }}</label>
               <select class="ps-select" [(ngModel)]="scaleLabel" (ngModelChange)="onScaleLabelChange($event)">
-                <option value="fit">Fit to page</option>
+                <option value="fit">{{ t('editor.dialog.pageSetup.fitToPage') }}</option>
                 @for (s of scalePresets; track s.label) {
                   <option [value]="s.label">{{ s.label }}</option>
                 }
-                <option value="custom">Custom…</option>
+                <option value="custom">{{ t('editor.dialog.common.custom') }}</option>
               </select>
             </div>
 
             @if (scaleLabel === 'custom') {
               <div class="ps-row">
-                <label class="ps-label">World / mm</label>
+                <label class="ps-label">{{ t('editor.dialog.pageSetup.worldPerMm') }}</label>
                 <input class="ps-input ps-input-sm" type="number" [(ngModel)]="customScaleValue" min="0.001" max="100000" step="0.001"/>
               </div>
             }
@@ -124,16 +128,16 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
 
             <!-- Margins -->
             <div class="ps-row ps-row-label-top">
-              <label class="ps-label">Margins (mm)</label>
+              <label class="ps-label">{{ t('editor.dialog.pageSetup.marginsMm') }}</label>
               <div class="ps-margin-grid">
                 <span></span>
                 <div class="ps-margin-item">
-                  <label>Top</label>
+                  <label>{{ t('editor.dialog.pageSetup.top') }}</label>
                   <input class="ps-input ps-input-xs" type="number" [(ngModel)]="form.margins.top" min="0" max="100" step="1"/>
                 </div>
                 <span></span>
                 <div class="ps-margin-item">
-                  <label>Left</label>
+                  <label>{{ t('editor.dialog.pageSetup.left') }}</label>
                   <input class="ps-input ps-input-xs" type="number" [(ngModel)]="form.margins.left" min="0" max="100" step="1"/>
                 </div>
                 <div class="ps-margin-item">
@@ -143,12 +147,12 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
                   </div>
                 </div>
                 <div class="ps-margin-item">
-                  <label>Right</label>
+                  <label>{{ t('editor.dialog.pageSetup.right') }}</label>
                   <input class="ps-input ps-input-xs" type="number" [(ngModel)]="form.margins.right" min="0" max="100" step="1"/>
                 </div>
                 <span></span>
                 <div class="ps-margin-item">
-                  <label>Bottom</label>
+                  <label>{{ t('editor.dialog.pageSetup.bottom') }}</label>
                   <input class="ps-input ps-input-xs" type="number" [(ngModel)]="form.margins.bottom" min="0" max="100" step="1"/>
                 </div>
                 <span></span>
@@ -159,20 +163,20 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
 
             <!-- Plot style -->
             <div class="ps-row">
-              <label class="ps-label">Plot Style</label>
+              <label class="ps-label">{{ t('editor.dialog.pageSetup.plotStyle') }}</label>
               <select class="ps-select" [(ngModel)]="form.plotStyle">
-                <option value="color">Color</option>
-                <option value="monochrome">Monochrome</option>
-                <option value="grayscale">Grayscale</option>
+                <option value="color">{{ t('editor.dialog.pageSetup.color') }}</option>
+                <option value="monochrome">{{ t('editor.dialog.pageSetup.monochrome') }}</option>
+                <option value="grayscale">{{ t('editor.dialog.pageSetup.grayscale') }}</option>
               </select>
             </div>
 
             <!-- DPI -->
             <div class="ps-row">
-              <label class="ps-label">Resolution</label>
+              <label class="ps-label">{{ t('editor.dialog.pageSetup.resolution') }}</label>
               <select class="ps-select" [(ngModel)]="form.dpi">
-                @for (q of qualityPresets; track q.label) {
-                  <option [value]="q.dpi">{{ q.label }}</option>
+                @for (q of qualityPresets; track q.labelKey) {
+                  <option [value]="q.dpi">{{ t(q.labelKey) }}</option>
                 }
               </select>
             </div>
@@ -181,12 +185,12 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
 
             <!-- Save as named preset -->
             <div class="ps-row">
-              <label class="ps-label">Setup Name</label>
+              <label class="ps-label">{{ t('editor.dialog.pageSetup.setupName') }}</label>
               <input
                 class="ps-input ps-input-flex"
                 type="text"
                 [(ngModel)]="setupName"
-                placeholder="(optional) Save as named setup"
+                [placeholder]="t('editor.dialog.pageSetup.setupNamePlaceholder')"
                 maxlength="64"
               />
             </div>
@@ -195,16 +199,17 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
 
           <!-- Footer -->
           <div class="ps-footer">
-            <button class="ps-btn ps-btn-ghost" type="button" (click)="cancel()">Cancel</button>
+            <button class="ps-btn ps-btn-ghost" type="button" (click)="cancel()">{{ t('editor.dialog.common.cancel') }}</button>
             @if (setupName.trim()) {
-              <button class="ps-btn ps-btn-secondary" type="button" (click)="savePreset()">Save Preset</button>
+              <button class="ps-btn ps-btn-secondary" type="button" (click)="savePreset()">{{ t('editor.dialog.pageSetup.savePreset') }}</button>
             }
-            <button class="ps-btn ps-btn-primary" type="button" (click)="apply()">Apply</button>
+            <button class="ps-btn ps-btn-primary" type="button" (click)="apply()">{{ t('editor.dialog.pageSetup.apply') }}</button>
           </div>
 
         </div>
       </div>
     }
+    </ng-container>
   `,
   styles: [`
     .ps-overlay {
@@ -293,15 +298,18 @@ import { PAPER_REGISTRY } from '../../core/models/plot-registry.model';
 export class PageSetupDialogComponent implements OnInit {
   protected dialogSvc   = inject(PageSetupDialogService);
   protected layoutMgr   = inject(LayoutManagerService);
+  // Optional: embedded hosts and specs may construct the dialog without Transloco.
+  private readonly transloco = inject(TranslocoService, { optional: true });
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
-  readonly papers = [
+  /** Paper names and sizes are identifiers; only the trailing "Custom…" entry is translated. */
+  readonly papers: Array<{ key: string; label: string; labelKey?: string }> = [
     ...PAPER_REGISTRY.map(p => ({
       key: p.key,
       label: `${p.key} (${p.wMm}×${p.hMm} mm)`,
     })),
-    { key: 'Custom', label: 'Custom…' }
+    { key: 'Custom', label: 'Custom…', labelKey: 'editor.dialog.common.custom' }
   ];
 
   readonly scalePresets = [
@@ -320,10 +328,10 @@ export class PageSetupDialogComponent implements OnInit {
   ];
 
   readonly qualityPresets = [
-    { label: 'Screen (96 DPI)',    dpi: 96  },
-    { label: 'Standard (150 DPI)', dpi: 150 },
-    { label: 'Print (300 DPI)',    dpi: 300 },
-    { label: 'High (600 DPI)',     dpi: 600 },
+    { labelKey: 'editor.dialog.pageSetup.qualityScreen',   dpi: 96  },
+    { labelKey: 'editor.dialog.pageSetup.qualityStandard', dpi: 150 },
+    { labelKey: 'editor.dialog.pageSetup.qualityPrint',    dpi: 300 },
+    { labelKey: 'editor.dialog.pageSetup.qualityHigh',     dpi: 600 },
   ];
 
   // Form state — edited locally, committed on Apply.
@@ -334,7 +342,8 @@ export class PageSetupDialogComponent implements OnInit {
 
   readonly layoutName = computed(() => {
     const id = this.dialogSvc.targetLayoutId();
-    return this.layoutMgr.layouts().find((l) => l.id === id)?.name ?? 'Layout';
+    return this.layoutMgr.layouts().find((l) => l.id === id)?.name
+      ?? translateOr(this.transloco, 'editor.dialog.pageSetup.layoutFallback', 'Layout');
   });
 
   readonly resolvedMm = computed(() => {

@@ -17,9 +17,9 @@ import { formatLen, formatAngleDeg } from './draw-utils';
 /**
  * AutoCAD-style 3-Click Multileader Tool.
  *
- *   1. Click â†’ Arrow head location (the tip pointing at the geometry).
- *   2. Click â†’ Bend / elbow point.
- *   3. Click â†’ Landing endpoint. Determines landingLength + attachmentSide,
+ *   1. Click → Arrow head location (the tip pointing at the geometry).
+ *   2. Click → Bend / elbow point.
+ *   3. Click → Landing endpoint. Determines landingLength + attachmentSide,
  *              then drops into the universal inline text editor.
  *
  * Live preview throughout: arrow, leader segment, bend, horizontal landing,
@@ -37,7 +37,7 @@ export class LeaderTool implements ITool {
 
   /** Arrow tip (pts[0]) and bend (pts[1]) are accumulated here. */
   private pts: IPoint[] = [];
-  /** Live cursor in world coords â€” updated every onMouseMove. */
+  /** Live cursor in world coords — updated every onMouseMove. */
   private cur: IPoint = { x: 0, y: 0 };
   private phase: 'pick-arrow' | 'pick-bend' | 'pick-landing' = 'pick-arrow';
 
@@ -115,7 +115,7 @@ export class LeaderTool implements ITool {
     }
 
     if (this.phase === 'pick-landing') {
-      // Landing end is the cursor projected onto the bend's horizontal â€” the
+      // Landing end is the cursor projected onto the bend's horizontal — the
       // model stores landing as `pts[last] + dir * landingLength` along the
       // X axis, so picking a vertical landing isn't representable. We honor
       // intent by using the cursor's X and the bend's Y.
@@ -137,7 +137,7 @@ export class LeaderTool implements ITool {
     ctx.lineWidth = 1;
     ctx.setLineDash([6, 3]);
 
-    // Leader spine: arrow tip â†’ bend â†’ (landing in phase 3).
+    // Leader spine: arrow tip → bend → (landing in phase 3).
     ctx.beginPath();
     const tip = this.vm.w2s(this.pts[0].x, this.pts[0].y);
     ctx.moveTo(tip.x, tip.y);
@@ -159,7 +159,7 @@ export class LeaderTool implements ITool {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Arrow head â€” drawn in solid orange so the user sees the final
+    // Arrow head — drawn in solid orange so the user sees the final
     // direction while still placing the bend.
     const arrowFromW = bend;
     const adx = this.vm.w2s(arrowFromW.x, arrowFromW.y).x - tip.x;
@@ -181,7 +181,7 @@ export class LeaderTool implements ITool {
       ctx.fill();
     }
 
-    // Text placeholder â€” orange rect at the landing end so the user sees
+    // Text placeholder — orange rect at the landing end so the user sees
     // where the annotation will land before they commit.
     if (this.phase === 'pick-landing' && this.mode === 'mleader') {
       const landing = this.previewLanding();
@@ -240,7 +240,7 @@ export class LeaderTool implements ITool {
   }
 
   /**
-   * Phase-3 landing endpoint. Always sits on the bend's horizontal â€” the
+   * Phase-3 landing endpoint. Always sits on the bend's horizontal — the
    * AutoCAD-style landing is a straight horizontal segment. Honors typed
    * length via dynamic input.
    */
@@ -353,7 +353,7 @@ export class LeaderTool implements ITool {
     this.tools.setTool('select');
     
     if (this.mode === 'mleader') {
-      // Drop straight into the universal text editor â€” same modal as TEXT /
+      // Drop straight into the universal text editor — same modal as TEXT /
       // MTEXT. setTimeout defers so the tool switch flushes first.
       setTimeout(() => this.textEditor.openForEdit(lead), 0);
     }

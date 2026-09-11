@@ -1,6 +1,6 @@
-<div class="dash">
+<div class="dash" *transloco="let t">
   <div class="dash__brand">
-    <a class="brand" routerLink="/dashboard" aria-label="CADO dashboard">
+    <a class="brand" routerLink="/dashboard" [attr.aria-label]="t('dashboard.shell.brandAria')">
       <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
       <span class="brand__name">{{ appName }}</span>
     </a>
@@ -9,12 +9,13 @@
   <header class="dash__top">
     <div class="dash__actions">
       <a uiButton variant="ghost" size="sm" iconOnly class="dash__action" routerLink="/dashboard/settings"
-        title="Settings" aria-label="Settings" [attr.aria-current]="section() === 'settings' ? 'page' : null">
+        [title]="t('dashboard.shell.settings')" [attr.aria-label]="t('dashboard.shell.settings')"
+        [attr.aria-current]="section() === 'settings' ? 'page' : null">
         <ui-icon name="settings" [size]="20" />
       </a>
 
-      <button type="button" uiButton variant="ghost" size="sm" iconOnly class="dash__action" title="Help"
-        aria-label="Help" [uiMenuTrigger]="helpMenu" menuAlign="end" (uiMenuSelect)="onHelpSelect($event.id)">
+      <button type="button" uiButton variant="ghost" size="sm" iconOnly class="dash__action" [title]="t('dashboard.shell.help')"
+        [attr.aria-label]="t('dashboard.shell.help')" [uiMenuTrigger]="helpMenu()" menuAlign="end" (uiMenuSelect)="onHelpSelect($event.id)">
         <ui-icon name="help" [size]="20" />
       </button>
 
@@ -44,7 +45,7 @@
     </div>
   </header>
 
-  <nav class="dash__nav" aria-label="Dashboard">
+  <nav class="dash__nav" [attr.aria-label]="t('dashboard.shell.navAria')">
     <div class="dash__workspace">
       <app-workspace-switcher />
     </div>
@@ -57,16 +58,16 @@
           type="button"
           class="dash__split-main"
           (click)="pickFiles()"
-          title="Upload CAD drawings (.dxf, .dwg)"
+          [title]="t('dashboard.shell.uploadTitle')"
         >
           <span class="dash__btn-mobile-icon"><ui-icon name="upload" [size]="16" /></span>
-          <span class="dash__btn-label">Upload…</span>
+          <span class="dash__btn-label">{{ t('dashboard.shell.upload') }}</span>
         </button>
         <button
           type="button"
           class="dash__split-caret"
-          aria-label="Upload options"
-          [uiMenuTrigger]="uploadMenu"
+          [attr.aria-label]="t('dashboard.shell.uploadOptions')"
+          [uiMenuTrigger]="uploadMenu()"
           menuAlign="end"
           (uiMenuSelect)="onUploadSelect($event.id)"
         >
@@ -79,10 +80,10 @@
         class="dash__action-btn"
         [disabled]="creatingFolder()"
         (click)="newFolder()"
-        title="New Folder"
+        [title]="t('dashboard.shell.newFolder')"
       >
         <span class="dash__btn-mobile-icon"><ui-icon name="folder" [size]="16" /></span>
-        <span class="dash__btn-label">New Folder</span>
+        <span class="dash__btn-label">{{ t('dashboard.shell.newFolder') }}</span>
       </button>
     </div>
 
@@ -90,25 +91,25 @@
       <li>
         <a class="dash__link" [class.dash__link--on]="section() === 'recent'" routerLink="/dashboard">
           <ui-icon name="clock" [size]="16" />
-          Recent
+          {{ t('dashboard.shell.nav.recent') }}
         </a>
       </li>
       <li>
         <a class="dash__link" [class.dash__link--on]="section() === 'drawings'" routerLink="/dashboard/drawings">
           <ui-icon name="folder" [size]="16" />
-          My Drawings
+          {{ t('dashboard.shell.nav.drawings') }}
         </a>
       </li>
       <li>
         <a class="dash__link" [class.dash__link--on]="section() === 'shared'" routerLink="/dashboard/shared">
           <ui-icon name="share" [size]="16" />
-          Shared with me
+          {{ t('dashboard.shell.nav.shared') }}
         </a>
       </li>
       <li>
         <a class="dash__link" [class.dash__link--on]="section() === 'trash'" routerLink="/dashboard/trash">
           <ui-icon name="trash" [size]="16" />
-          Trash
+          {{ t('dashboard.shell.nav.trash') }}
         </a>
       </li>
       @if (workspace.isOrg()) {
@@ -116,14 +117,14 @@
         <a class="dash__link" [class.dash__link--on]="section() === 'organization'"
           routerLink="/dashboard/organization">
           <ui-icon name="users" [size]="16" />
-          Members
+          {{ t('dashboard.shell.nav.members') }}
         </a>
       </li>
       }
       <li>
         <a class="dash__link" [class.dash__link--on]="section() === 'profile'" routerLink="/dashboard/profile">
           <ui-icon name="user" [size]="16" />
-          Personal info
+          {{ t('dashboard.shell.nav.profile') }}
         </a>
       </li>
     </ul>
@@ -131,7 +132,7 @@
     <div class="dash__nav-foot">
       <a class="dash__link" [class.dash__link--on]="section() === 'feedback'" routerLink="/dashboard/feedback">
         <ui-icon name="message" [size]="16" />
-        Provide Feedback
+        {{ t('dashboard.shell.nav.feedback') }}
       </a>
 
       <!-- @if (usage(); as u) {
@@ -160,12 +161,12 @@
       <div class="dash__search">
         <ui-icon class="dash__search-icon" name="search" [size]="15" />
         <input uiInput type="search" class="dash__search-input"
-          [placeholder]="searchPlaceholder()"
-          [attr.aria-label]="searchPlaceholder()"
+          [placeholder]="t(searchPlaceholderKey())"
+          [attr.aria-label]="t(searchPlaceholderKey())"
           [value]="search()" (input)="onSearchInput($event)" (keydown.enter)="onSearchEnter()" />
         @if (search()) {
         <button type="button" uiButton variant="ghost" size="sm" iconOnly class="dash__search-clear"
-          aria-label="Clear search" (click)="clearSearch()">
+          [attr.aria-label]="t('dashboard.shell.clearSearch')" (click)="clearSearch()">
           <ui-icon name="close" [size]="14" />
         </button>
         }
@@ -179,18 +180,18 @@
     <div class="dash__drop" aria-hidden="true">
       <div class="dash__drop-card">
         <ui-icon name="upload" [size]="26" [strokeWidth]="1.5" />
-        <p>Drop to upload</p>
-        <span>.dxf and .dwg files</span>
+        <p>{{ t('dashboard.shell.dropTitle') }}</p>
+        <span>{{ t('dashboard.shell.dropHint') }}</span>
       </div>
     </div>
     }
   </main>
 
   @if (upload.tasks().length) {
-  <aside class="dash__uploads" aria-label="Uploads">
+  <aside class="dash__uploads" [attr.aria-label]="t('dashboard.shell.uploads')">
     <header class="dash__uploads-head">
-      <span>Uploads</span>
-      <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Clear finished uploads"
+      <span>{{ t('dashboard.shell.uploads') }}</span>
+      <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('dashboard.shell.clearFinishedUploads')"
         (click)="upload.clearFinished()">
         <ui-icon name="close" [size]="14" />
       </button>
@@ -204,15 +205,15 @@
           <span class="dash__upload-state">
             @switch (task.state) {
             @case ('uploading') { {{ task.progress }}% }
-            @case ('importing') { Importing }
-            @case ('done') { Done }
-            @default { Failed }
+            @case ('importing') { {{ t('dashboard.shell.uploadImporting') }} }
+            @case ('done') { {{ t('dashboard.shell.uploadDone') }} }
+            @default { {{ t('dashboard.shell.uploadFailed') }} }
             }
           </span>
         </div>
         @if (task.state === 'uploading' || task.state === 'importing') {
         <div class="dash__upload-bar" role="progressbar" [attr.aria-valuenow]="task.progress" aria-valuemin="0"
-          aria-valuemax="100" [attr.aria-label]="'Uploading ' + task.fileName">
+          aria-valuemax="100" [attr.aria-label]="t('dashboard.shell.uploadingFile', { name: task.fileName })">
           <span [style.width.%]="task.progress"></span>
         </div>
         }

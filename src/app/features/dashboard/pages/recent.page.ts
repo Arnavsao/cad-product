@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { WorkspaceService } from '../../../core/api/workspace.service';
+import { SignInHandoffService } from '../../../core/auth/sign-in-handoff.service';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiEmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
@@ -31,6 +33,7 @@ const RECENT_LIMIT = 12;
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    TranslocoDirective,
     UiButtonDirective,
     UiEmptyStateComponent,
     UiIconComponent,
@@ -40,12 +43,13 @@ const RECENT_LIMIT = 12;
     NewDrawingMenuComponent,
   ],
   template: `
+    <ng-container *transloco="let t">
     <header class="pg__head">
-      <h1 class="pg__title">Recent</h1>
+      <h1 class="pg__title">{{ t('dashboard.shell.nav.recent') }}</h1>
       @if (!loading() && items().length) {
         <button type="button" uiButton variant="ghost" size="sm" (click)="reload()">
           <ui-icon name="refresh" [size]="14" />
-          Refresh
+          {{ t('dashboard.recent.refresh') }}
         </button>
       }
     </header>
@@ -61,16 +65,16 @@ const RECENT_LIMIT = 12;
       <div class="pg__error" role="alert">
         <ui-icon name="alert" [size]="18" />
         <div>
-          <p class="pg__error-title">Your recent drawings could not be loaded.</p>
+          <p class="pg__error-title">{{ t('dashboard.recent.loadError') }}</p>
           <p class="pg__error-msg">{{ message }}</p>
         </div>
-        <button type="button" uiButton (click)="reload()"><ui-icon name="refresh" [size]="14" /> Retry</button>
+        <button type="button" uiButton (click)="reload()"><ui-icon name="refresh" [size]="14" /> {{ t('common.retry') }}</button>
       </div>
     } @else if (!items().length) {
       <ui-empty-state
         icon="file"
-        heading="Nothing yet — create your first drawing."
-        description="New drawings open straight in the editor and are saved to your account."
+        [heading]="t('dashboard.recent.emptyTitle')"
+        [description]="t('dashboard.recent.emptyDesc')"
       >
         <app-new-drawing-menu (created)="reload()" />
       </ui-empty-state>
@@ -85,11 +89,11 @@ const RECENT_LIMIT = 12;
             }
           </div>
           <div class="rc__hero-body">
-            <p class="rc__hero-eyebrow">Continue where you left off</p>
+            <p class="rc__hero-eyebrow">{{ t('dashboard.recent.continue') }}</p>
             <h2 class="rc__hero-name">{{ top.name }}</h2>
-            <p class="rc__hero-sub">Opened {{ (top.lastOpenedAt ?? top.updatedAt) | relativeTime }}</p>
+            <p class="rc__hero-sub">{{ t('dashboard.recent.opened', { when: (top.lastOpenedAt ?? top.updatedAt) | relativeTime }) }}</p>
             <button type="button" uiButton variant="primary" (click)="open(top)">
-              Open drawing
+              {{ t('dashboard.recent.openDrawing') }}
               <ui-icon name="chevron-right" [size]="15" />
             </button>
           </div>
@@ -97,7 +101,7 @@ const RECENT_LIMIT = 12;
       }
 
       @if (rest().length) {
-        <h2 class="pg__subtitle">Recently opened</h2>
+        <h2 class="pg__subtitle">{{ t('dashboard.recent.recentlyOpened') }}</h2>
         <div class="rc__grid">
           @for (drawing of rest(); track drawing.id) {
             <!-- No checkbox here: Recent has no bulk bar, so a tick would lead nowhere. -->
@@ -111,6 +115,7 @@ const RECENT_LIMIT = 12;
         </div>
       }
     }
+    </ng-container>
   `,
   styles: [
     `
@@ -169,6 +174,7 @@ export class RecentPage {
   private readonly workspace = inject(WorkspaceService);
   private readonly actions = inject(DrawingActionsService);
   private readonly events = inject(DashboardEventsService);
+  private readonly handoff = inject(SignInHandoffService);
 
   protected readonly items = signal<DrawingSummaryDto[]>([]);
   protected readonly loading = signal(true);
@@ -204,6 +210,10 @@ export class RecentPage {
       this.error.set(messageOf(e));
     } finally {
       if (gen === this.generation) this.loading.set(false);
+      // Signing in lands here, and the branded overlay covers the app until the
+      // page has real content. Cleared on failure too, so the error state below
+      // is reachable rather than hidden behind a loader that never lifts.
+      this.handoff.end();
     }
   }
 

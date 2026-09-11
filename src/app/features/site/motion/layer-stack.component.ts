@@ -11,6 +11,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { MotionService } from './motion.service';
 
 type Three = typeof import('three');
@@ -18,17 +19,18 @@ type Three = typeof import('three');
 /** One layer of the stack, bottom to top. Indexes match `LAYERS` below. */
 export interface StackLayer {
   id: 'model' | 'walls' | 'openings' | 'dimensions' | 'hatch' | 'paper';
-  label: string;
-  detail: string;
+  /** Translation keys; resolved by whoever renders the legend. */
+  labelKey: string;
+  detailKey: string;
 }
 
 export const STACK_LAYERS: readonly StackLayer[] = [
-  { id: 'model', label: 'Model space', detail: 'Full-size geometry on the grid, in real units.' },
-  { id: 'walls', label: 'Layer · WALLS', detail: 'Lineweight 0.50 mm. Off, frozen or locked per layer.' },
-  { id: 'openings', label: 'Layer · DOORS', detail: 'One door block, placed three times.' },
-  { id: 'dimensions', label: 'Layer · DIMS', detail: 'Associative dimensions that follow the geometry.' },
-  { id: 'hatch', label: 'Layer · HATCH', detail: 'Boundary-detected hatch, regenerated when walls move.' },
-  { id: 'paper', label: 'Paper space', detail: 'An A3 layout with a scaled viewport and title block.' },
+  { id: 'model', labelKey: 'site.home.stack.model.label', detailKey: 'site.home.stack.model.detail' },
+  { id: 'walls', labelKey: 'site.home.stack.walls.label', detailKey: 'site.home.stack.walls.detail' },
+  { id: 'openings', labelKey: 'site.home.stack.openings.label', detailKey: 'site.home.stack.openings.detail' },
+  { id: 'dimensions', labelKey: 'site.home.stack.dimensions.label', detailKey: 'site.home.stack.dimensions.detail' },
+  { id: 'hatch', labelKey: 'site.home.stack.hatch.label', detailKey: 'site.home.stack.hatch.detail' },
+  { id: 'paper', labelKey: 'site.home.stack.paper.label', detailKey: 'site.home.stack.paper.detail' },
 ];
 
 /* Plan geometry in the landing sheet's viewBox units (960 × 600, 1 unit = 10 mm). */
@@ -82,10 +84,11 @@ const SPACING_MAX = 0.52;
   selector: 'site-layer-stack',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [TranslocoDirective],
   template: `
     <canvas #canvas class="ls__canvas" [hidden]="fallback()" aria-hidden="true"></canvas>
     @if (fallback()) {
-      <svg class="ls__fallback" viewBox="0 0 480 360" role="img" aria-label="A floor plan exploded into its layers, with a paper-space sheet on top" focusable="false">
+      <svg class="ls__fallback" *transloco="let t" viewBox="0 0 480 360" role="img" [attr.aria-label]="t('site.home.stack.fallbackAlt')" focusable="false">
         @for (i of [0, 1, 2, 3, 4]; track i) {
           <g [attr.transform]="'translate(0 ' + (300 - i * 56) + ')'">
             <path class="ls__fb-plane" d="M120 0L360 0L300 -50L60 -50Z" />

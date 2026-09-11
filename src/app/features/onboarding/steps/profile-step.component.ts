@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiInputDirective } from '../../../shared/ui/input.directive';
 import { OnboardingDraft, ROLE_CHOICES, RoleChoiceId } from '../onboarding.model';
 
@@ -10,14 +11,15 @@ import { OnboardingDraft, ROLE_CHOICES, RoleChoiceId } from '../onboarding.model
   selector: 'app-onboarding-profile-step',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiInputDirective],
+  imports: [TranslocoDirective, UiInputDirective],
   template: `
-    <h2 class="ob-step__title">Let's set up your workspace</h2>
-    <p class="ob-step__sub">We use your name on drawings you share. You can change all of this later in Settings.</p>
+    <ng-container *transloco="let t">
+    <h2 class="ob-step__title">{{ t('onboarding.profile.title') }}</h2>
+    <p class="ob-step__sub">{{ t('onboarding.profile.subtitle') }}</p>
 
     <div class="ob-names">
       <label class="ob-field">
-        <span class="ob-field__label">First name</span>
+        <span class="ob-field__label">{{ t('onboarding.profile.firstName') }}</span>
         <input
           uiInput
           type="text"
@@ -27,7 +29,7 @@ import { OnboardingDraft, ROLE_CHOICES, RoleChoiceId } from '../onboarding.model
         />
       </label>
       <label class="ob-field">
-        <span class="ob-field__label">Last name</span>
+        <span class="ob-field__label">{{ t('onboarding.profile.lastName') }}</span>
         <input
           uiInput
           type="text"
@@ -39,7 +41,7 @@ import { OnboardingDraft, ROLE_CHOICES, RoleChoiceId } from '../onboarding.model
     </div>
 
     <fieldset class="ob-chips">
-      <legend class="ob-field__label">What best describes your work?</legend>
+      <legend class="ob-field__label">{{ t('onboarding.profile.roleQuestion') }}</legend>
       <div class="ob-chips__row">
         @for (choice of roles; track choice.id) {
           <button
@@ -49,11 +51,12 @@ import { OnboardingDraft, ROLE_CHOICES, RoleChoiceId } from '../onboarding.model
             [attr.aria-pressed]="draft().roleChoice === choice.id"
             (click)="pick(choice.id)"
           >
-            {{ choice.label }}
+            {{ t(choice.labelKey) }}
           </button>
         }
       </div>
     </fieldset>
+    </ng-container>
   `,
   styles: [
     `

@@ -16,10 +16,10 @@ import { InsertTableDialogService, ITableConfig } from '../../features/table-edi
  *
  * Flow:
  *   1. activate() shows the Dynamic Input overlay with editable `Rows` + `Cols`
- *      fields. Defaults to 3 Ã— 4.
+ *      fields. Defaults to 3 × 4.
  *   2. The cursor drags a live preview of the table at default column/row sizes.
- *   3. Click â†’ place the table at the click world coord (its TOP-LEFT corner).
- *   4. Esc / Enter without click â†’ cancel.
+ *   3. Click → place the table at the click world coord (its TOP-LEFT corner).
+ *   4. Esc / Enter without click → cancel.
  *
  * Default column width 40, row height 10 (world units). Adjust via grips after
  * placement, or via the properties panel.
@@ -234,7 +234,7 @@ export class TableTool implements ITool {
     if (c !== null && c >= 1) this.cols = Math.round(c);
     this.dyn.clearEdits();
     this.vm.markDirty();
-    // No placement on Enter â€” user still needs to click. Returning true so the
+    // No placement on Enter — user still needs to click. Returning true so the
     // overlay clears edits and re-reads liveValues from the updated state.
     return true;
   }

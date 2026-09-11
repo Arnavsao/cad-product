@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, input, signal } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 
+/** One accordion row. The prose fields hold translation keys, resolved here. */
 export interface SiteAccordionItem {
   id: string;
-  title: string;
-  body: string;
+  titleKey: string;
+  bodyKey: string;
   /** Optional small label shown after the title ("Free", "Pro", "Roadmap"). */
-  tag?: string;
+  tagKey?: string;
 }
 
 /**
@@ -21,8 +23,9 @@ export interface SiteAccordionItem {
   selector: 'site-accordion',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent],
+  imports: [TranslocoDirective, UiIconComponent],
   template: `
+    <ng-container *transloco="let t">
     @for (item of items(); track item.id) {
       <div class="acc__item" [class.acc__item--open]="isOpen(item.id)">
         <h3 class="acc__h">
@@ -34,18 +37,19 @@ export interface SiteAccordionItem {
             [attr.aria-controls]="'acc-panel-' + item.id"
             (click)="toggle(item.id)"
           >
-            <span class="acc__title">{{ item.title }}</span>
-            @if (item.tag) { <span class="site-pill site-pill--muted acc__tag">{{ item.tag }}</span> }
+            <span class="acc__title">{{ t(item.titleKey) }}</span>
+            @if (item.tagKey) { <span class="site-pill site-pill--muted acc__tag">{{ t(item.tagKey) }}</span> }
             <ui-icon class="acc__chev" name="chevron-down" [size]="16" />
           </button>
         </h3>
         <div class="acc__panel" [id]="'acc-panel-' + item.id" role="region" [attr.aria-labelledby]="'acc-btn-' + item.id" [attr.aria-hidden]="!isOpen(item.id)">
           <div class="acc__inner">
-            <p class="acc__body">{{ item.body }}</p>
+            <p class="acc__body">{{ t(item.bodyKey) }}</p>
           </div>
         </div>
       </div>
     }
+    </ng-container>
   `,
   host: { class: 'site-accordion' },
   styles: [

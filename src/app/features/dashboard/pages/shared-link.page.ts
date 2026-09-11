@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { SharedLinkDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { ApiError } from '../../../core/services/http-manager.service';
@@ -30,29 +31,28 @@ import { UiSkeletonComponent } from '../../../shared/ui/skeleton.component';
   selector: 'app-shared-link-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiButtonDirective, UiIconComponent, UiSkeletonComponent],
+  imports: [TranslocoDirective, RouterLink, UiButtonDirective, UiIconComponent, UiSkeletonComponent],
   template: `
-    <main class="sl">
+    <main class="sl" *transloco="let t">
       <section class="sl__card">
         @if (loading()) {
           <ui-skeleton [lines]="3" height="18px" />
         } @else if (error(); as message) {
           <div class="sl__mark sl__mark--bad" aria-hidden="true"><ui-icon name="alert" [size]="22" /></div>
-          <h1 class="sl__title">This link no longer works</h1>
+          <h1 class="sl__title">{{ t('dashboard.sharedLink.noLongerWorks') }}</h1>
           <p class="sl__text">{{ message }}</p>
-          <a uiButton variant="primary" routerLink="/dashboard">Go to dashboard</a>
+          <a uiButton variant="primary" routerLink="/dashboard">{{ t('dashboard.join.goToDashboard') }}</a>
         } @else if (link(); as shared) {
           <div class="sl__mark" aria-hidden="true"><ui-icon name="share" [size]="22" /></div>
           <h1 class="sl__title">{{ shared.drawing.name }}</h1>
           <p class="sl__text">
-            {{ ownerName() }} shared this drawing with you. You can
-            {{ shared.permission === 'edit' ? 'view and edit it' : 'view and download it' }}.
+            {{ t(shared.permission === 'edit' ? 'dashboard.sharedLink.sharedEdit' : 'dashboard.sharedLink.sharedView', { owner: ownerName() }) }}
           </p>
           <div class="sl__actions">
             <button type="button" uiButton variant="primary" [loading]="accepting()" [disabled]="accepting()" (click)="accept()">
-              {{ shared.drawing.format === 'dwg' ? 'Add to Shared with me' : 'Open drawing' }}
+              {{ t(shared.drawing.format === 'dwg' ? 'dashboard.sharedLink.addToShared' : 'dashboard.recent.openDrawing') }}
             </button>
-            <a uiButton variant="ghost" routerLink="/dashboard">Not now</a>
+            <a uiButton variant="ghost" routerLink="/dashboard">{{ t('dashboard.sharedLink.notNow') }}</a>
           </div>
         }
       </section>
@@ -90,6 +90,7 @@ export class SharedLinkPage {
   private readonly api = inject(DrawingsApiService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly link = signal<SharedLinkDto | null>(null);
   protected readonly loading = signal(true);
@@ -99,7 +100,7 @@ export class SharedLinkPage {
   protected readonly ownerName = computed(() => {
     const owner = this.link()?.owner;
     const full = [owner?.firstName, owner?.lastName].filter(Boolean).join(' ').trim();
-    return full || 'Someone';
+    return full || this.transloco.translate('dashboard.sharedLink.someone');
   });
 
   constructor() {
@@ -110,23 +111,23 @@ export class SharedLinkPage {
     const token = (this.token() ?? '').trim();
     if (!token) {
       this.loading.set(false);
-      this.error.set('The link is missing its share code.');
+      this.error.set(this.transloco.translate('dashboard.sharedLink.missingCode'));
       return;
     }
     try {
       const shared = await this.api.sharedLink(token);
       if (shared.expired) {
-        this.error.set('The link has expired. Ask whoever sent it for a new one.');
+        this.error.set(this.transloco.translate('dashboard.sharedLink.expired'));
       } else {
         this.link.set(shared);
       }
     } catch (e) {
       this.error.set(
         e instanceof ApiError && e.status === 404
-          ? 'The link was revoked or has expired. Ask whoever sent it for a new one.'
+          ? this.transloco.translate('dashboard.sharedLink.revoked')
           : e instanceof Error && e.message
             ? e.message
-            : 'The link could not be opened.',
+            : this.transloco.translate('dashboard.sharedLink.openFailed'),
       );
     } finally {
       this.loading.set(false);
@@ -142,13 +143,15 @@ export class SharedLinkPage {
     try {
       const { drawingId } = await this.api.acceptSharedLink(token);
       if (shared.drawing.format === 'dwg') {
-        this.notify.success(`"${shared.drawing.name}" is now under Shared with me. DWG cannot be opened in the editor yet.`);
+        this.notify.success(this.transloco.translate('dashboard.sharedLink.dwgAdded', { name: shared.drawing.name }));
         await this.router.navigateByUrl('/dashboard/shared');
         return;
       }
       await this.router.navigate(['/editor', drawingId]);
     } catch (e) {
-      this.notify.error(e instanceof Error && e.message ? e.message : 'The drawing could not be opened.');
+      this.notify.error(
+        e instanceof Error && e.message ? e.message : this.transloco.translate('dashboard.sharedLink.drawingOpenFailed'),
+      );
     } finally {
       this.accepting.set(false);
     }

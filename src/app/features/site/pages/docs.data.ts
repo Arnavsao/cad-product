@@ -7,79 +7,69 @@
  * the paper sizes are `plot-registry.model.ts`, the scales `SCALE_REGISTRY`, the
  * AI models `ai-model.ts`, the conflict answers `drawing-persistence.service.ts`,
  * the languages `README.md`. When the editor changes, change this file with it.
+ *
+ * Every prose field holds a translation KEY (`…Key`), resolved with
+ * `t(item.bodyKey)` in the template. The English text lives in
+ * `scripts/i18n/app-strings/site-pages.en.json` under `site.docs.*`. Keyboard
+ * shortcuts, command names, paper sizes, scales, file formats, endonyms, code
+ * snippets and the example prompts the (English-only) built-in parser accepts
+ * stay literal.
  */
 
 /* ── Page outline ──────────────────────────────────────────────── */
 
 export interface DocSection {
   id: string;
-  label: string;
+  labelKey: string;
 }
 
 /** Section ids are linked from the site footer; do not rename them. */
 export const DOC_SECTIONS: readonly DocSection[] = [
-  { id: 'getting-started', label: 'Getting started' },
-  { id: 'commands', label: 'Command reference' },
-  { id: 'shortcuts', label: 'Keyboard shortcuts' },
-  { id: 'snapping', label: 'Snapping and input' },
-  { id: 'layers-blocks', label: 'Layers and blocks' },
-  { id: 'layouts', label: 'Layouts and plotting' },
-  { id: 'dxf', label: 'DXF compatibility' },
-  { id: 'ai', label: 'AI assistant' },
-  { id: 'cloud', label: 'Accounts and cloud' },
-  { id: 'languages', label: 'Languages' },
-  { id: 'embedding', label: 'Embedding the editor' },
-  { id: 'faq-support', label: 'FAQ and support' },
+  { id: 'getting-started', labelKey: 'site.docs.section.gettingStarted' },
+  { id: 'commands', labelKey: 'site.docs.section.commands' },
+  { id: 'shortcuts', labelKey: 'site.docs.section.shortcuts' },
+  { id: 'snapping', labelKey: 'site.docs.section.snapping' },
+  { id: 'layers-blocks', labelKey: 'site.docs.section.layersBlocks' },
+  { id: 'layouts', labelKey: 'site.docs.section.layouts' },
+  { id: 'dxf', labelKey: 'site.docs.section.dxf' },
+  { id: 'ai', labelKey: 'site.docs.section.ai' },
+  { id: 'cloud', labelKey: 'site.docs.section.cloud' },
+  { id: 'languages', labelKey: 'site.docs.section.languages' },
+  { id: 'embedding', labelKey: 'site.docs.section.embedding' },
+  { id: 'faq-support', labelKey: 'site.docs.section.faqSupport' },
 ];
 
 /* ── Getting started ───────────────────────────────────────────── */
 
 export interface StartStep {
-  title: string;
-  body: string;
-  /** Keys or commands mentioned in the step, rendered as chips. */
+  id: string;
+  titleKey: string;
+  bodyKey: string;
+  /** Keys or commands mentioned in the step, rendered as chips. Literal. */
   keys: readonly string[];
 }
 
 export const START_STEPS: readonly StartStep[] = [
-  {
-    title: 'Create an account',
-    body: 'Sign up with an email address. The Free plan includes the whole toolset and DXF export; you only need a paid plan for more cloud drawings and for organizations.',
-    keys: [],
-  },
-  {
-    title: 'Open a DXF, or start blank',
-    body: 'Drag a .dxf onto the dashboard to upload it into your account, or press Ctrl+O in the editor to open one from My Drawings or your disk. Parsing runs in a Web Worker, so a large survey does not freeze the tab. A blank drawing is one click from Recent.',
-    keys: ['Ctrl+O', 'NEW'],
-  },
-  {
-    title: 'Draw with the commands you know',
-    body: 'Type an alias at the command line and answer the prompts: absolute coordinates as 100,50, relative as @100,50, polar as @3400<90. Every point can snap to geometry, and Enter or Space repeats the last command.',
-    keys: ['L', 'C', 'REC', 'TR', 'F'],
-  },
-  {
-    title: 'Save a version',
-    body: 'Ctrl+S saves to your account and keeps a version you can restore from the dashboard. Independently of that, a recovery snapshot is written to the browser every 30 seconds in case the tab dies.',
-    keys: ['Ctrl+S', 'Ctrl+Shift+S'],
-  },
-  {
-    title: 'Plot or export',
-    body: 'Ctrl+P opens Plot for PDF, SVG, PNG or JPG of a window, the extents, the display or a layout. DXFOUT writes the drawing back out as DXF with its own layers, blocks, linetypes and dimension styles.',
-    keys: ['Ctrl+P', 'PUBLISH', 'DXFOUT'],
-  },
+  { id: 'account', titleKey: 'site.docs.start.account.title', bodyKey: 'site.docs.start.account.body', keys: [] },
+  { id: 'open', titleKey: 'site.docs.start.open.title', bodyKey: 'site.docs.start.open.body', keys: ['Ctrl+O', 'NEW'] },
+  { id: 'draw', titleKey: 'site.docs.start.draw.title', bodyKey: 'site.docs.start.draw.body', keys: ['L', 'C', 'REC', 'TR', 'F'] },
+  { id: 'save', titleKey: 'site.docs.start.save.title', bodyKey: 'site.docs.start.save.body', keys: ['Ctrl+S', 'Ctrl+Shift+S'] },
+  { id: 'plot', titleKey: 'site.docs.start.plot.title', bodyKey: 'site.docs.start.plot.body', keys: ['Ctrl+P', 'PUBLISH', 'DXFOUT'] },
 ];
 
 /* ── Keyboard shortcuts ────────────────────────────────────────── */
 
 export interface Shortcut {
+  id: string;
+  /** Key names as printed on the keyboard; literal. */
   keys: readonly string[];
-  what: string;
+  whatKey: string;
 }
 
 export interface ShortcutGroup {
   id: string;
-  label: string;
-  note?: string;
+  labelKey: string;
+  noteKey?: string;
   items: readonly Shortcut[];
 }
 
@@ -91,59 +81,59 @@ export interface ShortcutGroup {
 export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
   {
     id: 'files',
-    label: 'Files and output',
+    labelKey: 'site.docs.shortcuts.files.label',
     items: [
-      { keys: ['Ctrl+S'], what: 'Save. On a never-saved drawing this becomes Save As.' },
-      { keys: ['Ctrl+Shift+S'], what: 'Save As: a new name, folder or workspace.' },
-      { keys: ['Ctrl+O'], what: 'Open: My Drawings, a folder or a local DXF.' },
-      { keys: ['Ctrl+P'], what: 'Plot dialog.' },
-      { keys: ['Ctrl+Shift+P'], what: 'Quick plot with the last settings; opens the dialog if there are none yet.' },
-      { keys: ['Ctrl+E'], what: 'Export dialog (the same dialog as Plot, ready for a file).' },
-      { keys: ['Ctrl+Tab', 'Ctrl+Shift+Tab'], what: 'Next / previous open drawing.' },
-      { keys: ['Ctrl+W'], what: 'Close the active drawing; asks to save first.' },
-      { keys: ['Ctrl+Shift+T'], what: 'Reopen the last closed drawing.' },
+      { id: 'save', keys: ['Ctrl+S'], whatKey: 'site.docs.shortcuts.files.save' },
+      { id: 'saveAs', keys: ['Ctrl+Shift+S'], whatKey: 'site.docs.shortcuts.files.saveAs' },
+      { id: 'open', keys: ['Ctrl+O'], whatKey: 'site.docs.shortcuts.files.open' },
+      { id: 'plot', keys: ['Ctrl+P'], whatKey: 'site.docs.shortcuts.files.plot' },
+      { id: 'quickPlot', keys: ['Ctrl+Shift+P'], whatKey: 'site.docs.shortcuts.files.quickPlot' },
+      { id: 'export', keys: ['Ctrl+E'], whatKey: 'site.docs.shortcuts.files.export' },
+      { id: 'nextDrawing', keys: ['Ctrl+Tab', 'Ctrl+Shift+Tab'], whatKey: 'site.docs.shortcuts.files.nextDrawing' },
+      { id: 'close', keys: ['Ctrl+W'], whatKey: 'site.docs.shortcuts.files.close' },
+      { id: 'reopen', keys: ['Ctrl+Shift+T'], whatKey: 'site.docs.shortcuts.files.reopen' },
     ],
   },
   {
     id: 'editing',
-    label: 'Editing',
-    note: 'Undo, redo, select all and the clipboard work wherever focus is, except inside the in-canvas text or table editor, which keep their own history.',
+    labelKey: 'site.docs.shortcuts.editing.label',
+    noteKey: 'site.docs.shortcuts.editing.note',
     items: [
-      { keys: ['Ctrl+Z'], what: 'Undo. One step per command, including anything the assistant did.' },
-      { keys: ['Ctrl+Shift+Z', 'Ctrl+Y'], what: 'Redo.' },
-      { keys: ['Ctrl+A'], what: 'Select all.' },
-      { keys: ['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], what: 'Copy, cut and paste.' },
-      { keys: ['Ctrl+Shift+V'], what: 'Paste to original coordinates (PASTEORIG).' },
-      { keys: ['Ctrl+Alt+V'], what: 'Paste as a block (PASTEBLOCK).' },
-      { keys: ['Delete', 'Backspace'], what: 'Erase the selection. Inside Polyline or Leader, Backspace removes the last vertex instead.' },
-      { keys: ['Esc'], what: 'Cancel the running command and return to Select. In the block editor, asks whether to save the block.' },
-      { keys: ['Enter', 'Space'], what: 'With nothing running: repeat the last drawing or modify command.' },
-      { keys: ['Shift'], what: 'Held: temporary ortho override. In Trim and Extend it swaps to the other tool instead.' },
+      { id: 'undo', keys: ['Ctrl+Z'], whatKey: 'site.docs.shortcuts.editing.undo' },
+      { id: 'redo', keys: ['Ctrl+Shift+Z', 'Ctrl+Y'], whatKey: 'site.docs.shortcuts.editing.redo' },
+      { id: 'selectAll', keys: ['Ctrl+A'], whatKey: 'site.docs.shortcuts.editing.selectAll' },
+      { id: 'clipboard', keys: ['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], whatKey: 'site.docs.shortcuts.editing.clipboard' },
+      { id: 'pasteOrig', keys: ['Ctrl+Shift+V'], whatKey: 'site.docs.shortcuts.editing.pasteOrig' },
+      { id: 'pasteBlock', keys: ['Ctrl+Alt+V'], whatKey: 'site.docs.shortcuts.editing.pasteBlock' },
+      { id: 'erase', keys: ['Delete', 'Backspace'], whatKey: 'site.docs.shortcuts.editing.erase' },
+      { id: 'cancel', keys: ['Esc'], whatKey: 'site.docs.shortcuts.editing.cancel' },
+      { id: 'repeat', keys: ['Enter', 'Space'], whatKey: 'site.docs.shortcuts.editing.repeat' },
+      { id: 'shift', keys: ['Shift'], whatKey: 'site.docs.shortcuts.editing.shift' },
     ],
   },
   {
     id: 'aids',
-    label: 'Drafting aids',
-    note: 'The same function keys as AutoCAD. Each one also has a button in the status bar.',
+    labelKey: 'site.docs.shortcuts.aids.label',
+    noteKey: 'site.docs.shortcuts.aids.note',
     items: [
-      { keys: ['F3'], what: 'Object snap on / off.' },
-      { keys: ['F7'], what: 'Grid.' },
-      { keys: ['F8'], what: 'Ortho. Turning it on turns polar off.' },
-      { keys: ['F10'], what: 'Polar tracking. Turning it on turns ortho off.' },
-      { keys: ['F11'], what: 'Object snap tracking.' },
-      { keys: ['F12'], what: 'Dynamic input next to the cursor.' },
+      { id: 'osnap', keys: ['F3'], whatKey: 'site.docs.shortcuts.aids.osnap' },
+      { id: 'grid', keys: ['F7'], whatKey: 'site.docs.shortcuts.aids.grid' },
+      { id: 'ortho', keys: ['F8'], whatKey: 'site.docs.shortcuts.aids.ortho' },
+      { id: 'polar', keys: ['F10'], whatKey: 'site.docs.shortcuts.aids.polar' },
+      { id: 'otrack', keys: ['F11'], whatKey: 'site.docs.shortcuts.aids.otrack' },
+      { id: 'dynamicInput', keys: ['F12'], whatKey: 'site.docs.shortcuts.aids.dynamicInput' },
     ],
   },
   {
     id: 'cmdline',
-    label: 'Command line',
-    note: 'Start typing anywhere and the text lands in the command line; you never have to click it first.',
+    labelKey: 'site.docs.shortcuts.cmdline.label',
+    noteKey: 'site.docs.shortcuts.cmdline.note',
     items: [
-      { keys: ['A–Z'], what: 'Type a command alias. While a command runs, a letter picks the option with that key, as in [Close/Undo].' },
-      { keys: ['Space'], what: 'Same as Enter, as in AutoCAD.' },
-      { keys: ['↑', '↓'], what: 'Move through the matching commands.' },
-      { keys: ['Tab'], what: 'Accept the greyed completion.' },
-      { keys: ['Esc'], what: 'Clear the line and cancel.' },
+      { id: 'letters', keys: ['A–Z'], whatKey: 'site.docs.shortcuts.cmdline.letters' },
+      { id: 'space', keys: ['Space'], whatKey: 'site.docs.shortcuts.cmdline.space' },
+      { id: 'arrows', keys: ['↑', '↓'], whatKey: 'site.docs.shortcuts.cmdline.arrows' },
+      { id: 'tab', keys: ['Tab'], whatKey: 'site.docs.shortcuts.cmdline.tab' },
+      { id: 'esc', keys: ['Esc'], whatKey: 'site.docs.shortcuts.cmdline.esc' },
     ],
   },
 ];
@@ -151,103 +141,96 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
 /* ── Snapping and input ────────────────────────────────────────── */
 
 export interface Aid {
-  name: string;
+  id: string;
+  nameKey: string;
+  /** Function key; literal. */
   key: string;
-  body: string;
+  bodyKey: string;
 }
 
 /** Source: `snapping.service.ts`, `dynamic-input.service.ts`. */
 export const DRAFTING_AIDS: readonly Aid[] = [
-  {
-    name: 'Ortho',
-    key: 'F8',
-    body: 'Constrains the next point to horizontal or vertical from the previous one. Hold Shift to flip it temporarily. Ortho and polar are exclusive; enabling one disables the other.',
-  },
-  {
-    name: 'Polar tracking',
-    key: 'F10',
-    body: 'Snaps the cursor to angle increments from the previous point, 15° by default, and labels the locked angle on the guide.',
-  },
-  {
-    name: 'Object snap tracking',
-    key: 'F11',
-    body: 'Acquires points you hover over and projects alignment guides from them, so you can place a point in line with geometry you are not touching.',
-  },
-  {
-    name: 'Dynamic input',
-    key: 'F12',
-    body: 'Fields next to the cursor show the length, angle or coordinates the tool is about to use. Type a number and it goes into the field; type a letter to pick a command option without moving to the command line.',
-  },
+  { id: 'ortho', nameKey: 'site.docs.aids.ortho.name', key: 'F8', bodyKey: 'site.docs.aids.ortho.body' },
+  { id: 'polar', nameKey: 'site.docs.aids.polar.name', key: 'F10', bodyKey: 'site.docs.aids.polar.body' },
+  { id: 'otrack', nameKey: 'site.docs.aids.otrack.name', key: 'F11', bodyKey: 'site.docs.aids.otrack.body' },
+  { id: 'dynamicInput', nameKey: 'site.docs.aids.dynamicInput.name', key: 'F12', bodyKey: 'site.docs.aids.dynamicInput.body' },
 ];
 
 /* ── Layers ────────────────────────────────────────────────────── */
 
 export interface LayerState {
-  name: string;
-  body: string;
+  id: string;
+  nameKey: string;
+  bodyKey: string;
 }
 
 /** Source: the four toggles in `layers-panel.component.ts` and `Layer` in `layer.model.ts`. */
 export const LAYER_STATES: readonly LayerState[] = [
-  { name: 'On / Off', body: 'Layers that are off are not drawn, cannot be picked and are left out of zoom-to-extents.' },
-  { name: 'Freeze / Thaw', body: 'Frozen layers are skipped by the renderer and by extents as well; use it for reference geometry you never want to see.' },
-  { name: 'Lock / Unlock', body: 'Locked layers stay visible but their entities are protected from editing.' },
-  { name: 'Plot / No plot', body: 'A no-plot layer shows on screen and is left out of PDF, SVG and image output. Defpoints is no-plot by default.' },
+  { id: 'onOff', nameKey: 'site.docs.layers.onOff.name', bodyKey: 'site.docs.layers.onOff.body' },
+  { id: 'freeze', nameKey: 'site.docs.layers.freeze.name', bodyKey: 'site.docs.layers.freeze.body' },
+  { id: 'lock', nameKey: 'site.docs.layers.lock.name', bodyKey: 'site.docs.layers.lock.body' },
+  { id: 'plot', nameKey: 'site.docs.layers.plot.name', bodyKey: 'site.docs.layers.plot.body' },
 ];
 
 /* ── Layouts and plotting ──────────────────────────────────────── */
 
 export interface PaperFamily {
-  label: string;
+  id: string;
+  labelKey: string;
+  /** Paper size names; literal. Empty for the custom row, which shows `noteKey` instead. */
   sizes: readonly string[];
+  noteKey?: string;
 }
 
 /** Source: `PAPER_REGISTRY` in `plot-registry.model.ts`, grouped by category. */
 export const PAPER_FAMILIES: readonly PaperFamily[] = [
-  { label: 'ISO', sizes: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6'] },
-  { label: 'ANSI', sizes: ['ANSI A', 'ANSI B', 'ANSI C', 'ANSI D', 'ANSI E'] },
-  { label: 'Architectural', sizes: ['ARCH A', 'ARCH B', 'ARCH C', 'ARCH D', 'ARCH E', 'ARCH E1'] },
-  { label: 'Engineering', sizes: ['B', 'C', 'D', 'E'] },
-  { label: 'Office', sizes: ['Letter', 'Legal', 'Tabloid', 'Ledger'] },
-  { label: 'Custom', sizes: ['Any width and height in mm or inches'] },
+  { id: 'iso', labelKey: 'site.docs.paper.iso', sizes: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6'] },
+  { id: 'ansi', labelKey: 'site.docs.paper.ansi', sizes: ['ANSI A', 'ANSI B', 'ANSI C', 'ANSI D', 'ANSI E'] },
+  { id: 'arch', labelKey: 'site.docs.paper.arch', sizes: ['ARCH A', 'ARCH B', 'ARCH C', 'ARCH D', 'ARCH E', 'ARCH E1'] },
+  { id: 'eng', labelKey: 'site.docs.paper.eng', sizes: ['B', 'C', 'D', 'E'] },
+  { id: 'office', labelKey: 'site.docs.paper.office', sizes: ['Letter', 'Legal', 'Tabloid', 'Ledger'] },
+  { id: 'custom', labelKey: 'site.docs.paper.custom', sizes: [], noteKey: 'site.docs.paper.customNote' },
 ];
 
-/** Source: `SCALE_REGISTRY`. */
+/** Source: `SCALE_REGISTRY`. Literal. */
 export const PLOT_SCALES = {
   metric: ['1:1', '1:2', '1:5', '1:10', '1:20', '1:25', '1:50', '1:75', '1:100', '1:125', '1:150', '1:200', '1:250', '1:500', '1:1000'],
   imperial: ['1/8" = 1\'', '1/4" = 1\'', '3/8" = 1\'', '1/2" = 1\'', '3/4" = 1\'', '1" = 1\''],
 } as const;
 
 export interface PlotOutput {
+  /** File format; literal. */
   format: string;
-  body: string;
+  bodyKey: string;
 }
 
 /** Source: `FORMAT_META` and the presets in `plot-options.model.ts`. */
 export const PLOT_OUTPUTS: readonly PlotOutput[] = [
-  { format: 'PDF', body: 'Vector, with lineweights, searchable text and embedded fonts. Publish writes every layout to one PDF.' },
-  { format: 'SVG', body: 'Vector export of the plotted area.' },
-  { format: 'PNG / JPG', body: 'Raster at 72 to 1200 DPI, or by long edge at 2K, 4K or 8K.' },
-  { format: 'DXF', body: 'The drawing itself, written back out. See DXF compatibility.' },
+  { format: 'PDF', bodyKey: 'site.docs.output.pdf' },
+  { format: 'SVG', bodyKey: 'site.docs.output.svg' },
+  { format: 'PNG / JPG', bodyKey: 'site.docs.output.raster' },
+  { format: 'DXF', bodyKey: 'site.docs.output.dxf' },
 ];
 
 export interface PlotStyleRow {
-  name: string;
-  body: string;
+  id: string;
+  nameKey: string;
+  bodyKey: string;
 }
 
 /** Source: `PlotStyle` in `plot-options.model.ts`. */
 export const PLOT_STYLES: readonly PlotStyleRow[] = [
-  { name: 'Color', body: 'Entity and layer colours plot as stored.' },
-  { name: 'Monochrome', body: 'Everything plots black, the way a CTB monochrome table does.' },
-  { name: 'Grayscale', body: 'Colours are mapped to greys by luminance.' },
+  { id: 'color', nameKey: 'site.docs.plotStyle.color.name', bodyKey: 'site.docs.plotStyle.color.body' },
+  { id: 'monochrome', nameKey: 'site.docs.plotStyle.monochrome.name', bodyKey: 'site.docs.plotStyle.monochrome.body' },
+  { id: 'grayscale', nameKey: 'site.docs.plotStyle.grayscale.name', bodyKey: 'site.docs.plotStyle.grayscale.body' },
 ];
 
 /* ── DXF compatibility ─────────────────────────────────────────── */
 
 export interface DxfRow {
-  area: string;
-  body: string;
+  id: string;
+  areaKey: string;
+  bodyKey: string;
 }
 
 /**
@@ -255,80 +238,99 @@ export interface DxfRow {
  * `dxf-scanner.ts` and `export.service.ts`. Only what is implemented is listed.
  */
 export const DXF_ROUNDTRIP: readonly DxfRow[] = [
-  { area: 'Layers', body: 'Name, colour, on/off, frozen, locked, linetype and lineweight. The drawing’s own LTYPE table and $LTSCALE are read and written, so dashes come back at the same length.' },
-  { area: 'Blocks and attributes', body: 'Block definitions, inserts with scale and rotation, ATTDEF and ATTRIB. BYBLOCK colours resolve through the insert. Anonymous *D and *T blocks are kept.' },
-  { area: 'Text and MText', body: 'STYLE table with per-style fonts, %% escapes, MText formatting codes (\\P, \\pxq, \\Q, \\W, \\U+XXXX), justification anchored at group 11, oblique and width factor. Pre-R2007 files are decoded with their $DWGCODEPAGE.' },
-  { area: 'Dimensions', body: 'DIMSTYLE table, per-entity DIMLFAC and DIMSCALE overrides read from XDATA, DIMDEC, DIMCLRD/E/T, rotated dimensions, the stored text midpoint, \\X stacked text. Verified against the *D blocks AutoCAD writes.' },
-  { area: 'Hatch', body: 'Solid and pattern hatches with their embedded pattern definitions, so a pattern the registry has never heard of still renders from the file. Clockwise and elliptical edges are handled.' },
-  { area: 'Polylines', body: 'Vertices, bulges, constant and tapered widths (which is how AutoCAD draws a filled arrowhead).' },
-  { area: 'Tables, viewports, pictures', body: 'ACAD_TABLE renders from its block. Paper-space VIEWPORTs become the layout’s viewports and write back. OLE2FRAME signature stamps are shown and re-emitted verbatim.' },
-  { area: 'Geometry in other planes', body: 'The extrusion normal (OCS) is honoured, so entities AutoCAD mirrored onto the (0,0,−1) plane land where they belong.' },
-  { area: 'Everything else', body: 'Entity types the editor has no model for are kept as raw records and written back unchanged, so a save does not strip what it did not understand.' },
+  { id: 'layers', areaKey: 'site.docs.dxf.roundtrip.layers.area', bodyKey: 'site.docs.dxf.roundtrip.layers.body' },
+  { id: 'blocks', areaKey: 'site.docs.dxf.roundtrip.blocks.area', bodyKey: 'site.docs.dxf.roundtrip.blocks.body' },
+  { id: 'text', areaKey: 'site.docs.dxf.roundtrip.text.area', bodyKey: 'site.docs.dxf.roundtrip.text.body' },
+  { id: 'dimensions', areaKey: 'site.docs.dxf.roundtrip.dimensions.area', bodyKey: 'site.docs.dxf.roundtrip.dimensions.body' },
+  { id: 'hatch', areaKey: 'site.docs.dxf.roundtrip.hatch.area', bodyKey: 'site.docs.dxf.roundtrip.hatch.body' },
+  { id: 'polylines', areaKey: 'site.docs.dxf.roundtrip.polylines.area', bodyKey: 'site.docs.dxf.roundtrip.polylines.body' },
+  { id: 'tables', areaKey: 'site.docs.dxf.roundtrip.tables.area', bodyKey: 'site.docs.dxf.roundtrip.tables.body' },
+  { id: 'ocs', areaKey: 'site.docs.dxf.roundtrip.ocs.area', bodyKey: 'site.docs.dxf.roundtrip.ocs.body' },
+  { id: 'other', areaKey: 'site.docs.dxf.roundtrip.other.area', bodyKey: 'site.docs.dxf.roundtrip.other.body' },
 ];
 
 export const DXF_LIMITS: readonly DxfRow[] = [
-  { area: 'DWG', body: 'A .dwg can be uploaded to the dashboard, versioned and downloaded, but the editor cannot open it yet. Conversion is planned; today you need a DXF to draw.' },
-  { area: 'Export version', body: 'Export always writes AC1032 (AutoCAD 2018) ASCII DXF. There is no option for an older version or for binary DXF.' },
-  { area: 'MText formatting', body: 'One font and one height per entity. A \\H or \\f code is honoured when it opens the string; a change mid-paragraph is dropped rather than applied to text it never covered.' },
-  { area: '3D', body: 'CADO is a 2D drafter. Z coordinates are read but nothing is modelled or displayed in 3D.' },
-  { area: 'Inconsistent hatch files', body: 'Where a file stores pattern lines at a different scale from what its own header implies, CADO draws what the file says; AutoCAD Web appears to regenerate the pattern instead, so the two can differ.' },
+  { id: 'dwg', areaKey: 'site.docs.dxf.limits.dwg.area', bodyKey: 'site.docs.dxf.limits.dwg.body' },
+  { id: 'version', areaKey: 'site.docs.dxf.limits.version.area', bodyKey: 'site.docs.dxf.limits.version.body' },
+  { id: 'mtext', areaKey: 'site.docs.dxf.limits.mtext.area', bodyKey: 'site.docs.dxf.limits.mtext.body' },
+  { id: 'threeD', areaKey: 'site.docs.dxf.limits.threeD.area', bodyKey: 'site.docs.dxf.limits.threeD.body' },
+  { id: 'hatch', areaKey: 'site.docs.dxf.limits.hatch.area', bodyKey: 'site.docs.dxf.limits.hatch.body' },
 ];
 
 /* ── AI assistant ──────────────────────────────────────────────── */
 
 export interface AiBackend {
-  name: string;
-  where: string;
-  body: string;
+  id: string;
+  nameKey: string;
+  whereKey: string;
+  bodyKey: string;
 }
 
 /** Source: `ai-model.ts`, `ai-model.service.ts`, `llm-gateway.service.ts`. */
 export const AI_BACKENDS: readonly AiBackend[] = [
-  {
-    name: 'Built-in parser',
-    where: 'Runs in the tab',
-    body: 'The default. A rule-based parser that understands colours, layers, lineweights, directions and the current selection. Nothing leaves the browser and no setup is needed.',
-  },
-  {
-    name: 'Ollama',
-    where: 'Your machine or network',
-    body: 'Point the panel at a server URL (default http://localhost:11434) and pick a pulled model. Set OLLAMA_ORIGINS so the browser may call it; an https:// deployment cannot reach an http:// server.',
-  },
-  {
-    name: 'OpenRouter',
-    where: 'Third-party API',
-    body: 'Paste an API key in the panel’s settings. The key is kept in this browser’s localStorage and sent straight to OpenRouter from the browser; a consent notice explains what is shared before the first request.',
-  },
+  { id: 'builtin', nameKey: 'site.docs.ai.backend.builtin.name', whereKey: 'site.docs.ai.backend.builtin.where', bodyKey: 'site.docs.ai.backend.builtin.body' },
+  { id: 'ollama', nameKey: 'site.docs.ai.backend.ollama.name', whereKey: 'site.docs.ai.backend.ollama.where', bodyKey: 'site.docs.ai.backend.ollama.body' },
+  { id: 'openrouter', nameKey: 'site.docs.ai.backend.openrouter.name', whereKey: 'site.docs.ai.backend.openrouter.where', bodyKey: 'site.docs.ai.backend.openrouter.body' },
 ];
 
 export interface AiCapability {
-  group: string;
-  items: readonly string[];
+  id: string;
+  groupKey: string;
+  itemKeys: readonly string[];
 }
 
 /** Source: the tool files in `ai-agent/tools/`. */
 export const AI_CAPABILITIES: readonly AiCapability[] = [
-  { group: 'Select', items: ['Entities by colour, layer, type or the current selection'] },
-  { group: 'Edit entities', items: ['Change colour', 'Change layer', 'Change lineweight', 'Move', 'Delete', 'Replace with a library symbol'] },
-  { group: 'Layers', items: ['Isolate', 'Lock and unlock', 'Show and hide', 'Rename'] },
-  { group: 'Annotate and insert', items: ['Add a dimension to a selected edge', 'Insert a symbol from the library', 'Generate a sheet from a library template'] },
-  { group: 'Sheets and views', items: ['Arrange plan, section and detail views', 'Move a view', 'Zoom to a layer, a selection or extents'] },
+  { id: 'select', groupKey: 'site.docs.ai.cap.select.group', itemKeys: ['site.docs.ai.cap.select.byFilter'] },
+  {
+    id: 'edit',
+    groupKey: 'site.docs.ai.cap.edit.group',
+    itemKeys: [
+      'site.docs.ai.cap.edit.colour',
+      'site.docs.ai.cap.edit.layer',
+      'site.docs.ai.cap.edit.lineweight',
+      'site.docs.ai.cap.edit.move',
+      'site.docs.ai.cap.edit.delete',
+      'site.docs.ai.cap.edit.replace',
+    ],
+  },
+  {
+    id: 'layers',
+    groupKey: 'site.docs.ai.cap.layers.group',
+    itemKeys: ['site.docs.ai.cap.layers.isolate', 'site.docs.ai.cap.layers.lock', 'site.docs.ai.cap.layers.show', 'site.docs.ai.cap.layers.rename'],
+  },
+  {
+    id: 'annotate',
+    groupKey: 'site.docs.ai.cap.annotate.group',
+    itemKeys: ['site.docs.ai.cap.annotate.dimension', 'site.docs.ai.cap.annotate.symbol', 'site.docs.ai.cap.annotate.sheet'],
+  },
+  {
+    id: 'sheets',
+    groupKey: 'site.docs.ai.cap.sheets.group',
+    itemKeys: ['site.docs.ai.cap.sheets.arrange', 'site.docs.ai.cap.sheets.moveView', 'site.docs.ai.cap.sheets.zoom'],
+  },
 ];
 
 export interface RiskRow {
-  cls: string;
+  /** Risk class id as the tools declare it. */
+  cls: 'safe' | 'review' | 'destructive';
+  clsKey: string;
   tone: 'success' | 'warning' | 'danger';
-  body: string;
+  bodyKey: string;
 }
 
 /** Source: `riskClass` in the tools and `ActionRouterService.validate`. */
 export const AI_RISK: readonly RiskRow[] = [
-  { cls: 'safe', tone: 'success', body: 'Reads and navigation: selecting, zooming, describing. Applied at once.' },
-  { cls: 'review', tone: 'warning', body: 'Reversible edits such as recolouring or relayering. Shown with the affected count before they run.' },
-  { cls: 'destructive', tone: 'danger', body: 'Deleting or replacing geometry. Always asks for confirmation first.' },
+  { cls: 'safe', clsKey: 'site.docs.ai.risk.safe.label', tone: 'success', bodyKey: 'site.docs.ai.risk.safe.body' },
+  { cls: 'review', clsKey: 'site.docs.ai.risk.review.label', tone: 'warning', bodyKey: 'site.docs.ai.risk.review.body' },
+  { cls: 'destructive', clsKey: 'site.docs.ai.risk.destructive.label', tone: 'danger', bodyKey: 'site.docs.ai.risk.destructive.body' },
 ];
 
-/** Prompts the built-in parser handles; each is covered by a changelog entry. */
+/**
+ * Prompts the built-in parser handles; each is covered by a changelog entry.
+ * Deliberately literal: the rule-based parser reads English, so a translated
+ * example would be one the reader cannot type.
+ */
 export const AI_EXAMPLES: readonly string[] = [
   'delete the red circles',
   'change all red lines to blue',
@@ -341,33 +343,35 @@ export const AI_EXAMPLES: readonly string[] = [
 /* ── Accounts and cloud ────────────────────────────────────────── */
 
 export interface ConflictAnswer {
-  label: string;
-  body: string;
+  id: string;
+  labelKey: string;
+  bodyKey: string;
 }
 
 /** Source: the conflict dialog in `drawing-persistence.service.ts`. */
 export const CONFLICT_ANSWERS: readonly ConflictAnswer[] = [
-  { label: 'Save as copy', body: 'Keeps both. Your work becomes a new drawing in the same folder and workspace.' },
-  { label: 'Reload latest', body: 'Drops your unsaved changes and opens the version the server has.' },
-  { label: 'Overwrite', body: 'Saves over the other version. It is still in the version history.' },
+  { id: 'copy', labelKey: 'site.docs.cloud.conflict.copy.label', bodyKey: 'site.docs.cloud.conflict.copy.body' },
+  { id: 'reload', labelKey: 'site.docs.cloud.conflict.reload.label', bodyKey: 'site.docs.cloud.conflict.reload.body' },
+  { id: 'overwrite', labelKey: 'site.docs.cloud.conflict.overwrite.label', bodyKey: 'site.docs.cloud.conflict.overwrite.body' },
 ];
 
 export interface RoleRow {
-  role: string;
-  body: string;
+  id: string;
+  roleKey: string;
+  bodyKey: string;
 }
 
 /** Source: `OrgRole` in `api.models.ts`. */
 export const ORG_ROLES: readonly RoleRow[] = [
-  { role: 'Viewer', body: 'Opens and downloads the organization’s drawings. Cannot save, rename or trash.' },
-  { role: 'Member', body: 'Everything a viewer can, plus create, save, rename and trash drawings and folders.' },
-  { role: 'Admin', body: 'Everything a member can, plus invite people and assign viewer, member or admin.' },
-  { role: 'Owner', body: 'Everything an admin can, plus transfer ownership. One per organization.' },
+  { id: 'viewer', roleKey: 'site.docs.cloud.role.viewer.name', bodyKey: 'site.docs.cloud.role.viewer.body' },
+  { id: 'member', roleKey: 'site.docs.cloud.role.member.name', bodyKey: 'site.docs.cloud.role.member.body' },
+  { id: 'admin', roleKey: 'site.docs.cloud.role.admin.name', bodyKey: 'site.docs.cloud.role.admin.body' },
+  { id: 'owner', roleKey: 'site.docs.cloud.role.owner.name', bodyKey: 'site.docs.cloud.role.owner.body' },
 ];
 
 /* ── Languages ─────────────────────────────────────────────────── */
 
-/** Source: the Languages section of README.md; the same set AutoCAD ships. */
+/** Source: the Languages section of README.md; the same set AutoCAD ships. Endonyms; never translated. */
 export const LANGUAGES: readonly string[] = [
   'English', 'Čeština', 'Deutsch', 'Español', 'Français', 'Magyar', 'Italiano',
   '日本語', '한국어', 'Polski', 'Português (Brasil)', 'Русский', '简体中文', '繁體中文',
@@ -375,7 +379,7 @@ export const LANGUAGES: readonly string[] = [
 
 /* ── Embedding ─────────────────────────────────────────────────── */
 
-/** Source: docs/INTEGRATION.md, checked against `cad-editor.ts` and `drawing-transfer.service.ts`. */
+/** Source: docs/INTEGRATION.md, checked against `cad-editor.ts` and `drawing-transfer.service.ts`. Code; literal. */
 export const EMBED_SNIPPETS = {
   api: `readonly id         = input<string>();           // open this stored drawing on init
 readonly initialDxf = input<string>();           // ...or hand it DXF text / a JSON entity payload

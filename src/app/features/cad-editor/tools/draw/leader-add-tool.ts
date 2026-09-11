@@ -10,7 +10,7 @@ import { AddEntityCmd } from '../../core/models/command.model';
 import { hitTestAll } from '../select/select-tool';
 
 /**
- * MLEADERADD â€” Add a new leader arm to an existing leader entity.
+ * MLEADERADD — Add a new leader arm to an existing leader entity.
  *
  * Workflow (mirrors AutoCAD MLEADERADD):
  *   1. Hover + click an existing LeaderEntity.

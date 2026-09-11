@@ -70,7 +70,7 @@ export class CircleTool implements ITool {
    * Handle keyword options from the command bar / DYN chips / keyboard.
    * Mode-switch keys work only before any points are collected so the user
    * can change their mind without restarting the command.
-   * 'D'/'R' (Diameter / Radius) swap the radiusâ†”diameter variant while
+   * 'D'/'R' (Diameter / Radius) swap the radius↔diameter variant while
    * preserving the already-picked center point.
    */
   invokeOption(key: string): boolean {
@@ -211,7 +211,7 @@ export class CircleTool implements ITool {
     return null;
   }
 
-  // â”€â”€ TTR placement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── TTR placement ─────────────────────────────────────────────────────────
 
   private getTtrPreview(): { c: IPoint; r: number } | null {
     if (this.picked.length < 2) return null;
@@ -269,7 +269,7 @@ export class CircleTool implements ITool {
     this.tools.setTool('select');
   }
 
-  // â”€â”€ Drawing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Drawing ───────────────────────────────────────────────────────────────
 
   drawPreview(ctx: CanvasRenderingContext2D): void {
     if (this.mode === 'ttr' || this.mode === 'ttt') {
@@ -437,7 +437,7 @@ export class CircleTool implements ITool {
   }
 }
 
-// â”€â”€ Geometry primitives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Geometry primitives ───────────────────────────────────────────────────────
 
 interface NLine { a: number; b: number; c: number; }
 interface NCirc { cx: number; cy: number; r: number; }
@@ -513,7 +513,7 @@ function pickNearest(pts: IPoint[], cursor: IPoint): IPoint | null {
   );
 }
 
-/** Fixed radius R, two primitives â†’ candidate circle centers. */
+/** Fixed radius R, two primitives → candidate circle centers. */
 function ttrCandidates(p1: Prim, p2: Prim, R: number): IPoint[] {
   const getLoci = (p: Prim): Array<{ kind: 'line'; l: NLine } | { kind: 'circle'; c: NCirc }> => {
     if (p.kind === 'line') {
@@ -544,7 +544,7 @@ function ttrCandidates(p1: Prim, p2: Prim, R: number): IPoint[] {
   return pts;
 }
 
-/** Solves J*delta = rhs for a 3Ã—3 system via Gaussian elimination. */
+/** Solves J*delta = rhs for a 3×3 system via Gaussian elimination. */
 function solve3x3(J: number[][], rhs: number[]): [number, number, number] | null {
   const M = J.map((row, i) => [...row, rhs[i]]);
   for (let col = 0; col < 3; col++) {
@@ -564,7 +564,7 @@ function solve3x3(J: number[][], rhs: number[]): [number, number, number] | null
 
 /** Newton iteration for Apollonius problem: find circle tangent to all 3 primitives. */
 function apolloniusNewton(prims: Prim[], signs: number[], cursor: IPoint): { c: IPoint; r: number } | null {
-  // Initial guess: centroid of entity centers, R â‰ˆ 10% of entity spread
+  // Initial guess: centroid of entity centers, R ≈ 10% of entity spread
   let cx = cursor.x, cy = cursor.y;
   let centerCount = 0;
   for (const p of prims) {

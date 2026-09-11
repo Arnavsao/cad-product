@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { UiIconComponent } from '../../shared/ui/icon.component';
 import { UiLogoComponent } from '../../shared/ui/logo.component';
@@ -13,36 +14,33 @@ import { UiLogoComponent } from '../../shared/ui/logo.component';
   selector: 'app-auth-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiIconComponent, UiLogoComponent],
+  imports: [RouterLink, TranslocoDirective, UiIconComponent, UiLogoComponent],
   template: `
-    <div class="auth">
+    <div class="auth" *transloco="let t">
       <aside class="auth__rail">
-        <a class="brand" routerLink="/" aria-label="CADO home">
+        <a class="brand" routerLink="/" [attr.aria-label]="t('auth.layout.homeAria', { appName })">
           <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
           <span class="brand__name">{{ appName }}</span>
         </a>
         <div class="auth__pitch">
-          <h1>2D CAD that lives in your browser.</h1>
-          <p>
-            Draft with object snaps and associative dimensions, move DXF files in and out, and pick up exactly where
-            you left off — on any machine.
-          </p>
+          <h1>{{ t('auth.layout.pitchTitle') }}</h1>
+          <p>{{ t('auth.layout.pitchBody') }}</p>
           <ul class="auth__points">
-            <li><ui-icon name="check" [size]="14" /> DXF import and export</li>
-            <li><ui-icon name="check" [size]="14" /> Layouts and PDF plotting</li>
-            <li><ui-icon name="check" [size]="14" /> Autosave, recovery and cloud drawings</li>
+            <li><ui-icon name="check" [size]="14" /> {{ t('auth.layout.point1') }}</li>
+            <li><ui-icon name="check" [size]="14" /> {{ t('auth.layout.point2') }}</li>
+            <li><ui-icon name="check" [size]="14" /> {{ t('auth.layout.point3') }}</li>
           </ul>
         </div>
-        <p class="auth__foot">&copy; {{ year }} {{ appName }}</p>
+        <p class="auth__foot">{{ t('auth.layout.copyright', { year, appName }) }}</p>
       </aside>
 
       <main class="auth__main">
         <div class="auth__topbar">
-          <a class="brand brand--compact" routerLink="/" aria-label="CADO home">
+          <a class="brand brand--compact" routerLink="/" [attr.aria-label]="t('auth.layout.homeAria', { appName })">
             <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
             <span class="brand__name">{{ appName }}</span>
           </a>
-          <a class="auth__back" routerLink="/"><ui-icon name="back" [size]="14" /> Back to home</a>
+          <a class="auth__back" routerLink="/"><ui-icon name="back" [size]="14" /> {{ t('auth.layout.backHome') }}</a>
         </div>
         <div class="auth__card">
           <ng-content />

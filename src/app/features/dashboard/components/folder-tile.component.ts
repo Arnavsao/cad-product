@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { FolderDto } from '../../../core/api/api.models';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
@@ -7,6 +8,7 @@ import { UiMenuItem } from '../../../shared/ui/menu/ui-menu.component';
 import { UiMenuTriggerDirective } from '../../../shared/ui/menu/ui-menu-trigger.directive';
 import { folderMenuFor } from './folder-menu';
 import { DRAG_MIME, markDropHandled } from './drag-payload';
+import { injectTranslateFn } from './translate-fn';
 
 /**
  * One folder in the browser: a link to its contents, a kebab, and a drop target.
@@ -32,10 +34,11 @@ import { DRAG_MIME, markDropHandled } from './drag-payload';
   selector: 'app-folder-tile',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiButtonDirective, UiIconComponent, UiMenuTriggerDirective],
+  imports: [TranslocoDirective, RouterLink, UiButtonDirective, UiIconComponent, UiMenuTriggerDirective],
   template: `
     <div
       class="ft"
+      *transloco="let t"
       [class.is-drop-target]="over()"
       [uiMenuTrigger]="menu()"
       [openOnClick]="false"
@@ -65,7 +68,7 @@ import { DRAG_MIME, markDropHandled } from './drag-payload';
           size="sm"
           iconOnly
           class="ft__kebab"
-          [attr.aria-label]="'Actions for ' + folder().name"
+          [attr.aria-label]="t('dashboard.components.item.actionsFor', { name: folder().name })"
           [uiMenuTrigger]="menu()"
           menuAlign="end"
           (uiMenuSelect)="action.emit($event.id)"
@@ -137,13 +140,16 @@ export class FolderTileComponent {
   /** Drawing ids dropped on this folder, to be moved into it. */
   readonly itemsDropped = output<string[]>();
 
+  private readonly t = injectTranslateFn();
+
   protected readonly over = signal(false);
-  protected readonly menu = computed<UiMenuItem[]>(() => folderMenuFor(this.folder()));
+  protected readonly menu = computed<UiMenuItem[]>(() => folderMenuFor(this.folder(), this.t()));
 
   protected readonly sharedLabel = computed<string | null>(() => {
     const folder = this.folder();
-    if (folder.viaShare) return 'Shared with you';
-    return folder.organizationName ? `Shared with ${folder.organizationName}` : null;
+    const t = this.t();
+    if (folder.viaShare) return t('dashboard.components.shared.withYou');
+    return folder.organizationName ? t('dashboard.components.shared.withOrg', { org: folder.organizationName }) : null;
   });
 
   /** dragenter/dragleave fire per child element, so hover uses a depth counter. */

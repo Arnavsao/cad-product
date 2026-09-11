@@ -1,20 +1,21 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiButtonDirective } from '../../../shared/ui/button.directive';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { COMMAND_GROUPS, type CommandGroup } from '../data/site-content';
 import { SiteScreenComponent } from './screen.component';
 import { SiteTab, SiteTabsComponent } from './tabs.component';
 
-/** Which real screenshot best illustrates each command group. */
-const SHOTS: Record<string, { src: string; alt: string; title: string }> = {
-  draw: { src: '/site/editor-model.webp', alt: 'The CADO editor with a bridge general-arrangement drawing open: draw and modify ribbons above, layers and properties rail on the left, command line below.', title: 'RTM-S&C-GAD-BR-NO.384.dxf — Model' },
-  annotate: { src: '/site/editor-detail.webp', alt: 'Zoomed into the drawing: dimension strings, notes and a schedule table rendered with their own fonts and lineweights.', title: 'RTM-S&C-GAD-BR-NO.384.dxf — Model, 1:20' },
-  modify: { src: '/site/editor-model.webp', alt: 'The editor toolbar with Move, Copy, Array, Rotate, Mirror, Trim, Fillet, Offset, Join, Match Properties and Explode.', title: 'RTM-S&C-GAD-BR-NO.384.dxf — Model' },
-  blocks: { src: '/site/editor-blocks.webp', alt: 'The Blocks palette listing the block definitions in the drawing, beside the canvas.', title: 'Blocks palette' },
-  layouts: { src: '/site/editor-layout.webp', alt: 'A paper-space layout tab: the sheet with a viewport framing the model, and the Model and Layout1 tabs in the status bar.', title: 'RTM-S&C-GAD-BR-NO.384.dxf — Layout1' },
-  files: { src: '/site/editor-plot.webp', alt: 'The Plot dialog with paper size, orientation, scale and output format options over the drawing.', title: 'Plot — PDF / PNG / DXF' },
-  ai: { src: '/site/editor-ai.webp', alt: 'The AI Agent panel open beside the drawing, ready for a plain-language instruction.', title: 'AI Agent' },
+/** Which real screenshot best illustrates each command group. `altKey` / `titleKey` are translation keys. */
+const SHOTS: Record<string, { src: string; altKey: string; titleKey: string }> = {
+  draw: { src: '/site/editor-model.webp', altKey: 'site.components.explorer.shots.draw.alt', titleKey: 'site.components.explorer.shots.draw.title' },
+  annotate: { src: '/site/editor-detail.webp', altKey: 'site.components.explorer.shots.annotate.alt', titleKey: 'site.components.explorer.shots.annotate.title' },
+  modify: { src: '/site/editor-model.webp', altKey: 'site.components.explorer.shots.modify.alt', titleKey: 'site.components.explorer.shots.modify.title' },
+  blocks: { src: '/site/editor-blocks.webp', altKey: 'site.components.explorer.shots.blocks.alt', titleKey: 'site.components.explorer.shots.blocks.title' },
+  layouts: { src: '/site/editor-layout.webp', altKey: 'site.components.explorer.shots.layouts.alt', titleKey: 'site.components.explorer.shots.layouts.title' },
+  files: { src: '/site/editor-plot.webp', altKey: 'site.components.explorer.shots.files.alt', titleKey: 'site.components.explorer.shots.files.title' },
+  ai: { src: '/site/editor-ai.webp', altKey: 'site.components.explorer.shots.ai.alt', titleKey: 'site.components.explorer.shots.ai.title' },
 };
 
 /**
@@ -27,37 +28,37 @@ const SHOTS: Record<string, { src: string; alt: string; title: string }> = {
   selector: 'site-explorer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiButtonDirective, UiIconComponent, SiteScreenComponent, SiteTabsComponent],
+  imports: [RouterLink, TranslocoDirective, UiButtonDirective, UiIconComponent, SiteScreenComponent, SiteTabsComponent],
   template: `
-    <site-tabs [tabs]="tabs()" [(active)]="active" [orientation]="orientation()" label="Command groups">
+    <site-tabs *transloco="let t" [tabs]="tabs()" [(active)]="active" [orientation]="orientation()" labelKey="site.components.explorer.commandGroups">
       <div class="ex" [class.ex--stacked]="orientation() === 'vertical'">
         <div class="ex__copy">
-          <p class="site-eyebrow">{{ group().label }}</p>
-          <h3 class="site-h3 ex__title">{{ group().hint }}</h3>
-          <p class="site-body">{{ group().summary }}</p>
+          <p class="site-eyebrow">{{ t(group().labelKey) }}</p>
+          <h3 class="site-h3 ex__title">{{ t(group().hintKey) }}</h3>
+          <p class="site-body">{{ t(group().summaryKey) }}</p>
           <ul class="ex__list">
-            @for (cmd of shown(); track cmd.name) {
+            @for (cmd of shown(); track cmd.id) {
               <li class="ex__cmd">
-                <span class="ex__name">{{ cmd.name }}</span>
+                <span class="ex__name">{{ t(cmd.nameKey) }}</span>
                 <span class="ex__aliases">
                   @for (a of cmd.aliases; track a) { <kbd class="site-kbd">{{ a }}</kbd> }
                 </span>
-                <span class="ex__what">{{ cmd.what }}</span>
+                <span class="ex__what">{{ t(cmd.whatKey) }}</span>
               </li>
             }
           </ul>
           <div class="ex__foot">
             @if (group().commands.length > limit()) {
               <button type="button" uiButton variant="ghost" size="sm" (click)="toggleAll()">
-                {{ showAll() ? 'Show fewer' : 'All ' + group().commands.length + ' commands' }}
+                {{ showAll() ? t('site.components.explorer.showFewer') : t('site.components.explorer.allCommands', { count: group().commands.length }) }}
                 <ui-icon [name]="showAll() ? 'chevron-up-down' : 'chevron-right'" [size]="14" />
               </button>
             }
-            <a class="site-link ex__docs" routerLink="/docs" fragment="commands">Command reference <ui-icon name="chevron-right" [size]="14" /></a>
+            <a class="site-link ex__docs" routerLink="/docs" fragment="commands">{{ t('site.components.explorer.commandReference') }} <ui-icon name="chevron-right" [size]="14" /></a>
           </div>
         </div>
         <div class="ex__shot">
-          <site-screen [src]="shot().src" [alt]="shot().alt" [title]="shot().title" ratio="16 / 10" />
+          <site-screen [src]="shot().src" [alt]="t(shot().altKey)" [title]="t(shot().titleKey)" ratio="16 / 10" />
         </div>
       </div>
     </site-tabs>
@@ -113,7 +114,7 @@ export class SiteExplorerComponent {
   protected readonly showAll = signal(false);
 
   protected readonly tabs = computed<SiteTab[]>(() =>
-    this.groups.map((g) => ({ id: g.id, label: g.label, icon: g.icon, hint: this.orientation() === 'vertical' ? g.hint : undefined })),
+    this.groups.map((g) => ({ id: g.id, labelKey: g.labelKey, icon: g.icon, hintKey: this.orientation() === 'vertical' ? g.hintKey : undefined })),
   );
   protected readonly group = computed<CommandGroup>(() => this.groups.find((g) => g.id === this.active()) ?? this.groups[0]);
   protected readonly shown = computed(() => (this.showAll() ? this.group().commands : this.group().commands.slice(0, this.limit())));

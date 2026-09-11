@@ -1,12 +1,16 @@
 import { ChangeDetectionStrategy, Component, input, model, signal } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 
-/** A callout pinned to a point on the screenshot, in percentages of its box. */
+/**
+ * A callout pinned to a point on the screenshot, in percentages of its box.
+ * The prose fields hold translation keys, resolved here.
+ */
 export interface ScreenHotspot {
   id: string;
   x: number;
   y: number;
-  label: string;
-  detail: string;
+  labelKey: string;
+  detailKey: string;
 }
 
 /**
@@ -24,8 +28,9 @@ export interface ScreenHotspot {
   selector: 'site-screen',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [TranslocoDirective],
   template: `
-    <figure class="scr">
+    <figure class="scr" *transloco="let t">
       <div class="scr__bar" aria-hidden="true">
         <span class="scr__dots"><i></i><i></i><i></i></span>
         <span class="scr__title">{{ title() }}</span>
@@ -47,7 +52,7 @@ export interface ScreenHotspot {
             [class.scr__spot--on]="active() === spot.id"
             [style.left.%]="spot.x"
             [style.top.%]="spot.y"
-            [attr.aria-label]="spot.label"
+            [attr.aria-label]="t(spot.labelKey)"
             [attr.aria-pressed]="active() === spot.id"
             (click)="active.set(active() === spot.id ? null : spot.id)"
             (mouseenter)="hover.set(spot.id)"
@@ -59,8 +64,8 @@ export interface ScreenHotspot {
           </button>
           @if ((active() === spot.id || hover() === spot.id)) {
             <div class="scr__tip" role="status" [style.left.%]="spot.x" [style.top.%]="spot.y" [class.scr__tip--left]="spot.x > 60" [class.scr__tip--up]="spot.y > 70">
-              <strong>{{ spot.label }}</strong>
-              <span>{{ spot.detail }}</span>
+              <strong>{{ t(spot.labelKey) }}</strong>
+              <span>{{ t(spot.detailKey) }}</span>
             </div>
           }
         }

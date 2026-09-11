@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { UiIconComponent, UiIconName } from '../../../shared/ui/icon.component';
 import { RELEASE_NOTES } from '../../about/release-notes';
 import { SiteClosingComponent } from '../components/closing.component';
@@ -12,20 +13,23 @@ import { SiteRevealDirective } from '../motion/reveal.directive';
 interface ArchBlock {
   id: string;
   icon: UiIconName;
-  title: string;
+  titleKey: string;
+  /** The stack it is built on: product names, never translated. */
   tech: string;
-  does: readonly string[];
+  doesKeys: readonly string[];
 }
 
 interface Candour {
-  title: string;
-  body: string;
+  id: string;
+  titleKey: string;
+  bodyKey: string;
 }
 
 interface FooterLink {
+  id: string;
   icon: UiIconName;
-  label: string;
-  hint: string;
+  labelKey: string;
+  hintKey: string;
   link: string;
 }
 
@@ -33,63 +37,51 @@ const ARCHITECTURE: readonly ArchBlock[] = [
   {
     id: 'browser',
     icon: 'grid',
-    title: 'Your browser',
+    titleKey: 'site.about.arch.browser.title',
     tech: 'Angular, zoneless, signals',
-    does: ['DXF parsing in a Web Worker', 'Rendering, snapping, hatching', 'Layouts and plotting to PDF, SVG, PNG', 'The AI assistant, talking to your model'],
+    doesKeys: ['site.about.arch.browser.does1', 'site.about.arch.browser.does2', 'site.about.arch.browser.does3', 'site.about.arch.browser.does4'],
   },
   {
     id: 'api',
     icon: 'cloud',
-    title: 'The API',
+    titleKey: 'site.about.arch.api.title',
     tech: 'NestJS, Postgres',
-    does: ['Identity and organizations', 'Drawing metadata and folders', 'A version number for every save', 'Conflicts caught, never merged silently'],
+    doesKeys: ['site.about.arch.api.does1', 'site.about.arch.api.does2', 'site.about.arch.api.does3', 'site.about.arch.api.does4'],
   },
   {
     id: 'storage',
     icon: 'folder',
-    title: 'Object storage',
+    titleKey: 'site.about.arch.storage.title',
     tech: 'S3-compatible',
-    does: ['The DXF text of every version', 'Thumbnails', 'MinIO in development', 'R2 or S3 in production'],
+    doesKeys: ['site.about.arch.storage.does1', 'site.about.arch.storage.does2', 'site.about.arch.storage.does3', 'site.about.arch.storage.does4'],
   },
   {
     id: 'vendors',
     icon: 'shield',
-    title: 'Two vendors',
+    titleKey: 'site.about.arch.vendors.title',
     tech: 'Supabase Auth, Dodo Payments',
-    does: ['Sign-in and sessions by Supabase', 'Subscriptions by Dodo, off until configured', 'Neither one ever sees a drawing'],
+    doesKeys: ['site.about.arch.vendors.does1', 'site.about.arch.vendors.does2', 'site.about.arch.vendors.does3'],
   },
 ];
 
 const CANDOUR: readonly Candour[] = [
-  {
-    title: 'There is no 3D.',
-    body: 'CADO is a 2D drafting editor. A phased plan for parametric 3D exists as a document; nothing from it is implemented, and nothing on this site should read as if it were.',
-  },
-  {
-    title: 'Thirteen of the fourteen languages are drafts.',
-    body: 'The non-English interface strings follow AutoCAD’s terminology per language but have not been reviewed by native-speaking drafters. English is the reference.',
-  },
-  {
-    title: 'The Free tier’s limits are not enforced yet.',
-    body: 'Three drawings and 50 MB are recorded against your account today and will be applied once billing goes live. Until then nothing stops you at the line.',
-  },
-  {
-    title: 'The legal pages are drafts.',
-    body: 'Terms of Service and the Privacy Policy carry a banner saying so. They will be replaced by reviewed versions before we take payment.',
-  },
+  { id: 'threeD', titleKey: 'site.about.candour.threeD.title', bodyKey: 'site.about.candour.threeD.body' },
+  { id: 'languages', titleKey: 'site.about.candour.languages.title', bodyKey: 'site.about.candour.languages.body' },
+  { id: 'freeTier', titleKey: 'site.about.candour.freeTier.title', bodyKey: 'site.about.candour.freeTier.body' },
+  { id: 'legal', titleKey: 'site.about.candour.legal.title', bodyKey: 'site.about.candour.legal.body' },
 ];
 
 const LINKS: readonly FooterLink[] = [
-  { icon: 'star', label: 'What’s new', hint: 'Release notes, newest first.', link: '/whats-new' },
-  { icon: 'file', label: 'Documentation', hint: 'Getting started, the command reference, DXF notes.', link: '/docs' },
-  { icon: 'mail', label: 'Contact', hint: 'Questions, team plans, bug reports.', link: '/contact' },
+  { id: 'whatsNew', icon: 'star', labelKey: 'site.about.link.whatsNew.label', hintKey: 'site.about.link.whatsNew.hint', link: '/whats-new' },
+  { id: 'docs', icon: 'file', labelKey: 'site.about.link.docs.label', hintKey: 'site.about.link.docs.hint', link: '/docs' },
+  { id: 'contact', icon: 'mail', labelKey: 'site.about.link.contact.label', hintKey: 'site.about.link.contact.hint', link: '/contact' },
 ];
 
 @Component({
   selector: 'app-about-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, UiIconComponent, SiteHeadingComponent, SiteClosingComponent, SiteRevealDirective],
+  imports: [DatePipe, RouterLink, TranslocoDirective, UiIconComponent, SiteHeadingComponent, SiteClosingComponent, SiteRevealDirective],
   templateUrl: './about.page.html',
   styleUrl: './about.page.scss',
 })
@@ -108,14 +100,15 @@ export class AboutPage {
     return null;
   }
 
-  protected statusLabel(status: Milestone['status']): string {
+  /** Translation key of the pill label for a milestone's status. */
+  protected statusKey(status: Milestone['status']): string {
     switch (status) {
       case 'shipped':
-        return 'Shipped';
+        return 'site.about.status.shipped';
       case 'now':
-        return 'Now';
+        return 'site.about.status.now';
       default:
-        return 'Planned';
+        return 'site.about.status.planned';
     }
   }
 }

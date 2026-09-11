@@ -1,6 +1,7 @@
 import { HttpEventType } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
 import { DrawingSummaryDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { ApiError } from '../../../core/services/http-manager.service';
@@ -56,6 +57,7 @@ export class UploadService {
   private readonly drawings = inject(DrawingsApiService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
 
   private seq = 0;
 
@@ -74,11 +76,11 @@ export class UploadService {
     const accepted: File[] = [];
     for (const file of files) {
       if (!isAccepted(file)) {
-        this.notify.error(`${file.name} is not a DXF or DWG file.`);
+        this.notify.error(this.t('dashboard.components.upload.notDxfDwg', { name: file.name }));
         continue;
       }
       if (file.size > MAX_UPLOAD_BYTES) {
-        this.notify.error(`${file.name} is larger than the 50 MB upload limit.`);
+        this.notify.error(this.t('dashboard.components.upload.tooLarge', { name: file.name }));
         continue;
       }
       accepted.push(file);
@@ -125,13 +127,13 @@ export class UploadService {
 
       this.patch(id, { state: 'done', drawingId: drawing.id });
       if (drawing.format === 'dwg') {
-        this.notify.warning(`${drawing.name} was imported. DWG drawings can be stored and downloaded, but not opened in the editor yet.`, 7000);
+        this.notify.warning(this.t('dashboard.components.upload.importedDwg', { name: drawing.name }), 7000);
       } else {
-        this.notify.success(`${drawing.name} was imported.`);
+        this.notify.success(this.t('dashboard.components.upload.imported', { name: drawing.name }));
       }
       return drawing;
     } catch (e) {
-      const message = uploadMessage(e, file.name);
+      const message = this.uploadMessage(e, file.name);
       this.patch(id, { state: 'error', message });
       this.notify.error(message);
       return null;
@@ -156,6 +158,31 @@ export class UploadService {
   private patch(id: string, patch: Partial<UploadTask>): void {
     this.tasks.update((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   }
+
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.transloco.translate(key, params);
+  }
+
+  /** Turn the documented `ApiError` statuses into something a person can act on. */
+  private uploadMessage(e: unknown, name: string): string {
+    if (e instanceof ApiError) {
+      switch (e.status) {
+        case 413:
+          return this.t('dashboard.components.upload.tooLarge', { name });
+        case 415:
+          return this.t('dashboard.components.upload.unsupportedType', { name });
+        case 422:
+          return this.t('dashboard.components.upload.unreadable', { name });
+        case 404:
+          return this.t('dashboard.components.upload.expired', { name });
+        case 0:
+          return this.t('dashboard.components.upload.network', { name });
+        default:
+          return e.message || this.t('dashboard.components.upload.failed', { name });
+      }
+    }
+    return this.t('dashboard.components.upload.failed', { name });
+  }
 }
 
 function extensionOf(name: string): string {
@@ -169,25 +196,4 @@ function isAccepted(file: File): boolean {
 
 function contentTypeOf(file: File): string {
   return CONTENT_TYPES[extensionOf(file.name)] ?? 'application/octet-stream';
-}
-
-/** Turn the documented `ApiError` statuses into something a person can act on. */
-function uploadMessage(e: unknown, fileName: string): string {
-  if (e instanceof ApiError) {
-    switch (e.status) {
-      case 413:
-        return `${fileName} is larger than the 50 MB upload limit.`;
-      case 415:
-        return `${fileName} is not a supported file type — upload a .dxf or .dwg file.`;
-      case 422:
-        return `${fileName} could not be read as a CAD drawing. It may be corrupt or saved in an unsupported version.`;
-      case 404:
-        return `The upload of ${fileName} expired before it finished. Please try again.`;
-      case 0:
-        return `${fileName} could not be uploaded — check your network connection.`;
-      default:
-        return e.message || `${fileName} could not be uploaded.`;
-    }
-  }
-  return `${fileName} could not be uploaded.`;
 }

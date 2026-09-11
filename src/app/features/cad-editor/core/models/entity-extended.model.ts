@@ -9,7 +9,7 @@ import { HatchRendererService } from '../services/hatch-renderer.service';
 import { TextLayoutEngine, type ITextLayout, type ITextLayoutOptions } from '../utils/text-layout-engine';
 import { decodeTextCodes, splitDimensionText, splitTextLines } from '../utils/text-control-codes';
 /**
- * Stubs for extended entity types â€” enough fidelity for DXF round-trip + basic rendering.
+ * Stubs for extended entity types — enough fidelity for DXF round-trip + basic rendering.
  * The full implementation (MTEXT wrap, hatch patterns, spline De Boor, etc.) lives in
  * 12-entities-extended.js and will be ported in a follow-up.
  */
@@ -37,14 +37,14 @@ export type TextJustify =
  *   valign: 0=baseline, 1=bottom, 2=middle, 3=top
  *
  * halign 3 (aligned) and 5 (fit) scale text between two points and don't have a
- * single 9-point equivalent â€” we fall back to 'BL' for those.
+ * single 9-point equivalent — we fall back to 'BL' for those.
  */
 export function dxfAlignToJustify(halign?: number, valign?: number): TextJustify {
-  if (halign === 4) return 'MC'; // DXF "Middle" â€” geometric center
+  if (halign === 4) return 'MC'; // DXF "Middle" — geometric center
   const v: 'T' | 'M' | 'B' =
     valign === 3 ? 'T'
       : valign === 2 ? 'M'
-        : 'B'; // 0=baseline, 1=bottom â†’ B
+        : 'B'; // 0=baseline, 1=bottom → B
   const h: 'L' | 'C' | 'R' =
     halign === 1 ? 'C'
       : halign === 2 ? 'R'
@@ -94,7 +94,7 @@ export class TextEntity extends Entity {
   overline = false;
   textFrame = false;
   /**
-   * 9-point justification â€” matches AutoCAD's TEXT entity. First letter is
+   * 9-point justification — matches AutoCAD's TEXT entity. First letter is
    * vertical anchor (T=top, M=middle, B=baseline/bottom), second letter is
    * horizontal anchor (L=left, C=center, R=right). Default 'BL' = baseline-left,
    * which matches AutoCAD's no-explicit-alignment TEXT default.
@@ -107,9 +107,9 @@ export class TextEntity extends Entity {
   lineSpacing = 1.2;
   /** Extra space between glyphs, in world units. Requires CanvasRenderingContext2D.letterSpacing. */
   charSpacing = 0;
-  /** DXF group 41 â€” horizontal scale factor. 1.0 = normal, <1 compresses, >1 stretches. */
+  /** DXF group 41 — horizontal scale factor. 1.0 = normal, <1 compresses, >1 stretches. */
   widthFactor = 1;
-  /** DXF group 51 â€” oblique angle in radians. Positive = lean right (skewX). */
+  /** DXF group 51 — oblique angle in radians. Positive = lean right (skewX). */
   obliqueAngle = 0;
   /** When true, paint a filled rectangle behind each line (uses backgroundColor). */
   backgroundMask = false;
@@ -121,7 +121,7 @@ export class TextEntity extends Entity {
   private _cachedBbox: import('./entity.model').IBBox | null = null;
   private _cachedTextMetrics: Map<string, number> = new Map();
 
-  /** Back-compat read accessor â€” reflects the horizontal half of `justify`. */
+  /** Back-compat read accessor — reflects the horizontal half of `justify`. */
   get align(): 'left' | 'center' | 'right' {
     const h = this.justify[1];
     return h === 'L' ? 'left' : h === 'R' ? 'right' : 'center';
@@ -658,7 +658,7 @@ export interface IDxfHatchData {
 export class HatchEntity extends Entity {
   /** Raw boundary loops (used when not associative). */
   boundaries: IHatchEdge[][];
-  /** IDs of boundary entities â€” populated when `associative` is true. */
+  /** IDs of boundary entities — populated when `associative` is true. */
   boundaryEntIds: number[] = [];
 
   /**
@@ -667,11 +667,11 @@ export class HatchEntity extends Entity {
    * `boundaryEntIds` remain populated in parallel for one release cycle.
    *
    * `null` means the entity was created before Phase 3 (imported DXF or
-   * old in-memory hatch) â€” `draw()` falls through to the legacy path.
+   * old in-memory hatch) — `draw()` falls through to the legacy path.
    */
   boundarySpec: IHatchBoundarySpec | null = null;
 
-  // Pattern definition â€” `pattern`/`scale`/`angle` are the AutoCAD names.
+  // Pattern definition — `pattern`/`scale`/`angle` are the AutoCAD names.
   // Legacy aliases `patternName`/`patternScale`/`patternAngle` proxy to them
   // for backward-compat with the previous TS stub.
   pattern: string;
@@ -1151,13 +1151,13 @@ export class HatchEntity extends Entity {
    * Override to deep-clone hatch-specific nested structures that the base
    * Entity.clone() cannot reach with its shallow-object copy:
    *
-   *  - `boundarySpec` is a nested object tree (IBoundarySpec â†’ IBoundaryLoop[]
-   *    â†’ IFrozenEdge[]) that the base clone assigns BY REFERENCE.  Without
+   *  - `boundarySpec` is a nested object tree (IBoundarySpec → IBoundaryLoop[]
+   *    → IFrozenEdge[]) that the base clone assigns BY REFERENCE.  Without
    *    this override ExplodeInsertCmd.transformHatch() would mutate the
    *    original block-definition's hatch spec, corrupting repeated explodes
    *    and undo.
    *
-   *  - `customPatternLines` is an array of plain objects â€” already handled by
+   *  - `customPatternLines` is an array of plain objects — already handled by
    *    the base clone's one-level shallow copy, but we re-copy it here for
    *    clarity and future-proofing.
    *
@@ -1551,7 +1551,7 @@ export class XLineEntity extends Entity {
   /**
    * Distance (world units) from base to the direction-control grip.
    * Large enough to survive moderate zoom changes; the grip is a
-   * purely UI artifact â€” the infinite line itself has no "second end".
+   * purely UI artifact — the infinite line itself has no "second end".
    */
   static readonly DIR_GRIP_DIST = 10;
 
@@ -1579,7 +1579,7 @@ export class XLineEntity extends Entity {
    * Hit-test against the INFINITE line, not just the base point.
    * Computes the perpendicular screen-space distance from (sx, sy) to the
    * line passing through the base point with the stored angle. Returns true
-   * when that distance is within `tol` pixels â€” matching AutoCAD's own
+   * when that distance is within `tol` pixels — matching AutoCAD's own
    * pick-box tolerance for XLINE selection.
    */
   override hitTest(sx: number, sy: number, vm: ViewModelLike, tol = 6): boolean {
@@ -1602,8 +1602,8 @@ export class XLineEntity extends Entity {
 
   /**
    * Two grip points:
-   *   1. Base point â€” the defining anchor (move translates the whole line)
-   *   2. Direction handle â€” 10 world units along the angle (drag rotates)
+   *   1. Base point — the defining anchor (move translates the whole line)
+   *   2. Direction handle — 10 world units along the angle (drag rotates)
    */
   override snapPoints(): ISnapPoint[] {
     const L = XLineEntity.DIR_GRIP_DIST;
@@ -1614,7 +1614,7 @@ export class XLineEntity extends Entity {
   }
 
   /**
-   * bbox() intentionally returns a tiny stub â€” XLINEs are excluded from
+   * bbox() intentionally returns a tiny stub — XLINEs are excluded from
    * zoom-extents (view-model.service.ts documents this explicitly) because
    * they are infinite. Window/crossing selection uses dedicated logic in
    * select-tool.ts instead of relying on bbox.
@@ -1623,7 +1623,7 @@ export class XLineEntity extends Entity {
     return { x: this.x - 1, y: this.y - 1, w: 2, h: 2 };
   }
 
-  /** Angle in degrees (read-only derived â€” exposed to Properties Panel). */
+  /** Angle in degrees (read-only derived — exposed to Properties Panel). */
   get angleDeg(): number {
     return ((this.angle * 180) / Math.PI + 360) % 360;
   }
@@ -1653,7 +1653,7 @@ export class LeaderEntity extends Entity {
   text: string;
   height: number;
 
-  // Text style â€” shared shape with TextEntity so the universal text editor
+  // Text style — shared shape with TextEntity so the universal text editor
   // (TextEditorOverlayComponent) can edit Leader annotation text using the
   // same toolbar / textarea path it uses for TEXT/MTEXT.
   font = 'Arial';
@@ -1717,7 +1717,7 @@ export class LeaderEntity extends Entity {
     if (this.pts.length < 2) return;
     this.setupContext(ctx, vm, doc, byBlockColor);
 
-    // 1. Polyline (arrow tip â†’ bend â†’ ... â†’ last vertex) + auto landing line.
+    // 1. Polyline (arrow tip → bend → ... → last vertex) + auto landing line.
     ctx.beginPath();
     const p0 = vm.w2s(this.pts[0].x, this.pts[0].y);
     ctx.moveTo(p0.x, p0.y);
@@ -1730,7 +1730,7 @@ export class LeaderEntity extends Entity {
     ctx.lineTo(sEnd.x, sEnd.y);
     ctx.stroke();
 
-    // 2. Arrowhead at pts[0], pointing along pts[0] â†’ pts[1] (in screen space).
+    // 2. Arrowhead at pts[0], pointing along pts[0] → pts[1] (in screen space).
     const a = vm.w2s(this.pts[0].x, this.pts[0].y);
     const b = vm.w2s(this.pts[1].x, this.pts[1].y);
     const adx = b.x - a.x;
@@ -1741,7 +1741,7 @@ export class LeaderEntity extends Entity {
       drawArrowHead(ctx, a, adx / aLen, ady / aLen, arrowPx, this.arrowType, this.arrowAspect);
     }
 
-    // 3. Annotation text â€” anchored at textInsertion(), middle-baseline,
+    // 3. Annotation text — anchored at textInsertion(), middle-baseline,
     //    horiz align follows attachmentSide. Mirrors TextEntity.draw() so the
     //    universal TextEditor's positioning math lines up with what we render.
     if (this.text && this.text.length) {
@@ -1889,8 +1889,8 @@ export type { DimArrowType };
  * Linear (aligned) dimension.
  *
  * Geometry is defined by three points:
- *   - `p1`, `p2`  â€” the two measurement origins (extension-line bases)
- *   - `dimLinePoint` â€” any world point that lies on the dimension line; its
+ *   - `p1`, `p2`  — the two measurement origins (extension-line bases)
+ *   - `dimLinePoint` — any world point that lies on the dimension line; its
  *     perpendicular projection from the p1-p2 axis determines the dim-line
  *     offset AND which side of the measurement the dimension is drawn on.
  *
@@ -1914,7 +1914,7 @@ export class DimensionEntity extends Entity {
   styleName = 'Standard';
 
   /**
-   * Per-entity style overrides. `null` â†’ inherit from the named style.
+   * Per-entity style overrides. `null` → inherit from the named style.
    * AutoCAD calls these "dimension overrides"; setting any non-null value here
    * wins over the style without modifying the style itself.
    */
@@ -1980,17 +1980,17 @@ export class DimensionEntity extends Entity {
   actualMeasurement: number | null = null;
 
   /**
-   * Per-entity text placement override. `null` â†’ inherit from named style.
+   * Per-entity text placement override. `null` → inherit from named style.
    *
-   *   'auto'    â†’ smart: inside when space permits, outside with jog leader otherwise
-   *   'inside'  â†’ always between extension lines
-   *   'outside' â†’ always outside extension lines with jog leader
-   *   'above'   â†’ centred above the dim line (offset = 0 on perpendicular axis)
+   *   'auto'    → smart: inside when space permits, outside with jog leader otherwise
+   *   'inside'  → always between extension lines
+   *   'outside' → always outside extension lines with jog leader
+   *   'above'   → centred above the dim line (offset = 0 on perpendicular axis)
    */
   textPlacement: DimTextPlacement | null = null;
 
   /**
-   * Display text override. `null` â†’ use formatted measured length.
+   * Display text override. `null` → use formatted measured length.
    * If non-null, any literal `<>` substring is replaced with the formatted
    * measurement (matches AutoCAD's DIMTAD/Mtext placeholder convention).
    */
@@ -2094,8 +2094,8 @@ export class DimensionEntity extends Entity {
 
   /**
    * Associative anchors. When set, p1/p2 are re-resolved from the source
-   * entity's snap point on every render â€” editing the source updates this
-   * dimension live. `null` â†’ static (non-associative); p1/p2 are authoritative.
+   * entity's snap point on every render — editing the source updates this
+   * dimension live. `null` → static (non-associative); p1/p2 are authoritative.
    */
   anchor1: IDimAnchor | null = null;
   anchor2: IDimAnchor | null = null;
@@ -2139,7 +2139,7 @@ export class DimensionEntity extends Entity {
    * undo, redo) propagate to this dimension on the next render.
    *
    * If the source entity is gone (deleted, undone, on a different file), the
-   * anchor is silently ignored and the dimension keeps its last good p1/p2 â€”
+   * anchor is silently ignored and the dimension keeps its last good p1/p2 —
    * "graceful orphan" behavior. We do NOT auto-clear the anchor here, so a
    * subsequent undo that restores the source will re-engage the link.
    */
@@ -2188,7 +2188,7 @@ export class DimensionEntity extends Entity {
   /**
    * Resolve effective property value for display in the Properties Panel.
    * For nullable per-entity override fields, resolve through:
-   *   1. Entity override (if non-null) â†’ use it directly
+   *   1. Entity override (if non-null) → use it directly
    *   2. Dynamic length-based sizing (for arrowSize, textHeight, textOffset, etc.)
    *   3. Named DimensionStyle fallback
    * This ensures the panel never shows empty inputs for dimension properties.
@@ -2208,7 +2208,7 @@ export class DimensionEntity extends Entity {
     if (raw !== null && raw !== undefined) return raw;
 
     if (!STYLE_KEYS.includes(key)) {
-      // textOverride: null means "use measured length" â†’ show empty (user clears to reset)
+      // textOverride: null means "use measured length" → show empty (user clears to reset)
       if (key === 'textOverride') return '';
       return raw;
     }
@@ -2283,7 +2283,7 @@ export class DimensionEntity extends Entity {
     let extensionPast = this.extensionPast ?? s.extensionPast;
     const textPlacement = this.textPlacement ?? s.textPlacement ?? 'auto';
 
-    // â”€â”€ Annotative & Global Scaling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Annotative & Global Scaling ──────────────────────────────────────────────
     // If marked annotative, we inverse-scale by the current annotation scale
     // (either the Viewport camScale, or CANNOSCALE in model space).
     // Otherwise, we scale by the style's globalScale (DIMSCALE).
@@ -2313,7 +2313,7 @@ export class DimensionEntity extends Entity {
       }
     }
 
-    // Signed perpendicular distance from p1â€“p2 axis to the dim line.
+    // Signed perpendicular distance from p1–p2 axis to the dim line.
     const ox = this.dimLinePoint.x - this.p1.x;
     const oy = this.dimLinePoint.y - this.p1.y;
     const signedOffset = ox * f.nx + oy * f.ny;
@@ -2339,7 +2339,7 @@ export class DimensionEntity extends Entity {
 
     this.setupContext(ctx, vm, doc, byBlockColor);
 
-    // â”€â”€ Text metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Text metrics ────────────────────────────────────────────────────────
     // DIMLFAC is applied inside resolveDisplayText, and `%%` codes are decoded
     // so a `%%C`-prefixed override reads as `Ø` rather than as its escape.
     const rawText = decodeTextCodes(this.resolveDisplayText(s)).text;
@@ -2428,7 +2428,7 @@ export class DimensionEntity extends Entity {
 
     let isCentered = (!useOutsideText && (textPlacement === 'auto' || textPlacement == null));
 
-    // â”€â”€ Flip sign: controls which side of the dim line text appears on â”€â”€â”€â”€â”€â”€
+    // ── Flip sign: controls which side of the dim line text appears on ──────
     // textFlipped swaps the perpendicular sign; isCentered pins offset to 0.
     const flipSign = this.textFlipped ? -1 : 1;
     const perpFactor = isCentered ? 0 : flipSign;
@@ -2459,7 +2459,7 @@ export class DimensionEntity extends Entity {
 
     const sTextPos = vm.w2s(textPosWorld.x, textPosWorld.y);
 
-    // â”€â”€ Extension lines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Extension lines ─────────────────────────────────────────
     ctx.save();
     if ((s as any).extLineColor && (s as any).extLineColor.toLowerCase() !== 'byblock' && (s as any).extLineColor.toLowerCase() !== 'bylayer') {
       ctx.strokeStyle = (s as any).extLineColor.toLowerCase();
@@ -2470,7 +2470,7 @@ export class DimensionEntity extends Entity {
     ctx.stroke();
     ctx.restore();
 
-    // â”€â”€ Dim line â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Dim line ─────────────────────────────────────────────────
     ctx.save();
     if ((s as any).dimLineColor && (s as any).dimLineColor.toLowerCase() !== 'byblock' && (s as any).dimLineColor.toLowerCase() !== 'bylayer') {
       ctx.strokeStyle = (s as any).dimLineColor.toLowerCase();
@@ -2510,7 +2510,7 @@ export class DimensionEntity extends Entity {
     }
     ctx.stroke();
 
-    // â”€â”€ Text angle (derived from screen dim-line direction) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Text angle (derived from screen dim-line direction) ─────────────────
     let angle = this.textRotationOverride != null
       ? -this.textRotationOverride
       : Math.atan2(sdy, sdx);
@@ -2792,9 +2792,9 @@ export class DimensionEntity extends Entity {
       { key: 'isAnnotative', label: 'Annotative', type: 'boolean', category: 'Style' },
 
       { key: 'length', label: 'Length', type: 'read-only', category: 'Geometry', value: this.length.toFixed(3) },
-      { key: 'anchor1Status', label: 'Anchor 1', type: 'read-only', category: 'Geometry', value: this.anchor1 ? `Attached â†’ #${this.anchor1.entityId}` : 'Detached' },
+      { key: 'anchor1Status', label: 'Anchor 1', type: 'read-only', category: 'Geometry', value: this.anchor1 ? `Attached → #${this.anchor1.entityId}` : 'Detached' },
       ...(this.anchor1 ? [{ key: 'anchor1', label: 'Detach Anchor 1', type: 'action-button', category: 'Geometry', value: null } as IPropertySchema] : []),
-      { key: 'anchor2Status', label: 'Anchor 2', type: 'read-only', category: 'Geometry', value: this.anchor2 ? `Attached â†’ #${this.anchor2.entityId}` : 'Detached' },
+      { key: 'anchor2Status', label: 'Anchor 2', type: 'read-only', category: 'Geometry', value: this.anchor2 ? `Attached → #${this.anchor2.entityId}` : 'Detached' },
       ...(this.anchor2 ? [{ key: 'anchor2', label: 'Detach Anchor 2', type: 'action-button', category: 'Geometry', value: null } as IPropertySchema] : []),
 
       { key: 'textOverride', label: 'Text Override', type: 'text', category: 'Text' },
@@ -3003,7 +3003,7 @@ export class ViewportEntity extends Entity {
     const top = Math.min(a.y, b.y);
     const bottom = Math.max(a.y, b.y);
 
-    // Viewport is an outline â€” hit test the edges, not the fill.
+    // Viewport is an outline — hit test the edges, not the fill.
     if (pointToScreenSegmentDist(sx, sy, { x: left, y: top }, { x: right, y: top }) <= tol) return true;
     if (pointToScreenSegmentDist(sx, sy, { x: right, y: top }, { x: right, y: bottom }) <= tol) return true;
     if (pointToScreenSegmentDist(sx, sy, { x: right, y: bottom }, { x: left, y: bottom }) <= tol) return true;
@@ -4254,7 +4254,7 @@ export class ArcLengthDimensionEntity extends Entity {
     ctx.textBaseline = 'middle';
     ctx.clearRect(-tw / 2 - 2, -heightPx / 2 - 2, tw + 4, heightPx + 4);
     ctx.fillText(textStr, 0, 0);
-    // Arc symbol (âŒ’) above text
+    // Arc symbol (⌒) above text
     ctx.font = `${heightPx * 0.7}px sans-serif`;
     ctx.fillText('\u2312', 0, -heightPx);
     ctx.restore();

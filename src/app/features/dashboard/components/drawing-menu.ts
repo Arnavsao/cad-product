@@ -1,5 +1,9 @@
 import { AccessLevel, DrawingFormat, DrawingSummaryDto } from '../../../core/api/api.models';
 import { UiMenuItem } from '../../../shared/ui/menu/ui-menu.component';
+import type { TranslateFn } from './translate-fn';
+
+/** Key prefix shared by the drawing and folder menus — same words, one translation. */
+const MENU = 'dashboard.components.menu.';
 
 /** Every action a drawing card / row can raise. */
 export type DrawingAction =
@@ -68,35 +72,38 @@ export function downloadNameFor(name: string, format: DrawingFormat): string {
  * - **The download label names no format.** It used to say "Download DXF" on
  *   DWG rows; the extension now comes from `drawing.format` (see
  *   `downloadNameFor`) and the label just says Download.
+ *
+ * `t` translates the labels (see `injectTranslateFn`); the builder stays a pure
+ * function so the spec can pin each level to its actions without a TestBed.
  */
-export function drawingMenuFor(drawing: DrawingSummaryDto): UiMenuItem[] {
+export function drawingMenuFor(drawing: DrawingSummaryDto, t: TranslateFn): UiMenuItem[] {
   const level = accessOf(drawing);
-  const items: UiMenuItem[] = [{ id: 'open', label: 'Open', icon: 'file' }];
+  const items: UiMenuItem[] = [{ id: 'open', label: t(MENU + 'open'), icon: 'file' }];
 
   if (level === 'manage') {
     items.push({
       id: 'share',
-      label: drawing.shareCount ? `Share… (${drawing.shareCount})` : 'Share…',
+      label: drawing.shareCount ? t(MENU + 'shareCount', { count: drawing.shareCount }) : t(MENU + 'share'),
       icon: 'share',
     });
   }
 
   if (RANK[level] >= RANK.edit) {
     items.push(
-      { id: 'rename', label: 'Rename', icon: 'pencil', separator: true },
-      { id: 'duplicate', label: 'Duplicate', icon: 'copy' },
-      { id: 'move', label: 'Move to…', icon: 'move' },
+      { id: 'rename', label: t(MENU + 'rename'), icon: 'pencil', separator: true },
+      { id: 'duplicate', label: t(MENU + 'duplicate'), icon: 'copy' },
+      { id: 'move', label: t(MENU + 'moveTo'), icon: 'move' },
     );
   }
 
   items.push(
-    { id: 'copy', label: 'Copy to…', icon: 'copy', separator: RANK[level] < RANK.edit },
-    { id: 'download', label: 'Download', icon: 'download' },
-    { id: 'versions', label: 'Version history', icon: 'history' },
+    { id: 'copy', label: t(MENU + 'copyTo'), icon: 'copy', separator: RANK[level] < RANK.edit },
+    { id: 'download', label: t(MENU + 'download'), icon: 'download' },
+    { id: 'versions', label: t(MENU + 'versionHistory'), icon: 'history' },
   );
 
   if (RANK[level] >= RANK.edit) {
-    items.push({ id: 'delete', label: 'Delete', icon: 'trash', danger: true, separator: true });
+    items.push({ id: 'delete', label: t(MENU + 'delete'), icon: 'trash', danger: true, separator: true });
   }
   return items;
 }

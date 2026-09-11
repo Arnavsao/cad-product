@@ -1,5 +1,6 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { DrawingFormat, VersionDto } from '../../../core/api/api.models';
 import { DrawingsApiService } from '../../../core/api/drawings-api.service';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -41,12 +42,12 @@ export interface VersionHistoryDialogData {
   selector: 'app-version-history-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, UiButtonDirective, UiIconComponent, UiSkeletonComponent, FileSizePipe, RelativeTimePipe],
+  imports: [TranslocoDirective, A11yModule, UiButtonDirective, UiIconComponent, UiSkeletonComponent, FileSizePipe, RelativeTimePipe],
   template: `
-    <div class="ui-dialog vh" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
+    <div class="ui-dialog vh" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus *transloco="let t">
       <header class="ui-dialog__header">
-        <h2 [id]="titleId">Version history — {{ data.name }}</h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="close()">
+        <h2 [id]="titleId">{{ t('dashboard.components.versions.title', { name: data.name }) }}</h2>
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('dashboard.components.close')" (click)="close()">
           <ui-icon name="close" />
         </button>
       </header>
@@ -56,9 +57,9 @@ export interface VersionHistoryDialogData {
           <ui-skeleton [lines]="4" height="38px" />
         } @else if (error(); as message) {
           <p class="vh__error" role="alert">{{ message }}</p>
-          <button type="button" uiButton size="sm" (click)="reload()"><ui-icon name="refresh" [size]="14" /> Retry</button>
+          <button type="button" uiButton size="sm" (click)="reload()"><ui-icon name="refresh" [size]="14" /> {{ t('common.retry') }}</button>
         } @else if (!versions().length) {
-          <p class="vh__muted">This drawing has no saved history yet.</p>
+          <p class="vh__muted">{{ t('dashboard.components.versions.empty') }}</p>
         } @else {
           <ul class="vh__list">
             @for (version of versions(); track version.version) {
@@ -67,7 +68,7 @@ export interface VersionHistoryDialogData {
                 <span class="vh__meta">
                   {{ version.byteSize | fileSize }} · {{ version.createdAt | relativeTime }}
                   @if (version.isCurrent) {
-                    <span class="vh__current">Current</span>
+                    <span class="vh__current">{{ t('dashboard.components.versions.current') }}</span>
                   }
                 </span>
                 <button
@@ -79,12 +80,12 @@ export interface VersionHistoryDialogData {
                   (click)="download(version)"
                 >
                   <ui-icon name="download" [size]="14" />
-                  Download
+                  {{ t('dashboard.components.menu.download') }}
                 </button>
                 @if (data.canRestore && !version.isCurrent) {
                   <button type="button" uiButton size="sm" [disabled]="busy() !== null" (click)="restore(version)">
                     <ui-icon name="restore" [size]="14" />
-                    Restore
+                    {{ t('dashboard.components.versions.restore') }}
                   </button>
                 } @else {
                   <span class="vh__spacer"></span>
@@ -92,12 +93,12 @@ export interface VersionHistoryDialogData {
               </li>
             }
           </ul>
-          <p class="vh__note">Older versions are pruned once the history limit is reached.</p>
+          <p class="vh__note">{{ t('dashboard.components.versions.pruneNote') }}</p>
         }
       </div>
 
       <footer class="ui-dialog__footer">
-        <button type="button" uiButton variant="secondary" (click)="close()">Done</button>
+        <button type="button" uiButton variant="secondary" (click)="close()">{{ t('dashboard.components.done') }}</button>
       </footer>
     </div>
   `,
@@ -144,6 +145,7 @@ export class VersionHistoryDialogComponent {
   private readonly api = inject(DrawingsApiService);
   private readonly dialog = inject(UiDialogService);
   private readonly notify = inject(NotificationService);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly titleId = `versions-title-${++seq}`;
   protected readonly versions = signal<VersionDto[]>([]);
@@ -171,7 +173,7 @@ export class VersionHistoryDialogComponent {
       this.versions.set(await this.api.versions(this.data.drawingId));
     } catch (e) {
       this.versions.set([]);
-      this.error.set(e instanceof Error && e.message ? e.message : 'The history could not be loaded.');
+      this.error.set(e instanceof Error && e.message ? e.message : this.t('dashboard.components.versions.loadFailed'));
     } finally {
       this.loading.set(false);
     }
@@ -190,7 +192,7 @@ export class VersionHistoryDialogComponent {
       link.click();
       link.remove();
     } catch (e) {
-      this.notify.error(e instanceof Error && e.message ? e.message : 'That version could not be downloaded.');
+      this.notify.error(e instanceof Error && e.message ? e.message : this.t('dashboard.components.versions.downloadFailed'));
     } finally {
       this.busy.set(null);
     }
@@ -199,9 +201,9 @@ export class VersionHistoryDialogComponent {
   protected async restore(version: VersionDto): Promise<void> {
     if (this.busy()) return;
     const ok = await this.dialog.confirm({
-      title: `Restore version ${version.version}?`,
-      message: 'The current version is kept in history — this saves the older contents as a new version.',
-      confirmLabel: 'Restore',
+      title: this.t('dashboard.components.versions.restoreTitle', { version: version.version }),
+      message: this.t('dashboard.components.versions.restoreMessage'),
+      confirmLabel: this.t('dashboard.components.versions.restore'),
     });
     if (!ok) return;
 
@@ -209,13 +211,19 @@ export class VersionHistoryDialogComponent {
     try {
       const result = await this.api.restoreVersion(this.data.drawingId, version.version, this.current());
       this.restoredTo = result.version;
-      this.notify.success(`Version ${version.version} was restored as v${result.version}.`);
+      this.notify.success(
+        this.t('dashboard.components.versions.restored', { version: version.version, newVersion: result.version }),
+      );
       await this.reload();
     } catch (e) {
-      this.notify.error(e instanceof Error && e.message ? e.message : 'That version could not be restored.');
+      this.notify.error(e instanceof Error && e.message ? e.message : this.t('dashboard.components.versions.restoreFailed'));
     } finally {
       this.busy.set(null);
     }
+  }
+
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.transloco.translate(key, params);
   }
 }
 

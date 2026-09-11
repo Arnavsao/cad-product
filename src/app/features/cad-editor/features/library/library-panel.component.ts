@@ -7,12 +7,13 @@ import { ToolManagerService } from '../../core/services/tool-manager.service';
 import { InsertLibraryItemTool } from '../../tools/block/insert-library-item.tool';
 import { LibraryCardComponent } from './library-card.component';
 import type { ILibraryItem } from '../../core/models/library.model';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-library-panel',
   standalone: true,
-  imports: [FormsModule, LibraryCardComponent],
+  imports: [UiIconComponent, FormsModule, LibraryCardComponent],
   template: `
     <div class="lib-panel">
 
@@ -29,7 +30,7 @@ import type { ILibraryItem } from '../../core/models/library.model';
             (ngModelChange)="library.searchQuery.set($event)"
           />
           @if (searchQuery) {
-            <button class="lib-search-clear" type="button" (click)="clearSearch()">✕</button>
+            <button class="lib-search-clear" type="button" (click)="clearSearch()"><ui-icon name="close" [size]="12" /></button>
           }
         </div>
       </div>

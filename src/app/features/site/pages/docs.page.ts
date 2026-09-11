@@ -11,7 +11,9 @@ import {
   viewChild,
   viewChildren,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { UiIconComponent } from '../../../shared/ui/icon.component';
 import { UiInputDirective } from '../../../shared/ui/input.directive';
 import { SiteClosingComponent } from '../components/closing.component';
@@ -69,6 +71,7 @@ const SPY_TOP_PX = 96;
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    TranslocoDirective,
     UiIconComponent,
     UiInputDirective,
     SiteHeadingComponent,
@@ -85,6 +88,7 @@ export class DocsPage {
   private readonly motion = inject(MotionService);
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly transloco = inject(TranslocoService);
 
   private readonly sectionEls = viewChildren<ElementRef<HTMLElement>>('docSection');
   private readonly navEl = viewChild<ElementRef<HTMLElement>>('nav');
@@ -110,7 +114,7 @@ export class DocsPage {
   protected readonly orgRoles = ORG_ROLES;
   protected readonly languages = LANGUAGES;
   protected readonly snippets = EMBED_SNIPPETS;
-  protected readonly autosaveSeconds = FACTS.find((f) => f.label === 'autosave cadence')?.value ?? 30;
+  protected readonly autosaveSeconds = FACTS.find((f) => f.id === 'snapshots')?.value ?? 30;
 
   /* ── Scrollspy ────────────────────────────────────────────────── */
   protected readonly active = signal<string>(DOC_SECTIONS[0].id);
@@ -122,15 +126,27 @@ export class DocsPage {
   protected readonly totalCommands = COMMAND_GROUPS.reduce((n, g) => n + g.commands.length, 0);
   protected readonly groupCount = COMMAND_GROUPS.length;
 
+  /**
+   * Filtering searches the *translated* name and description, so a French
+   * reader finds a command by its French wording, plus the aliases, which are
+   * the same in every language. `langChanges$` re-runs it when the language
+   * does, since the resolved text it matched against has changed.
+   */
+  private readonly lang = toSignal(this.transloco.langChanges$, {
+    initialValue: this.transloco.getActiveLang(),
+  });
+
   protected readonly filteredGroups = computed(() => {
     const q = this.query().trim().toLowerCase();
     if (!q) return COMMAND_GROUPS;
+    this.lang();
+    const t = (key: string) => this.transloco.translate<string>(key).toLowerCase();
     return COMMAND_GROUPS.map((group) => ({
       ...group,
       commands: group.commands.filter(
         (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.what.toLowerCase().includes(q) ||
+          t(c.nameKey).includes(q) ||
+          t(c.whatKey).includes(q) ||
           c.aliases.some((a) => a.toLowerCase().includes(q)),
       ),
     })).filter((group) => group.commands.length > 0);

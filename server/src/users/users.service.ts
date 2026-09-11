@@ -30,6 +30,7 @@ export type DbClient = PrismaService | Prisma.TransactionClient;
 interface PreferencesPatch {
   units?: Units;
   theme?: string;
+  locale?: string;
   role?: UserRole | null;
   defaultTemplate?: string;
   autosaveIntervalSec?: number;
@@ -239,6 +240,15 @@ export class UsersService {
     if (dto.theme !== undefined) {
       data.theme = dto.theme;
     }
+    // Validated against LOCALES by the DTO, so what arrives here is a shipped
+    // language. Stored as the BCP 47 tag the client sent; `localeToWire`
+    // narrows it again on the way out in case the set ever shrinks.
+    if (dto.locale !== undefined) {
+      data.locale = dto.locale;
+    }
+    // Validated against LOCALES by the DTO, so what arrives here is a shipped
+    // language. Stored as the BCP 47 tag the client sent; `localeToWire`
+    // narrows it again on the way out in case the set ever shrinks.
     if (dto.role !== undefined) {
       data.role = roleFromWire(dto.role);
     }

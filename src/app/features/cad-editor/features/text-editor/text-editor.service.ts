@@ -12,7 +12,7 @@ import { ToolManagerService } from '../../core/services/tool-manager.service';
 import { TextEntity, LeaderEntity, DimensionEntity } from '../../core/models/entity-extended.model';
 
 /**
- * Universal text editor target â€” any entity that exposes the standard
+ * Universal text editor target — any entity that exposes the standard
  * text-style fields (text/height/font/bold/italic/...). Today: TextEntity
  * (TEXT/MTEXT) and LeaderEntity (LEADER annotations) and DimensionEntity.
  */
@@ -62,7 +62,7 @@ export class TextEditorService {
 
   /**
    * View-scale-derived default height so new text reads at a consistent
-   * on-screen size (~18 screen px) regardless of zoom â€” mirrors the formula
+   * on-screen size (~18 screen px) regardless of zoom — mirrors the formula
    * LeaderTool uses so TEXT and LEADER annotations stay visually balanced.
    */
   private dynamicDefaultHeight(): number {
@@ -114,7 +114,7 @@ export class TextEditorService {
 
   private snapshotTextEntity(ent: EditableTextEntity): Record<string, unknown> {
     const base = snapshotEntity(ent);
-    // Union of TextEntity + LeaderEntity style props â€” copy whichever are defined.
+    // Union of TextEntity + LeaderEntity style props — copy whichever are defined.
     const props = [
       'text', 'font', 'height', 'bold', 'italic', 'underline', 'strikethrough',
       'justify', 'lineSpacing', 'charSpacing', 'widthFactor', 'obliqueAngle',
@@ -138,7 +138,7 @@ export class TextEditorService {
     ent.refreshCaches();
   }
 
-  // â”€â”€ Formatter Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Formatter Helpers ───────────────────────────────────────────────────
 
   updateProp(ent: any, key: string, val: any): void {
     ent[key] = val;

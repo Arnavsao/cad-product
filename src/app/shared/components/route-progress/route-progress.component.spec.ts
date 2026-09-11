@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router } from '@angular/router';
 import { Subject } from 'rxjs';
+import { provideI18nTesting } from '../../../../testing/i18n-testing';
 import { RouteProgressComponent } from './route-progress.component';
 
 describe('RouteProgressComponent', () => {
@@ -20,6 +21,7 @@ describe('RouteProgressComponent', () => {
       imports: [RouteProgressComponent],
       providers: [
         provideZonelessChangeDetection(),
+        provideI18nTesting(),
         { provide: Router, useValue: { events: events.asObservable() } },
       ],
     });
@@ -96,6 +98,7 @@ describe('RouteProgressComponent rendered markup', () => {
       imports: [RouteProgressComponent],
       providers: [
         provideZonelessChangeDetection(),
+        provideI18nTesting(),
         { provide: Router, useValue: { events: events.asObservable() } },
       ],
     });

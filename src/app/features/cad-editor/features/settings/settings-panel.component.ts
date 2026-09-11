@@ -1,10 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
 import { CadThemeKind, ICadTheme, ThemeService } from '../../core/services/theme.service';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 interface IThemeGroup {
   kind: CadThemeKind;
-  label: string;
+  /** Translation key of the group heading. */
+  labelKey: string;
   themes: readonly ICadTheme[];
 }
 
@@ -17,12 +20,12 @@ interface IThemeGroup {
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-settings-panel',
   standalone: true,
-  imports: [],
+  imports: [UiIconComponent, TranslocoDirective],
   template: `
-    <div class="set-panel">
+    <div class="set-panel" *transloco="let t">
       <div class="set-section">
         <div class="set-section-head">
-          <span class="set-section-title">Color Theme</span>
+          <span class="set-section-title">{{ t('editor.ui.settings.colorTheme') }}</span>
           <span class="set-section-value">{{ theme.theme().name }}</span>
         </div>
 
@@ -31,34 +34,35 @@ interface IThemeGroup {
           type="search"
           autocomplete="off"
           spellcheck="false"
-          placeholder="Search themes…"
+          [placeholder]="t('editor.ui.settings.searchThemes')"
           [value]="filter()"
           (input)="onFilter($event)" />
 
         @for (group of groups(); track group.kind) {
-          <div class="set-group-label">{{ group.label }}</div>
-          @for (t of group.themes; track t.id) {
+          <div class="set-group-label">{{ t(group.labelKey) }}</div>
+          <!-- Named 'item', not 't': the *transloco 'let t' above is in scope here. -->
+          @for (item of group.themes; track item.id) {
             <button
               type="button"
               class="theme-row"
-              [class.active]="t.id === theme.themeId()"
-              [attr.aria-pressed]="t.id === theme.themeId()"
-              [title]="t.name"
-              (click)="theme.setTheme(t.id)">
-              <span class="theme-swatch" [style.background]="t.swatch[0]" [style.border-color]="t.swatch[1]">
-                <span class="sw-bar" [style.background]="t.swatch[1]"></span>
-                <span class="sw-dot" [style.background]="t.swatch[2]"></span>
+              [class.active]="item.id === theme.themeId()"
+              [attr.aria-pressed]="item.id === theme.themeId()"
+              [title]="item.name"
+              (click)="theme.setTheme(item.id)">
+              <span class="theme-swatch" [style.background]="item.swatch[0]" [style.border-color]="item.swatch[1]">
+                <span class="sw-bar" [style.background]="item.swatch[1]"></span>
+                <span class="sw-dot" [style.background]="item.swatch[2]"></span>
               </span>
-              <span class="theme-name">{{ t.name }}</span>
-              @if (t.id === theme.themeId()) {
-                <span class="theme-check" aria-hidden="true">✓</span>
+              <span class="theme-name">{{ item.name }}</span>
+              @if (item.id === theme.themeId()) {
+                <span class="theme-check" aria-hidden="true"><ui-icon name="check" [size]="12" /></span>
               }
             </button>
           }
         }
 
         @if (!groups().length) {
-          <div class="muted-text set-empty">No theme matches “{{ filter() }}”.</div>
+          <div class="muted-text set-empty">{{ t('editor.ui.settings.noThemeMatches', { query: filter() }) }}</div>
         }
       </div>
     </div>
@@ -193,12 +197,12 @@ export class SettingsPanelComponent {
   protected readonly groups = computed<IThemeGroup[]>(() => {
     const q = this.filter().trim().toLowerCase();
     const match = (t: ICadTheme) => !q || t.name.toLowerCase().includes(q);
-    const defs: { kind: CadThemeKind; label: string }[] = [
-      { kind: 'dark', label: 'Dark themes' },
-      { kind: 'light', label: 'Light themes' },
+    const defs: { kind: CadThemeKind; labelKey: string }[] = [
+      { kind: 'dark', labelKey: 'editor.ui.settings.darkThemes' },
+      { kind: 'light', labelKey: 'editor.ui.settings.lightThemes' },
     ];
     return defs
-      .map(({ kind, label }) => ({ kind, label, themes: this.theme.themes.filter((t) => t.kind === kind && match(t)) }))
+      .map(({ kind, labelKey }) => ({ kind, labelKey, themes: this.theme.themes.filter((t) => t.kind === kind && match(t)) }))
       .filter((g) => g.themes.length > 0);
   });
 

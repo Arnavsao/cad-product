@@ -50,8 +50,8 @@ export class RectTool implements ITool {
    * Width/Height for the live preview.
    *
    * If the user has typed a value into a field, its magnitude is used but the SIGN comes
-   * from the current cursor quadrant relative to p1. This mirrors AutoCAD: type 100Ã—50
-   * with the cursor to the bottom-left â†’ the rect grows bottom-left from p1.
+   * from the current cursor quadrant relative to p1. This mirrors AutoCAD: type 100×50
+   * with the cursor to the bottom-left → the rect grows bottom-left from p1.
    */
   private effectiveSize(): { width: number; height: number } {
     if (!this.p1) return { width: 0, height: 0 };

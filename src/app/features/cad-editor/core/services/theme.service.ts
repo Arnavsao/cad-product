@@ -151,8 +151,38 @@ export class ThemeService {
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
 
-  /** Select a theme by id. Unknown ids are ignored. */
+  /**
+   * Whether the active theme reflects a deliberate choice rather than a
+   * default, in which case the account's stored value must not override it.
+   *
+   * Seeded from `localStorage` for the same reason as the language: a value
+   * there was written by this person picking a theme in this browser, so a
+   * reload must not let a stale `/me` answer undo it.
+   */
+  private chosen = !!findTheme(readStorage(STORAGE_KEY));
+
+  /**
+   * Select a theme by id. Unknown ids are ignored.
+   *
+   * This is the *user's own* choice. A value arriving from `/me` must go
+   * through {@link applyRemote}.
+   */
   setTheme(id: string): void {
+    this.chosen = true;
+    if (!findTheme(id) || id === this.themeId()) return;
+    this.themeId.set(id);
+  }
+
+  /**
+   * Apply the theme the account is stored with, unless the person has already
+   * picked one in this session.
+   *
+   * The same staleness problem as the language: `/me` echoes the full
+   * preferences object and can answer after the user has changed the theme,
+   * which would snap it back to whatever the account last saved.
+   */
+  applyRemote(id: string | null | undefined): void {
+    if (!id || this.chosen) return;
     if (!findTheme(id) || id === this.themeId()) return;
     this.themeId.set(id);
   }

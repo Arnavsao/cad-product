@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { MeService } from '../../core/api/me.service';
+import { SignInHandoffService } from '../../core/auth/sign-in-handoff.service';
 import { SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { ThemeService } from '../cad-editor/core/services/theme.service';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
@@ -12,8 +14,9 @@ import { OnboardingDefaultsStepComponent } from './steps/defaults-step.component
 import { OnboardingFinishStepComponent } from './steps/finish-step.component';
 import { OnboardingProfileStepComponent } from './steps/profile-step.component';
 
-const STEP_TITLES = ['Profile', 'Defaults', 'Finish'] as const;
-const LAST_STEP = STEP_TITLES.length;
+/** Translation keys of the progress-rail labels, in step order. */
+const STEP_TITLE_KEYS = ['onboarding.steps.profile', 'onboarding.steps.defaults', 'onboarding.steps.finish'] as const;
+const LAST_STEP = STEP_TITLE_KEYS.length;
 
 /**
  * Three-step first-run wizard (`/onboarding`).
@@ -35,6 +38,7 @@ const LAST_STEP = STEP_TITLES.length;
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    TranslocoDirective,
     UiButtonDirective,
     UiIconComponent,
     UiLogoComponent,
@@ -43,21 +47,21 @@ const LAST_STEP = STEP_TITLES.length;
     OnboardingFinishStepComponent,
   ],
   template: `
-    <div class="ob">
+    <div class="ob" *transloco="let t">
       <header class="ob__top">
-        <a class="brand" routerLink="/" aria-label="CADO home">
+        <a class="brand" routerLink="/" [attr.aria-label]="t('auth.layout.homeAria', { appName })">
           <span class="brand__mark" aria-hidden="true"><ui-logo [size]="16" /></span>
           <span class="brand__name">{{ appName }}</span>
         </a>
         <button type="button" uiButton variant="ghost" size="sm" [disabled]="submitting()" (click)="skip()">
-          Skip for now
+          {{ t('onboarding.skip') }}
         </button>
       </header>
 
       <main class="ob__main">
         <div class="ob__card" (keydown.enter)="onEnter($event)">
-          <ol class="ob-progress" aria-label="Onboarding progress">
-            @for (title of titles; track title; let i = $index) {
+          <ol class="ob-progress" [attr.aria-label]="t('onboarding.progressAria')">
+            @for (titleKey of titleKeys; track titleKey; let i = $index) {
               <li
                 class="ob-progress__item"
                 [class.ob-progress__item--on]="step() === i + 1"
@@ -71,7 +75,7 @@ const LAST_STEP = STEP_TITLES.length;
                     {{ i + 1 }}
                   }
                 </span>
-                <span class="ob-progress__label">{{ title }}</span>
+                <span class="ob-progress__label">{{ t(titleKey) }}</span>
               </li>
             }
           </ol>
@@ -100,17 +104,17 @@ const LAST_STEP = STEP_TITLES.length;
           <footer class="ob__actions">
             <button type="button" uiButton variant="ghost" [disabled]="step() === 1 || submitting()" (click)="back()">
               <ui-icon name="back" [size]="15" />
-              Back
+              {{ t('onboarding.back') }}
             </button>
-            <span class="ob__count">Step {{ step() }} of {{ lastStep }}</span>
+            <span class="ob__count">{{ t('onboarding.stepOf', { step: step(), total: lastStep }) }}</span>
             @if (step() < lastStep) {
               <button type="button" uiButton variant="primary" (click)="next()">
-                Continue
+                {{ t('onboarding.continue') }}
                 <ui-icon name="chevron-right" [size]="15" />
               </button>
             } @else {
               <button type="button" uiButton variant="primary" [loading]="submitting()" [disabled]="submitting()" (click)="finish()">
-                {{ error() ? 'Try again' : 'Go to dashboard' }}
+                {{ error() ? t('onboarding.tryAgain') : t('onboarding.goToDashboard') }}
               </button>
             }
           </footer>
@@ -202,9 +206,11 @@ export class OnboardingPage {
   private readonly auth = inject(SupabaseAuthService);
   private readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
+  private readonly handoff = inject(SignInHandoffService);
 
   protected readonly appName = environment.appName;
-  protected readonly titles = STEP_TITLES;
+  protected readonly titleKeys = STEP_TITLE_KEYS;
   protected readonly lastStep = LAST_STEP;
 
   protected readonly step = signal(1);
@@ -223,7 +229,13 @@ export class OnboardingPage {
   private namesTouched = false;
 
   constructor() {
-    void this.me.load().catch(() => undefined);
+    // Sign-up lands here behind the branded overlay. Clear it once the profile
+    // load settles rather than on construction: the name fields are prefilled
+    // from it, and lifting sooner would show them empty and then fill them in.
+    void this.me
+      .load()
+      .catch(() => undefined)
+      .finally(() => this.handoff.end());
 
     // The session resolves after the first paint; prefill the name fields then,
     // unless the user has already typed something.
@@ -292,7 +304,7 @@ export class OnboardingPage {
       }
       await this.router.navigateByUrl('/dashboard');
     } catch (e) {
-      this.error.set(e instanceof Error && e.message ? e.message : 'We could not save your preferences. Please try again.');
+      this.error.set(e instanceof Error && e.message ? e.message : this.transloco.translate('onboarding.saveFailed'));
       this.step.set(LAST_STEP);
     } finally {
       this.submitting.set(false);

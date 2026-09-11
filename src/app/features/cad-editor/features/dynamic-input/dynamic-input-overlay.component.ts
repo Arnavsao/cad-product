@@ -20,16 +20,18 @@ import { CommandPromptService } from '../../core/services/command-prompt.service
 import { ToolCatalogService, ToolMeta } from '../../core/services/tool-catalog.service';
 import { CommandRegistryService } from '../../core/services/command-registry.service';
 import { SafeHtmlPipe } from '../../shared/components/safe-html.pipe';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 
 @Component({
   selector: 'app-dynamic-input-overlay',
   standalone: true,
-  imports: [SafeHtmlPipe],
+  imports: [SafeHtmlPipe, TranslocoDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (overlayVisible()) {
       <div
+        *transloco="let t"
         class="dyn-overlay"
         [style.left.px]="position().left"
         [style.top.px]="position().top"
@@ -94,7 +96,7 @@ import { SafeHtmlPipe } from '../../shared/components/safe-html.pipe';
                   #searchInput
                   type="text"
                   class="dyn-search-input"
-                  placeholder="Command\u2026"
+                  [placeholder]="t('editor.ui.dynamicInput.commandPlaceholder')"
                   spellcheck="false"
                   autocomplete="off"
                   (input)="onSearchInput($event)"

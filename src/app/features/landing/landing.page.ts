@@ -12,6 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
@@ -36,13 +37,13 @@ const PLAN_X0 = 140;
 const PLAN_Y0 = 480;
 const MM_PER_UNIT = 10;
 
-/** The example the assistant section walks through. */
+/** The example the assistant section walks through. Prose fields are translation keys. */
 const AI_EXAMPLE = {
-  prompt: 'change all red lines on layer DIM to blue',
+  promptKey: 'site.home.ai.example.prompt',
   plan: [
-    { label: 'Select', detail: '128 lines · colour red · layer DIM' },
-    { label: 'Recolour', detail: 'ACI 1 (red) → ACI 5 (blue)' },
-    { label: 'Risk', detail: 'review · nothing deleted or moved' },
+    { id: 'select', labelKey: 'site.home.ai.example.select.label', detailKey: 'site.home.ai.example.select.detail' },
+    { id: 'recolour', labelKey: 'site.home.ai.example.recolour.label', detailKey: 'site.home.ai.example.recolour.detail' },
+    { id: 'risk', labelKey: 'site.home.ai.example.risk.label', detailKey: 'site.home.ai.example.risk.detail' },
   ],
 };
 
@@ -64,6 +65,7 @@ const AI_EXAMPLE = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    TranslocoDirective,
     UiButtonDirective,
     UiIconComponent,
     UiRevealDirective,

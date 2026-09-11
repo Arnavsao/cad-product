@@ -129,7 +129,7 @@ export class MirrorTool implements ITool {
     ctx.stroke();
     ctx.restore();
 
-    // Render fully mirrored ghost entities â€” no clones, no mutation
+    // Render fully mirrored ghost entities — no clones, no mutation
     // (composed view transform). Skip until the axis has a finite length.
     const axisLen = Math.hypot(p2ToUse.x - this.p1.x, p2ToUse.y - this.p1.y);
     if (axisLen > 1e-9) {

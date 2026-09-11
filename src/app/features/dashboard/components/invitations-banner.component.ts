@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { OrgInvitationDto } from '../../../core/api/api.models';
 import { OrganizationsApiService } from '../../../core/api/organizations-api.service';
 import { WorkspaceService } from '../../../core/api/workspace.service';
@@ -33,14 +34,20 @@ import { DashboardEventsService } from '../data/dashboard-events.service';
   selector: 'app-invitations-banner',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiIconComponent],
+  imports: [TranslocoDirective, UiButtonDirective, UiIconComponent],
   template: `
+    <ng-container *transloco="let t">
     @for (invite of invitations(); track invite.id) {
       <div class="iv" role="status">
         <ui-icon class="iv__icon" name="user-plus" [size]="16" />
         <p class="iv__text">
-          <strong>{{ inviterOf(invite) }}</strong> invited you to <strong>{{ invite.organizationName }}</strong>
-          as {{ invite.role }}
+          {{
+            t('dashboard.components.invitations.text', {
+              inviter: inviterOf(invite, t),
+              org: invite.organizationName,
+              role: t('dashboard.components.role.' + invite.role)
+            })
+          }}
         </p>
         <button
           type="button"
@@ -50,7 +57,7 @@ import { DashboardEventsService } from '../data/dashboard-events.service';
           [disabled]="busy() === invite.id"
           (click)="accept(invite)"
         >
-          Accept
+          {{ t('dashboard.components.invitations.accept') }}
         </button>
         <button
           type="button"
@@ -60,10 +67,11 @@ import { DashboardEventsService } from '../data/dashboard-events.service';
           [disabled]="busy() === invite.id"
           (click)="decline(invite)"
         >
-          Decline
+          {{ t('dashboard.components.invitations.decline') }}
         </button>
       </div>
     }
+    </ng-container>
   `,
   styles: [
     `
@@ -87,6 +95,7 @@ export class InvitationsBannerComponent {
   private readonly notify = inject(NotificationService);
   private readonly events = inject(DashboardEventsService);
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly invitations = signal<OrgInvitationDto[]>([]);
   protected readonly busy = signal<string | null>(null);
@@ -95,9 +104,9 @@ export class InvitationsBannerComponent {
     void this.load();
   }
 
-  protected inviterOf(invite: OrgInvitationDto): string {
+  protected inviterOf(invite: OrgInvitationDto, t: (key: string) => string): string {
     const by = invite.invitedBy;
-    if (!by) return 'Someone';
+    if (!by) return t('dashboard.components.invitations.someone');
     const full = [by.firstName, by.lastName].filter(Boolean).join(' ').trim();
     return full || by.email;
   }
@@ -109,11 +118,15 @@ export class InvitationsBannerComponent {
       const org = await this.api.acceptInvitation(invite.id);
       this.drop(invite.id);
       this.workspace.adopt(org);
-      this.notify.success(`You joined "${org.name}".`);
+      this.notify.success(this.transloco.translate('dashboard.components.organization.joined', { name: org.name }));
       await this.router.navigateByUrl('/dashboard/drawings');
       this.events.bump();
     } catch (e) {
-      this.notify.error(e instanceof Error && e.message ? e.message : 'The invitation could not be accepted.');
+      this.notify.error(
+        e instanceof Error && e.message
+          ? e.message
+          : this.transloco.translate('dashboard.components.invitations.acceptFailed'),
+      );
     } finally {
       this.busy.set(null);
     }
@@ -126,7 +139,11 @@ export class InvitationsBannerComponent {
       await this.api.declineInvitation(invite.id);
       this.drop(invite.id);
     } catch (e) {
-      this.notify.error(e instanceof Error && e.message ? e.message : 'The invitation could not be declined.');
+      this.notify.error(
+        e instanceof Error && e.message
+          ? e.message
+          : this.transloco.translate('dashboard.components.invitations.declineFailed'),
+      );
     } finally {
       this.busy.set(null);
     }

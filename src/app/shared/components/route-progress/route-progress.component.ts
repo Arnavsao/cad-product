@@ -7,6 +7,8 @@ import {
   NavigationStart,
   Router,
 } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { SignInHandoffService } from '../../../core/auth/sign-in-handoff.service';
 
 /**
  * Indeterminate progress bar for route transitions.
@@ -28,10 +30,11 @@ const SHOW_AFTER_MS = 150;
 @Component({
   selector: 'app-route-progress',
   standalone: true,
+  imports: [TranslocoDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (visible()) {
-      <div class="rp" role="status" aria-live="polite" aria-label="Loading page">
+    @if (visible() && !handoff.active()) {
+      <div class="rp" role="status" aria-live="polite" *transloco="let t" [attr.aria-label]="t('shared.routeProgress.loading')">
         <div class="rp__bar"></div>
       </div>
     }
@@ -70,6 +73,11 @@ const SHOW_AFTER_MS = 150;
 export class RouteProgressComponent {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  /**
+   * The sign-in handoff shows a full-page branded loader across its navigation.
+   * Two loading affordances at once reads as a glitch, so this bar yields to it.
+   */
+  protected readonly handoff = inject(SignInHandoffService);
 
   protected readonly visible = signal(false);
   private timer: ReturnType<typeof setTimeout> | null = null;

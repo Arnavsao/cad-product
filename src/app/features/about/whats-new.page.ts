@@ -1,15 +1,17 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { TranslocoDirective } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { UiIconComponent, type UiIconName } from '../../shared/ui/icon.component';
 import { SiteClosingComponent } from '../site/components/closing.component';
 import { SiteHeadingComponent } from '../site/components/heading.component';
 import { RELEASE_NOTES, type ReleaseChangeKind } from './release-notes';
 
-const KIND_LABEL: Record<ReleaseChangeKind, string> = {
-  added: 'New',
-  improved: 'Improved',
-  fixed: 'Fixed',
+/** Translation key of the badge for each kind of change. */
+const KIND_LABEL_KEY: Record<ReleaseChangeKind, string> = {
+  added: 'site.whatsNew.kind.added',
+  improved: 'site.whatsNew.kind.improved',
+  fixed: 'site.whatsNew.kind.fixed',
 };
 
 const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
@@ -30,12 +32,18 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
   selector: 'app-whats-new-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, UiIconComponent, SiteClosingComponent, SiteHeadingComponent],
+  imports: [DatePipe, TranslocoDirective, UiIconComponent, SiteClosingComponent, SiteHeadingComponent],
   template: `
-    <div class="wn">
+    <div class="wn" *transloco="let t">
       <main class="wn__main">
-        <site-heading [level]="1" eyebrow="Release notes" title="What's new" lede="Everything we have shipped, newest first. The engineering changelog behind these notes lives in the repository." />
+        <site-heading
+          [level]="1"
+          [eyebrow]="t('site.whatsNew.hero.eyebrow')"
+          [title]="t('site.whatsNew.hero.title')"
+          [lede]="t('site.whatsNew.hero.lede')"
+        />
 
+        <!-- Release entries stay English on purpose; see release-notes.ts. -->
         @for (release of releases; track release.version) {
           <section class="wn__release">
             <header class="wn__release-head">
@@ -50,7 +58,7 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
                 <li class="wn__change">
                   <span class="wn__badge" [attr.data-kind]="change.kind">
                     <ui-icon [name]="iconFor(change.kind)" [size]="12" />
-                    {{ labelFor(change.kind) }}
+                    {{ t(labelKeyFor(change.kind)) }}
                   </span>
                   <div class="wn__change-body">
                     <p class="wn__change-title">{{ change.title }}</p>
@@ -62,7 +70,12 @@ const KIND_ICON: Record<ReleaseChangeKind, UiIconName> = {
           </section>
         }
       </main>
-      <site-closing title="Try the latest build." sub="Every release is live for everyone the moment it ships. There is nothing to download." secondaryLabel="About CADO" secondaryLink="/about" />
+      <site-closing
+        [title]="t('site.whatsNew.closing.title')"
+        [sub]="t('site.whatsNew.closing.sub')"
+        [secondaryLabel]="t('site.whatsNew.closing.secondary')"
+        secondaryLink="/about"
+      />
 
     </div>
   `,
@@ -109,8 +122,8 @@ export class WhatsNewPage {
   protected readonly year = new Date().getFullYear();
 
 
-  protected labelFor(kind: ReleaseChangeKind): string {
-    return KIND_LABEL[kind];
+  protected labelKeyFor(kind: ReleaseChangeKind): string {
+    return KIND_LABEL_KEY[kind];
   }
 
   protected iconFor(kind: ReleaseChangeKind): UiIconName {

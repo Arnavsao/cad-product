@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { OrgSummaryDto } from '../../../core/api/api.models';
 import { WorkspaceService } from '../../../core/api/workspace.service';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -8,6 +9,7 @@ import { UiIconComponent } from '../../../shared/ui/icon.component';
 import type { UiMenuItem } from '../../../shared/ui/menu/ui-menu.component';
 import { UiMenuTriggerDirective } from '../../../shared/ui/menu/ui-menu-trigger.directive';
 import { DashboardEventsService } from '../data/dashboard-events.service';
+import { injectTranslateFn } from './translate-fn';
 
 /** Menu ids that are commands rather than a workspace to switch to. */
 const CREATE = '__create';
@@ -40,14 +42,15 @@ const PERSONAL = 'personal';
   selector: 'app-workspace-switcher',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiIconComponent, UiMenuTriggerDirective],
+  imports: [TranslocoDirective, UiIconComponent, UiMenuTriggerDirective],
   template: `
     <button
       type="button"
       class="ws"
+      *transloco="let t"
       [uiMenuTrigger]="items()"
       menuAlign="start"
-      aria-label="Switch workspace"
+      [attr.aria-label]="t('dashboard.components.workspace.switch')"
       (uiMenuSelect)="onSelect($event.id)"
     >
       <span class="ws__mark" aria-hidden="true">
@@ -57,7 +60,7 @@ const PERSONAL = 'personal';
         <span class="ws__line">
           <span class="ws__name">{{ workspace.activeName() }}</span>
           @if (workspace.activeRole(); as role) {
-            <span class="ws__role" [class.ws__role--viewer]="role === 'viewer'">{{ role }}</span>
+            <span class="ws__role" [class.ws__role--viewer]="role === 'viewer'">{{ t('dashboard.components.role.' + role) }}</span>
           }
         </span>
         <span class="ws__sub">{{ subtitle() }}</span>
@@ -128,23 +131,29 @@ export class WorkspaceSwitcherComponent {
   private readonly dialog = inject(UiDialogService);
   private readonly notify = inject(NotificationService);
   private readonly events = inject(DashboardEventsService);
+  private readonly transloco = inject(TranslocoService);
+  private readonly t = injectTranslateFn();
 
   /** "Personal workspace", or "N members · your role". */
   protected readonly subtitle = computed(() => {
     const org = this.workspace.activeOrg();
-    if (!org) return 'Personal workspace';
-    const members = `${org.memberCount} ${org.memberCount === 1 ? 'member' : 'members'}`;
-    return `${members} · ${org.role}`;
+    const t = this.t();
+    if (!org) return t('dashboard.components.workspace.personalSubtitle');
+    const role = t('dashboard.components.role.' + org.role);
+    return org.memberCount === 1
+      ? t('dashboard.components.workspace.orgSubtitleOne', { role })
+      : t('dashboard.components.workspace.orgSubtitleOther', { count: org.memberCount, role });
   });
 
   protected readonly items = computed<UiMenuItem[]>(() => {
     const activeId = this.workspace.activeOrgId();
     const orgs = this.workspace.organizations();
+    const t = this.t();
 
     const items: UiMenuItem[] = [
       {
         id: PERSONAL,
-        label: 'Personal',
+        label: t('dashboard.components.workspace.personal'),
         icon: activeId === null ? 'check' : 'user',
       },
     ];
@@ -163,8 +172,8 @@ export class WorkspaceSwitcherComponent {
 
     items.push(
       { id: 'sep-actions', label: '', separator: true },
-      { id: CREATE, label: 'Create organization…', icon: 'plus' },
-      { id: JOIN, label: 'Join with a code…', icon: 'link' },
+      { id: CREATE, label: t('dashboard.components.workspace.createOrg'), icon: 'plus' },
+      { id: JOIN, label: t('dashboard.components.workspace.joinOrg'), icon: 'link' },
     );
     return items;
   });
@@ -200,7 +209,7 @@ export class WorkspaceSwitcherComponent {
     }).afterClosed;
     if (!org) return;
     this.workspace.adopt(org);
-    this.notify.success(`"${org.name}" created. You are now in that workspace.`);
+    this.notify.success(this.transloco.translate('dashboard.components.workspace.created', { name: org.name }));
     this.afterSwitch();
   }
 
@@ -211,7 +220,7 @@ export class WorkspaceSwitcherComponent {
     }).afterClosed;
     if (!org) return;
     this.workspace.adopt(org);
-    this.notify.success(`You joined "${org.name}".`);
+    this.notify.success(this.transloco.translate('dashboard.components.organization.joined', { name: org.name }));
     this.afterSwitch();
   }
 

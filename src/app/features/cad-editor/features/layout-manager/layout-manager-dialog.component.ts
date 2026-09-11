@@ -20,12 +20,13 @@ import { LayoutManagerDialogService } from './layout-manager-dialog.service';
 import { LayoutManagerService } from '../../core/services/layout-manager.service';
 import { PageSetupDialogService } from '../page-setup/page-setup-dialog.service';
 import type { Layout } from '../../core/models/layout.model';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-layout-manager-dialog',
   standalone: true,
-  imports: [FormsModule],
+  imports: [UiIconComponent, FormsModule],
   template: `
     @if (dialogSvc.isOpen()) {
       <div class="lm-overlay" (click)="onOverlayClick($event)">
@@ -35,7 +36,7 @@ import type { Layout } from '../../core/models/layout.model';
           <div class="lm-header">
             <span class="lm-icon">📋</span>
             <span class="lm-title">Layout Manager</span>
-            <button class="lm-close" type="button" (click)="close()" aria-label="Close">✕</button>
+            <button class="lm-close" type="button" (click)="close()" aria-label="Close"><ui-icon name="close" [size]="16" /></button>
           </div>
 
           <!-- Layout list -->
@@ -48,7 +49,7 @@ import type { Layout } from '../../core/models/layout.model';
                 (click)="select(layout)"
                 (dblclick)="activate(layout)"
               >
-                <span class="lm-item-icon">{{ layout.isModel ? '🔧' : '📄' }}</span>
+                <span class="lm-item-icon">@if (layout.isModel) { <ui-icon name="grid" [size]="14" /> } @else { <ui-icon name="file" [size]="14" /> }</span>
                 <span class="lm-item-name">{{ layout.name }}</span>
                 <span class="lm-item-paper">
                   {{ layout.pageSetup.paper }}
@@ -79,12 +80,12 @@ import type { Layout } from '../../core/models/layout.model';
             <button class="lm-btn" type="button"
               [disabled]="!selectedId() || isSelectedModel()"
               (click)="openPageSetup()" title="Page Setup">
-              📐 Page Setup
+              <ui-icon name="ruler" [size]="14" /> Page Setup
             </button>
             <button class="lm-btn lm-btn-danger" type="button"
               [disabled]="!selectedId() || isSelectedModel() || isOnlyLayout()"
               (click)="deleteSelected()" title="Delete">
-              ✕ Delete
+              <ui-icon name="trash" [size]="14" /> Delete
             </button>
           </div>
 

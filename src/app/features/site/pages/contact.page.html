@@ -1,12 +1,13 @@
+<ng-container *transloco="let t">
 <div class="ct site-container">
   <!-- ── Split hero: copy left, form right ─────────────────────── -->
   <section class="ct__hero" aria-labelledby="ct-title">
     <div class="ct__copy">
       <site-heading
         [level]="1"
-        eyebrow="Contact"
-        title="Talk to the people who build it."
-        lede="One form, read by the team that writes the editor. No ticket numbers, no chatbot in front of it."
+        [eyebrow]="t('site.contact.hero.eyebrow')"
+        [title]="t('site.contact.hero.title')"
+        [lede]="t('site.contact.hero.lede')"
         id="ct-title"
       />
 
@@ -14,35 +15,31 @@
         <div class="ct__block">
           <dt>
             <ui-icon name="message" [size]="16" />
-            Support
+            {{ t('site.contact.block.support.title') }}
           </dt>
           <dd>
-            Use the form here, signed in or not. If you are signed in, the dashboard's
-            <a class="site-link" routerLink="/dashboard/feedback">feedback page</a> does the same thing and attaches your
-            page and app version automatically, which is what makes a bug reproducible. Both go to the same inbox.
+            {{ t('site.contact.block.support.body1') }}
+            <a class="site-link" routerLink="/dashboard/feedback">{{ t('site.contact.block.support.link') }}</a>
+            {{ t('site.contact.block.support.body2') }}
           </dd>
         </div>
         <div class="ct__block">
           <dt>
             <ui-icon name="users" [size]="16" />
-            Teams and education
+            {{ t('site.contact.block.teams.title') }}
           </dt>
           <dd>
-            Team plans can be invoiced annually instead of paid by card; pick “Invoicing” and tell us the seats and the
-            billing entity. Students: set your role to Student in your personal info, then get in touch with your
-            institution and we will apply the discount.
+            {{ t('site.contact.block.teams.body') }}
           </dd>
         </div>
         <div class="ct__block">
           <dt>
             <ui-icon name="shield" [size]="16" />
-            Security and privacy
+            {{ t('site.contact.block.security.title') }}
           </dt>
           <dd>
-            Your drawings stay in your account and on your device. A summary of a drawing reaches an AI provider only
-            when you configure one yourself in the assistant's settings; the built-in parser and a local Ollama server
-            send nothing anywhere. Details in the <a class="site-link" routerLink="/privacy">Privacy Policy</a>. To
-            report a vulnerability, use the form and start with the word “Security”.
+            {{ t('site.contact.block.security.body1') }}
+            <a class="site-link" routerLink="/privacy">{{ t('site.contact.block.security.link') }}</a>{{ t('site.contact.block.security.body2') }}
           </dd>
         </div>
       </dl>
@@ -52,44 +49,44 @@
       @if (sent()) {
         <div class="ct__done" role="status">
           <span class="ct__done-mark" aria-hidden="true"><ui-icon name="check" [size]="22" /></span>
-          <h2 class="ct__done-title">That came through.</h2>
+          <h2 class="ct__done-title">{{ t('site.contact.done.title') }}</h2>
           <p class="ct__done-p">
-            What happens next: we read every message, usually within a working day.
+            {{ t('site.contact.done.body') }}
             @if (sentTo(); as to) {
-              A reply goes to <strong>{{ to }}</strong>.
+              <span [innerHTML]="t('site.contact.done.replyTo', { email: to })"></span>
             } @else if (signedIn()) {
-              A reply goes to the email address on your account.
+              {{ t('site.contact.done.replyAccount') }}
             } @else {
-              You did not leave an address, so we cannot reply; the message still reaches the team.
+              {{ t('site.contact.done.noAddress') }}
             }
           </p>
           <div class="ct__done-actions">
-            <button type="button" uiButton variant="secondary" (click)="again()">Send another</button>
-            <a uiButton variant="ghost" routerLink="/docs">Read the docs</a>
+            <button type="button" uiButton variant="secondary" (click)="again()">{{ t('site.contact.done.again') }}</button>
+            <a uiButton variant="ghost" routerLink="/docs">{{ t('site.contact.done.docs') }}</a>
           </div>
         </div>
       } @else {
         <form class="ct__form" (submit)="submit($event)" novalidate>
-          <h2 class="ct__form-title">Send a message</h2>
+          <h2 class="ct__form-title">{{ t('site.contact.form.title') }}</h2>
 
           <div class="ct__field">
-            <span class="ct__label" id="ct-topic">What is it about?</span>
+            <span class="ct__label" id="ct-topic">{{ t('site.contact.form.topicLabel') }}</span>
             <div class="ct__topics" role="radiogroup" aria-labelledby="ct-topic" (keydown)="onTopicKey($event)">
-              @for (t of topics; track t.id) {
+              @for (topic of topics; track topic.id) {
                 <button
                   type="button"
                   class="ct__topic"
                   role="radio"
-                  [attr.data-topic]="t.id"
-                  [class.ct__topic--on]="topicId() === t.id"
-                  [attr.aria-checked]="topicId() === t.id"
-                  [tabindex]="topicId() === t.id ? 0 : -1"
-                  (click)="pickTopic(t.id)"
+                  [attr.data-topic]="topic.id"
+                  [class.ct__topic--on]="topicId() === topic.id"
+                  [attr.aria-checked]="topicId() === topic.id"
+                  [tabindex]="topicId() === topic.id ? 0 : -1"
+                  (click)="pickTopic(topic.id)"
                 >
-                  <ui-icon [name]="t.icon" [size]="16" />
+                  <ui-icon [name]="topic.icon" [size]="16" />
                   <span class="ct__topic-text">
-                    <span class="ct__topic-label">{{ t.label }}</span>
-                    <span class="ct__topic-hint">{{ t.hint }}</span>
+                    <span class="ct__topic-label">{{ t(topic.labelKey) }}</span>
+                    <span class="ct__topic-hint">{{ t(topic.hintKey) }}</span>
                   </span>
                 </button>
               }
@@ -98,11 +95,11 @@
 
           <div class="ct__field">
             <label class="ct__label" for="ct-email">
-              Email
+              {{ t('site.contact.form.email') }}
               @if (emailRequired()) {
-                <span class="ct__req">required</span>
+                <span class="ct__req">{{ t('site.contact.form.emailRequired') }}</span>
               } @else {
-                <span class="ct__opt">optional, we have the one on your account</span>
+                <span class="ct__opt">{{ t('site.contact.form.emailOptional') }}</span>
               }
             </label>
             <input
@@ -113,7 +110,7 @@
               autocomplete="email"
               inputmode="email"
               spellcheck="false"
-              placeholder="you@studio.example"
+              [placeholder]="t('site.contact.form.emailPlaceholder')"
               [required]="emailRequired()"
               [invalid]="showEmailError()"
               [attr.aria-describedby]="showEmailError() ? 'ct-email-err' : null"
@@ -123,13 +120,13 @@
             />
             @if (showEmailError()) {
               <p class="ct__hint ct__hint--bad" id="ct-email-err">
-                @if (emailTrimmed()) { That does not look like an email address. } @else { We need an address to reply to. }
+                @if (emailTrimmed()) { {{ t('site.contact.form.emailBad') }} } @else { {{ t('site.contact.form.emailMissing') }} }
               </p>
             }
           </div>
 
           <div class="ct__field">
-            <label class="ct__label" for="ct-message">Message</label>
+            <label class="ct__label" for="ct-message">{{ t('site.contact.form.message') }}</label>
             <textarea
               uiInput
               id="ct-message"
@@ -139,19 +136,21 @@
               [attr.maxlength]="messageMax()"
               [invalid]="showMessageError()"
               [attr.aria-describedby]="showMessageError() ? 'ct-message-err' : 'ct-message-hint'"
-              [placeholder]="topic().placeholder"
+              [placeholder]="t(topic().placeholderKey)"
               [value]="message()"
               (input)="onMessage($event)"
             ></textarea>
             <div class="ct__meta">
               @if (showMessageError()) {
-                <span class="ct__hint ct__hint--bad" id="ct-message-err">A few more words, please.</span>
+                <span class="ct__hint ct__hint--bad" id="ct-message-err">{{ t('site.contact.form.messageShort') }}</span>
               } @else {
                 <span class="ct__hint" id="ct-message-hint">
                   @if (topic().prefix) {
-                    Sent tagged <span class="site-mono">{{ topic().prefix.trim() }}</span> so it reaches the right person.
+                    {{ t('site.contact.form.taggedBefore') }}
+                    <span class="site-mono">{{ topic().prefix.trim() }}</span>
+                    {{ t('site.contact.form.taggedAfter') }}
                   } @else {
-                    Steps to reproduce, or a link to the drawing, are worth more than anything else.
+                    {{ t('site.contact.form.hint') }}
                   }
                 </span>
               }
@@ -163,7 +162,7 @@
             <div class="ct__error" role="alert">
               <ui-icon name="alert" [size]="18" />
               <div>
-                <p class="ct__error-title">That did not send.</p>
+                <p class="ct__error-title">{{ t('site.contact.form.errorTitle') }}</p>
                 <p class="ct__error-msg">{{ message }}</p>
               </div>
             </div>
@@ -171,9 +170,9 @@
 
           <div class="ct__actions">
             <button type="submit" uiButton variant="primary" size="lg" [disabled]="!canSubmit()" [loading]="sending()">
-              Send message
+              {{ t('site.contact.form.submit') }}
             </button>
-            <span class="ct__fine">Goes to the product team, not a public forum.</span>
+            <span class="ct__fine">{{ t('site.contact.form.fine') }}</span>
           </div>
         </form>
       }
@@ -184,11 +183,13 @@
   <section class="ct__faq site-section--tight" aria-labelledby="ct-faq-title">
     <div class="ct__faq-grid">
       <div>
-        <p class="site-eyebrow">Before you write</p>
-        <h2 class="site-h2" id="ct-faq-title">The questions we get most.</h2>
+        <p class="site-eyebrow">{{ t('site.contact.faq.eyebrow') }}</p>
+        <h2 class="site-h2" id="ct-faq-title">{{ t('site.contact.faq.title') }}</h2>
         <p class="site-body">
-          The rest are on the <a class="site-link" routerLink="/pricing">pricing page</a>, and the
-          <a class="site-link" routerLink="/docs">documentation</a> covers how the editor behaves.
+          {{ t('site.contact.faq.body1') }}
+          <a class="site-link" routerLink="/pricing">{{ t('site.contact.faq.pricingLink') }}</a>{{ t('site.contact.faq.body2') }}
+          <a class="site-link" routerLink="/docs">{{ t('site.contact.faq.docsLink') }}</a>
+          {{ t('site.contact.faq.body3') }}
         </p>
       </div>
       <site-accordion [items]="faqs" [single]="true" [initiallyOpen]="['faq-0']" />
@@ -197,8 +198,9 @@
 </div>
 
 <site-closing
-  title="Or skip the form and open a drawing."
-  sub="Most questions answer themselves once the editor is in front of you. It is free, and there is nothing to install."
-  secondaryLabel="Read the docs"
+  [title]="t('site.contact.closing.title')"
+  [sub]="t('site.contact.closing.sub')"
+  [secondaryLabel]="t('site.contact.closing.secondary')"
   secondaryLink="/docs"
 />
+</ng-container>

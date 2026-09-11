@@ -8,43 +8,45 @@ import { ViewportManagerService } from '../../core/services/viewport-manager.ser
 import { ModelViewportService } from '../../core/services/model-viewport.service';
 import { LayoutManagerService } from '../../core/services/layout-manager.service';
 import { Viewport, VIEWPORT_SCALES, IViewportScale } from '../../core/models/viewport.model';
+import { UiIconComponent } from '../../../../shared/ui/icon.component';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-viewports-panel',
   standalone: true,
-  imports: [FormsModule],
+  imports: [UiIconComponent, FormsModule, TranslocoDirective],
   template: `
-    <div class="vp-panel">
+    <div class="vp-panel" *transloco="let t">
       <div class="header-tools">
         <div class="split-presets">
-          <span class="preset-label">Viewports:</span>
-          <button class="panel-btn" type="button" (click)="setSplit('1')" title="Single Viewport">1</button>
-          <button class="panel-btn" type="button" (click)="setSplit('2-V')" title="2 Viewports (Vertical Split)">2-V</button>
-          <button class="panel-btn" type="button" (click)="setSplit('2-H')" title="2 Viewports (Horizontal Split)">2-H</button>
-          <button class="panel-btn" type="button" (click)="setSplit('4')" title="4 Viewports (Grid Split)">4</button>
+          <span class="preset-label">{{ t('editor.ui.viewports.presetsLabel') }}</span>
+          <button class="panel-btn" type="button" (click)="setSplit('1')" [title]="t('editor.ui.viewports.presetSingle')">1</button>
+          <button class="panel-btn" type="button" (click)="setSplit('2-V')" [title]="t('editor.ui.viewports.presetTwoVertical')">2-V</button>
+          <button class="panel-btn" type="button" (click)="setSplit('2-H')" [title]="t('editor.ui.viewports.presetTwoHorizontal')">2-H</button>
+          <button class="panel-btn" type="button" (click)="setSplit('4')" [title]="t('editor.ui.viewports.presetFour')">4</button>
         </div>
-        <button class="panel-btn primary-btn" type="button" (click)="newViewport()" title="Activate Viewport tool">+ New</button>
+        <button class="panel-btn primary-btn" type="button" (click)="newViewport()" [title]="t('editor.ui.viewports.newTooltip')">{{ t('editor.ui.viewports.new') }}</button>
       </div>
     
       @if (vps.version() !== null) {
         @for (vp of rows(); track trackVp($index, vp)) {
           <div class="vp-row" [class.active]="vp.active">
             <div class="vp-name-row">
-              <button class="icon-btn" type="button" (click)="toggleActivate(vp)" [title]="vp.active ? 'Deactivate' : 'Activate'">{{ vp.active ? '●' : '○' }}</button>
-              <button class="icon-btn" type="button" (click)="toggleVisible(vp)" [title]="vp.visible ? 'Hide' : 'Show'">{{ vp.visible ? '👁' : '∅' }}</button>
-              <button class="icon-btn" type="button" (click)="toggleLock(vp)" [title]="vp.locked ? 'Unlock' : 'Lock'">{{ vp.locked ? '🔒' : '🔓' }}</button>
+              <button class="icon-btn" type="button" (click)="toggleActivate(vp)" [title]="vp.active ? t('editor.ui.viewports.deactivate') : t('editor.ui.viewports.activate')">{{ vp.active ? '●' : '○' }}</button>
+              <button class="icon-btn" type="button" (click)="toggleVisible(vp)" [title]="vp.visible ? t('editor.ui.viewports.hide') : t('editor.ui.viewports.show')">{{ vp.visible ? '👁' : '∅' }}</button>
+              <button class="icon-btn" type="button" (click)="toggleLock(vp)" [title]="vp.locked ? t('editor.ui.viewports.unlock') : t('editor.ui.viewports.lock')">@if (vp.locked) { <ui-icon name="lock" [size]="14" /> } @else { <ui-icon name="unlock" [size]="14" /> }</button>
               <input class="vp-name-input" type="text" [(ngModel)]="vp.name" (blur)="markDirty()" />
-              <button class="icon-btn icon-del" type="button" (click)="remove(vp)" title="Delete viewport">×</button>
+              <button class="icon-btn icon-del" type="button" (click)="remove(vp)" [title]="t('editor.ui.viewports.delete')"><ui-icon name="trash" [size]="14" /></button>
             </div>
             <div class="vp-meta">
               <span>{{ vp.w.toFixed(0) }} × {{ vp.h.toFixed(0) }} px</span>
               <span class="vp-zoom">{{ vp.camScale.toFixed(2) }}×</span>
             </div>
             <div class="vp-scales">
-              <label>Scale:</label>
+              <label>{{ t('editor.ui.viewports.scale') }}</label>
               <select [ngModel]="vp.scalePreset" (ngModelChange)="applyScale(vp, $event)">
-                <option [ngValue]="null">— free —</option>
+                <option [ngValue]="null">{{ t('editor.ui.viewports.scaleFree') }}</option>
                 @for (s of scales; track s) {
                   <option [ngValue]="s.label">{{ s.label }}</option>
                 }
@@ -53,9 +55,7 @@ import { Viewport, VIEWPORT_SCALES, IViewportScale } from '../../core/models/vie
           </div>
         }
         @if (!rows().length) {
-          <p class="empty">
-            No viewports yet. Select a split preset above or click <strong>+ New</strong> to draw a custom viewport on the canvas.
-          </p>
+          <p class="empty">{{ t('editor.ui.viewports.empty', { button: t('editor.ui.viewports.new') }) }}</p>
         }
       }
     </div>
@@ -100,8 +100,10 @@ import { Viewport, VIEWPORT_SCALES, IViewportScale } from '../../core/models/vie
       select { background: var(--cad-bg-input); color: var(--cad-text-primary); border: 1px solid var(--cad-border); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
     }
     .icon-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 3px;
       background: transparent; color: var(--cad-text-secondary); border: none;
-      cursor: pointer; font-size: 14px; padding: 0 4px;
+      cursor: pointer; padding: 0;
       &:hover { color: var(--cad-text-primary); }
       &.icon-del { color: var(--cad-red); }
     }

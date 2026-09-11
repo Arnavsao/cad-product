@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import { MeService } from '../../core/api/me.service';
+import { provideI18nTesting } from '../../../testing/i18n-testing';
 import { UiDialogService } from '../../shared/ui/dialog/ui-dialog.service';
 import { DashboardShellComponent } from './dashboard-shell.component';
 import { InboxService } from './data/inbox.service';
@@ -51,6 +52,7 @@ describe('DashboardShellComponent section()', () => {
         provideZonelessChangeDetection(),
         provideHttpClient(),
         provideLocationMocks(),
+        provideI18nTesting(),
         { provide: Router, useValue: router },
         { provide: InboxService, useValue: inbox },
         { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
@@ -130,6 +132,7 @@ describe('DashboardShellComponent notification badge', () => {
         provideZonelessChangeDetection(),
         provideHttpClient(),
         provideLocationMocks(),
+        provideI18nTesting(),
         {
           provide: Router,
           useValue: {

@@ -1,5 +1,6 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { OrgSummaryDto } from '../../../core/api/api.models';
 import { OrganizationsApiService } from '../../../core/api/organizations-api.service';
 import { ApiError } from '../../../core/services/http-manager.service';
@@ -31,25 +32,25 @@ const MAX_NAME = 80;
   selector: 'app-create-organization-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective],
+  imports: [TranslocoDirective, A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective],
   template: `
-    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
+    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus *transloco="let t">
       <header class="ui-dialog__header">
-        <h2 [id]="titleId">Create organization</h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="ref.close()">
+        <h2 [id]="titleId">{{ t('dashboard.components.organization.create') }}</h2>
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('dashboard.components.close')" (click)="ref.close()">
           <ui-icon name="close" />
         </button>
       </header>
 
       <div class="ui-dialog__body">
-        <label class="og__label" [attr.for]="fieldId">Organization name</label>
+        <label class="og__label" [attr.for]="fieldId">{{ t('dashboard.components.organization.nameLabel') }}</label>
         <input
           #field
           uiInput
           type="text"
           [id]="fieldId"
           [attr.maxlength]="maxName"
-          placeholder="Acme Design Studio"
+          [placeholder]="t('dashboard.components.organization.namePlaceholder')"
           [value]="name()"
           [invalid]="!!error()"
           [disabled]="saving()"
@@ -59,14 +60,14 @@ const MAX_NAME = 80;
         @if (error(); as message) {
           <p class="og__error" role="alert">{{ message }}</p>
         } @else {
-          <p class="og__hint">
-            You will be its owner. Drawings you create inside an organization are visible to every member.
-          </p>
+          <p class="og__hint">{{ t('dashboard.components.organization.createHint') }}</p>
         }
       </div>
 
       <footer class="ui-dialog__footer">
-        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">Cancel</button>
+        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">
+          {{ t('dashboard.components.cancel') }}
+        </button>
         <button
           type="button"
           uiButton
@@ -75,7 +76,7 @@ const MAX_NAME = 80;
           [disabled]="!valid() || saving()"
           (click)="submit()"
         >
-          Create organization
+          {{ t('dashboard.components.organization.create') }}
         </button>
       </footer>
     </div>
@@ -91,6 +92,7 @@ const MAX_NAME = 80;
 export class CreateOrganizationDialogComponent implements AfterViewInit {
   protected readonly ref = inject(UiDialogRef) as UiDialogRef<OrgSummaryDto>;
   private readonly orgs = inject(OrganizationsApiService);
+  private readonly transloco = inject(TranslocoService);
 
   private readonly field = viewChild<ElementRef<HTMLInputElement>>('field');
 
@@ -119,7 +121,11 @@ export class CreateOrganizationDialogComponent implements AfterViewInit {
     try {
       this.ref.close(await this.orgs.create(name));
     } catch (e) {
-      this.error.set(e instanceof Error && e.message ? e.message : 'The organization could not be created.');
+      this.error.set(
+        e instanceof Error && e.message
+          ? e.message
+          : this.transloco.translate('dashboard.components.organization.createFailed'),
+      );
     } finally {
       this.saving.set(false);
     }
@@ -130,18 +136,18 @@ export class CreateOrganizationDialogComponent implements AfterViewInit {
   selector: 'app-join-organization-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective],
+  imports: [TranslocoDirective, A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective],
   template: `
-    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
+    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus *transloco="let t">
       <header class="ui-dialog__header">
-        <h2 [id]="titleId">Join an organization</h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="ref.close()">
+        <h2 [id]="titleId">{{ t('dashboard.components.organization.joinTitle') }}</h2>
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('dashboard.components.close')" (click)="ref.close()">
           <ui-icon name="close" />
         </button>
       </header>
 
       <div class="ui-dialog__body">
-        <label class="og__label" [attr.for]="fieldId">Join code</label>
+        <label class="og__label" [attr.for]="fieldId">{{ t('dashboard.components.organization.codeLabel') }}</label>
         <input
           #field
           uiInput
@@ -161,12 +167,14 @@ export class CreateOrganizationDialogComponent implements AfterViewInit {
         @if (error(); as message) {
           <p class="og__error" role="alert">{{ message }}</p>
         } @else {
-          <p class="og__hint">Ask an owner or admin for the organization's join code.</p>
+          <p class="og__hint">{{ t('dashboard.components.organization.joinHint') }}</p>
         }
       </div>
 
       <footer class="ui-dialog__footer">
-        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">Cancel</button>
+        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">
+          {{ t('dashboard.components.cancel') }}
+        </button>
         <button
           type="button"
           uiButton
@@ -175,7 +183,7 @@ export class CreateOrganizationDialogComponent implements AfterViewInit {
           [disabled]="!valid() || saving()"
           (click)="submit()"
         >
-          Join
+          {{ t('dashboard.components.organization.join') }}
         </button>
       </footer>
     </div>
@@ -193,6 +201,7 @@ export class CreateOrganizationDialogComponent implements AfterViewInit {
 export class JoinOrganizationDialogComponent implements AfterViewInit {
   protected readonly ref = inject(UiDialogRef) as UiDialogRef<OrgSummaryDto>;
   private readonly orgs = inject(OrganizationsApiService);
+  private readonly transloco = inject(TranslocoService);
 
   private readonly field = viewChild<ElementRef<HTMLInputElement>>('field');
 
@@ -220,7 +229,7 @@ export class JoinOrganizationDialogComponent implements AfterViewInit {
     try {
       this.ref.close(await this.orgs.join({ code }));
     } catch (e) {
-      this.error.set(messageForJoin(e));
+      this.error.set(messageForJoin(e, this.transloco));
     } finally {
       this.saving.set(false);
     }
@@ -246,23 +255,28 @@ export interface DeleteOrganizationDialogData {
   selector: 'app-delete-organization-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective],
+  imports: [TranslocoDirective, A11yModule, UiButtonDirective, UiIconComponent, UiInputDirective],
   template: `
-    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus>
+    <div class="ui-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" cdkTrapFocus *transloco="let t">
       <header class="ui-dialog__header">
-        <h2 [id]="titleId">Delete {{ data.name }}?</h2>
-        <button type="button" uiButton variant="ghost" size="sm" iconOnly aria-label="Close" (click)="ref.close()">
+        <h2 [id]="titleId">{{ t('dashboard.components.organization.deleteTitle', { name: data.name }) }}</h2>
+        <button type="button" uiButton variant="ghost" size="sm" iconOnly [attr.aria-label]="t('dashboard.components.close')" (click)="ref.close()">
           <ui-icon name="close" />
         </button>
       </header>
 
       <div class="ui-dialog__body">
         <p class="og__warn">
-          This deletes the organization for every member, along with
-          {{ data.drawingCount }} {{ data.drawingCount === 1 ? 'drawing' : 'drawings' }} and every folder inside it.
-          It cannot be undone.
+          {{
+            t(
+              data.drawingCount === 1
+                ? 'dashboard.components.organization.deleteWarningOne'
+                : 'dashboard.components.organization.deleteWarningOther',
+              { count: data.drawingCount }
+            )
+          }}
         </p>
-        <label class="og__label" [attr.for]="fieldId">Type <strong>{{ data.name }}</strong> to confirm</label>
+        <label class="og__label" [attr.for]="fieldId">{{ t('dashboard.components.organization.typeToConfirm', { name: data.name }) }}</label>
         <input
           #field
           uiInput
@@ -282,7 +296,9 @@ export interface DeleteOrganizationDialogData {
       </div>
 
       <footer class="ui-dialog__footer">
-        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">Cancel</button>
+        <button type="button" uiButton variant="secondary" [disabled]="saving()" (click)="ref.close()">
+          {{ t('dashboard.components.cancel') }}
+        </button>
         <button
           type="button"
           uiButton
@@ -291,7 +307,7 @@ export interface DeleteOrganizationDialogData {
           [disabled]="!matches() || saving()"
           (click)="submit()"
         >
-          Delete organization
+          {{ t('dashboard.components.organization.delete') }}
         </button>
       </footer>
     </div>
@@ -299,7 +315,6 @@ export interface DeleteOrganizationDialogData {
   styles: [
     `
       .og__label { display: block; margin-bottom: 6px; font-size: var(--ui-text-sm); font-weight: 600; color: var(--ui-text-dim); }
-      .og__label strong { color: var(--ui-text-strong); }
       .og__warn {
         margin: 0 0 var(--ui-space-4); padding: 10px 12px;
         font-size: var(--ui-text-sm); line-height: var(--ui-leading); color: var(--ui-text);
@@ -313,6 +328,7 @@ export class DeleteOrganizationDialogComponent implements AfterViewInit {
   protected readonly data = inject(UI_DIALOG_DATA) as DeleteOrganizationDialogData;
   protected readonly ref = inject(UiDialogRef) as UiDialogRef<boolean>;
   private readonly orgs = inject(OrganizationsApiService);
+  private readonly transloco = inject(TranslocoService);
 
   private readonly field = viewChild<ElementRef<HTMLInputElement>>('field');
 
@@ -342,7 +358,11 @@ export class DeleteOrganizationDialogComponent implements AfterViewInit {
       await this.orgs.remove(this.data.id);
       this.ref.close(true);
     } catch (e) {
-      this.error.set(e instanceof Error && e.message ? e.message : 'The organization could not be deleted.');
+      this.error.set(
+        e instanceof Error && e.message
+          ? e.message
+          : this.transloco.translate('dashboard.components.organization.deleteFailed'),
+      );
     } finally {
       this.saving.set(false);
     }
@@ -350,10 +370,10 @@ export class DeleteOrganizationDialogComponent implements AfterViewInit {
 }
 
 /** The two join failures a user can actually act on get their own wording. */
-function messageForJoin(e: unknown): string {
+function messageForJoin(e: unknown, transloco: TranslocoService): string {
   if (e instanceof ApiError) {
-    if (e.code === 'ORG_NOT_FOUND') return 'No organization matches that code. Check it and try again.';
-    if (e.code === 'ALREADY_MEMBER') return 'You are already a member of that organization.';
+    if (e.code === 'ORG_NOT_FOUND') return transloco.translate('dashboard.components.organization.codeNotFound');
+    if (e.code === 'ALREADY_MEMBER') return transloco.translate('dashboard.components.organization.alreadyMember');
   }
-  return e instanceof Error && e.message ? e.message : 'Could not join that organization.';
+  return e instanceof Error && e.message ? e.message : transloco.translate('dashboard.components.organization.joinFailed');
 }

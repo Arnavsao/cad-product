@@ -9,6 +9,9 @@ import { BlockEditorService } from '../../core/services/block-editor.service';
 import { BlockThumbnailService } from '../../core/services/block-thumbnail.service';
 import { InsertBlockTool } from '../../tools/block/insert-block-tool';
 import { RenameBlockCmd, DeleteBlockDefCmd, PurgeBlockCmd } from '../../core/models/block-commands.model';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { injectTranslocoOptional } from '../../../../core/i18n/translate-or';
+import { translateOrParams } from '../shared/translate-or-params';
 
 interface BlockRow {
   name: string;
@@ -21,7 +24,8 @@ interface BlockRow {
 
 interface BlockSection {
   key: BlockRow['section'];
-  title: string;
+  /** Translation key of the section heading. */
+  titleKey: string;
   rows: BlockRow[];
 }
 
@@ -31,22 +35,22 @@ const STANDARD_BLOCK_NAMES = new Set(['Centerline', 'Datum', 'NorthArrow', 'Sect
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-blocks-panel',
   standalone: true,
-  imports: [],
+  imports: [TranslocoDirective],
   template: `
-    <div class="blocks-panel">
+    <div class="blocks-panel" *transloco="let t">
       <div class="header-tools">
-        <input class="search-input" type="text" placeholder="Search blocksâ€¦"
+        <input class="search-input" type="text" [placeholder]="t('editor.ui.blocks.search')"
           [value]="filter()" (input)="filter.set($any($event.target).value)" />
-          <button class="btn" type="button" (click)="createBlock()" title="Create block from selection">+ Block</button>
-          <button class="btn" type="button" (click)="explodeSelected()" title="Explode selected INSERTs">Explode</button>
-          <button class="btn" type="button" (click)="purgeUnused()" title="Remove unreferenced block definitions">Purge</button>
+          <button class="btn" type="button" (click)="createBlock()" [title]="t('editor.ui.blocks.createTooltip')">{{ t('editor.ui.blocks.create') }}</button>
+          <button class="btn" type="button" (click)="explodeSelected()" [title]="t('editor.ui.blocks.explodeTooltip')">{{ t('editor.ui.blocks.explode') }}</button>
+          <button class="btn" type="button" (click)="purgeUnused()" [title]="t('editor.ui.blocks.purgeTooltip')">{{ t('editor.ui.blocks.purge') }}</button>
         </div>
     
         @if (doc.version() !== null) {
           @for (section of sections(); track trackSection($index, section)) {
             <div class="block-section">
               <div class="section-title">
-                <span>{{ section.title }}</span>
+                <span>{{ t(section.titleKey) }}</span>
                 <span>{{ section.rows.length }}</span>
               </div>
               @for (row of section.rows; track trackBlock($index, row)) {
@@ -65,30 +69,26 @@ const STANDARD_BLOCK_NAMES = new Set(['Centerline', 'Datum', 'NorthArrow', 'Sect
                     @if (row.description) {
                       <span class="block-description" [title]="row.description">{{ row.description }}</span>
                     }
-                    <span class="block-count" [title]="row.count + ' entities, ' + row.refCount + ' references'">
-                      {{ row.count }}e / {{ row.refCount }}r
+                    <span class="block-count" [title]="t('editor.ui.blocks.countTooltip', { entities: row.count, references: row.refCount })">
+                      {{ t('editor.ui.blocks.countShort', { entities: row.count, references: row.refCount }) }}
                     </span>
                   </div>
                   <div class="row-actions">
-                    <button class="btn-sm" type="button" (click)="insert(row.name)" title="Insert">Ins</button>
-                    <button class="btn-sm" type="button" (click)="editBlock(row.name)" title="Edit Block">Edit</button>
-                    <button class="btn-sm" type="button" (click)="rename(row.name)" title="Rename">Ren</button>
-                    <button class="btn-sm" type="button" (click)="selectRefs(row.name)" title="Select All References">Sel</button>
-                    <button class="btn-sm danger" type="button" (click)="deleteBlock(row.name)" title="Delete block definition">Del</button>
+                    <button class="btn-sm" type="button" (click)="insert(row.name)" [title]="t('editor.ui.blocks.insert')">{{ t('editor.ui.blocks.insertShort') }}</button>
+                    <button class="btn-sm" type="button" (click)="editBlock(row.name)" [title]="t('editor.ui.blocks.edit')">{{ t('editor.ui.blocks.editShort') }}</button>
+                    <button class="btn-sm" type="button" (click)="rename(row.name)" [title]="t('editor.ui.blocks.rename')">{{ t('editor.ui.blocks.renameShort') }}</button>
+                    <button class="btn-sm" type="button" (click)="selectRefs(row.name)" [title]="t('editor.ui.blocks.selectReferences')">{{ t('editor.ui.blocks.selectShort') }}</button>
+                    <button class="btn-sm danger" type="button" (click)="deleteBlock(row.name)" [title]="t('editor.ui.blocks.delete')">{{ t('editor.ui.blocks.deleteShort') }}</button>
                   </div>
                 </div>
               }
             </div>
           }
           @if (!filteredRows().length && rows().length) {
-            <p class="empty">
-              No blocks matching "<strong>{{ filter() }}</strong>".
-            </p>
+            <p class="empty">{{ t('editor.ui.blocks.noMatches', { query: filter() }) }}</p>
           }
           @if (!rows().length) {
-            <p class="empty">
-              No blocks in this drawing. Select entities and click <strong>+ Block</strong> to create one.
-            </p>
+            <p class="empty">{{ t('editor.ui.blocks.empty', { button: t('editor.ui.blocks.create') }) }}</p>
           }
         }
       </div>
@@ -161,6 +161,7 @@ export class BlocksPanelComponent {
   private cmds = inject(CommandStackService);
   private blockEditor = inject(BlockEditorService);
   private thumbs = inject(BlockThumbnailService);
+  private transloco = injectTranslocoOptional();
 
   filter = signal('');
 
@@ -202,8 +203,8 @@ export class BlocksPanelComponent {
     const created = rows.filter((row) => row.section === 'created');
     const standard = rows.filter((row) => row.section === 'standard');
     const sections: BlockSection[] = [];
-    if (created.length) sections.push({ key: 'created', title: 'Created Blocks', rows: created });
-    if (standard.length) sections.push({ key: 'standard', title: 'Standard Symbols', rows: standard });
+    if (created.length) sections.push({ key: 'created', titleKey: 'editor.ui.blocks.sectionCreated', rows: created });
+    if (standard.length) sections.push({ key: 'standard', titleKey: 'editor.ui.blocks.sectionStandard', rows: standard });
     return sections;
   });
 
@@ -228,12 +229,12 @@ export class BlocksPanelComponent {
   }
 
   rename(name: string): void {
-    const newName = window.prompt(`Rename block "${name}" to:`, name);
+    const newName = window.prompt(translateOrParams(this.transloco, 'editor.ui.blocks.renamePrompt', 'Rename block "{{name}}" to:', { name }), name);
     if (!newName?.trim() || newName.trim() === name) return;
     const trimmed = newName.trim();
     const file = this.doc.activeFile;
     if (file.blocks.has(trimmed)) {
-      alert(`Block "${trimmed}" already exists.`);
+      alert(translateOrParams(this.transloco, 'editor.ui.blocks.alreadyExists', 'Block "{{name}}" already exists.', { name: trimmed }));
       return;
     }
     this.cmds.push(new RenameBlockCmd(name, trimmed, file, {
@@ -246,8 +247,8 @@ export class BlocksPanelComponent {
     const file = this.doc.activeFile;
     const refCount = file.entities.filter((e: any) => e.type === 'INSERT' && e.blockName === name).length;
     const msg = refCount > 0
-      ? `Delete block "${name}"? This will also remove ${refCount} reference(s) from the drawing.`
-      : `Delete unused block "${name}"?`;
+      ? translateOrParams(this.transloco, 'editor.ui.blocks.confirmDeleteReferenced', 'Delete block "{{name}}"? This will also remove {{count}} reference(s) from the drawing.', { name, count: refCount })
+      : translateOrParams(this.transloco, 'editor.ui.blocks.confirmDeleteUnused', 'Delete unused block "{{name}}"?', { name });
     if (!confirm(msg)) return;
     this.cmds.push(new DeleteBlockDefCmd(name, file, {
       markDirty: () => this.vm.markContentDirty(),

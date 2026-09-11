@@ -31,7 +31,7 @@ export class XLineTool implements ITool {
   // POINT mode
   private base: IPoint | null = null;
 
-  // ANG mode â€” angle in radians; null until user types it
+  // ANG mode — angle in radians; null until user types it
   private angAngle: number | null = null;
 
   // BISECT mode
@@ -53,7 +53,7 @@ export class XLineTool implements ITool {
   activate(): void  { this.fullReset(); }
   deactivate(): void { this.fullReset(); }
 
-  // â”€â”€â”€ Option dispatch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Option dispatch ────────────────────────────────────────────────────────
 
   invokeOption(key: string): boolean {
     switch (key) {
@@ -78,7 +78,7 @@ export class XLineTool implements ITool {
     this.vm.markDirty();
   }
 
-  // â”€â”€â”€ Phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Phase ─────────────────────────────────────────────────────────────────
 
   getPhase(): string {
     switch (this.mode) {
@@ -107,7 +107,7 @@ export class XLineTool implements ITool {
     return null;
   }
 
-  // â”€â”€â”€ Dynamic input (ANG angle + OFFSET distance) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Dynamic input (ANG angle + OFFSET distance) ───────────────────────────
 
   getDynamicInputState(): IDynamicInputState | null {
     if (this.mode === XLineMode.ANG && this.angAngle === null) {
@@ -147,7 +147,7 @@ export class XLineTool implements ITool {
     return false;
   }
 
-  // â”€â”€â”€ Mouse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Mouse ─────────────────────────────────────────────────────────────────
 
   onMouseMove(wx: number, wy: number): void {
     this.cur = { x: wx, y: wy };
@@ -167,7 +167,7 @@ export class XLineTool implements ITool {
     this.vm.markDirty();
   }
 
-  // â”€â”€â”€ Mode handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Mode handlers ──────────────────────────────────────────────────────────
 
   private handlePoint(wx: number, wy: number): void {
     if (!this.base) {
@@ -176,7 +176,7 @@ export class XLineTool implements ITool {
     }
     const angle = Math.atan2(wy - this.base.y, wx - this.base.x);
     this.placeXLine(this.base.x, this.base.y, angle);
-    // Keep base â€” user can pick more through-points (AutoCAD pattern)
+    // Keep base — user can pick more through-points (AutoCAD pattern)
   }
 
   private handleAng(wx: number, wy: number): void {
@@ -218,7 +218,7 @@ export class XLineTool implements ITool {
       this.offsetSource = { angle, refX, refY };
       return;
     }
-    // Phase 2: distance entered via commitDynamicInput â€” wait for it
+    // Phase 2: distance entered via commitDynamicInput — wait for it
     if (this.offsetDist === null) return;
     // Phase 3: click to choose side
     const { angle, refX, refY } = this.offsetSource;
@@ -238,7 +238,7 @@ export class XLineTool implements ITool {
     this.cmds.push(new AddEntityCmd(e, this.doc.activeFile, { markDirty: () => this.vm.markContentDirty() }));
   }
 
-  // â”€â”€â”€ Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Preview ────────────────────────────────────────────────────────────────
 
   drawPreview(ctx: CanvasRenderingContext2D): void {
     ctx.save();
@@ -277,13 +277,13 @@ export class XLineTool implements ITool {
     if (!v) return;
     const vs = this.vm.w2s(v.x, v.y);
     const cs = this.vm.w2s(this.cur.x, this.cur.y);
-    // First arm (vertex â†’ p1)
+    // First arm (vertex → p1)
     if (this.bisectP1) {
       const p1s = this.vm.w2s(this.bisectP1.x, this.bisectP1.y);
       ctx.setLineDash([]);
       ctx.beginPath(); ctx.moveTo(vs.x, vs.y); ctx.lineTo(p1s.x, p1s.y); ctx.stroke();
     }
-    // Second arm (vertex â†’ cursor)
+    // Second arm (vertex → cursor)
     ctx.setLineDash([4, 4]);
     ctx.beginPath(); ctx.moveTo(vs.x, vs.y); ctx.lineTo(cs.x, cs.y); ctx.stroke();
     // Bisector preview when both arms are defined
@@ -326,7 +326,7 @@ export class XLineTool implements ITool {
     ctx.stroke();
   }
 
-  // â”€â”€â”€ Keyboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Keyboard ───────────────────────────────────────────────────────────────
 
   onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {

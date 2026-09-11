@@ -17,14 +17,14 @@ export type PasteMode = 'pasteclip' | 'pasteblock';
  * AutoCAD-style PASTECLIP / PASTEBLOCK placement tool.
  *
  * Activated by:
- *   Ctrl+V / PASTECLIP  â†’ mode='pasteclip' (default)
- *   Ctrl+Alt+V / PASTEBLOCK â†’ mode='pasteblock'
+ *   Ctrl+V / PASTECLIP  → mode='pasteclip' (default)
+ *   Ctrl+Alt+V / PASTEBLOCK → mode='pasteblock'
  *
  * The tool reads the payload from `CadClipboardService`, renders a translucent
  * ghost anchored at the cursor using the payload's `basePoint` as the handle,
  * and commits on left-click / Enter / right-click.
  *
- * PASTEORIG (Ctrl+Shift+V) is handled *without* this tool â€” it's an instant
+ * PASTEORIG (Ctrl+Shift+V) is handled *without* this tool — it's an instant
  * command that calls `CadClipboardService.pasteOriginal()` directly.
  *
  * Legacy compatibility: `PasteTool.pendingClipboard` (bare Entity[]) is still
@@ -34,15 +34,15 @@ export type PasteMode = 'pasteclip' | 'pasteblock';
 export class PasteTool implements ITool {
   readonly name = 'paste';
 
-  // â”€â”€ Legacy shim â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Legacy shim ────────────────────────────────────────────────────────────
   /** @deprecated Use CadClipboardService.copy() instead. */
   static pendingClipboard: Entity[] | null = null;
 
-  // â”€â”€ Mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Mode ──────────────────────────────────────────────────────────────────
   static mode: PasteMode = 'pasteclip';
 
-  // â”€â”€ Preview state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  /** Live clone batch â€” positioned at `lastAppliedOffset`. */
+  // ── Preview state ─────────────────────────────────────────────────────────
+  /** Live clone batch — positioned at `lastAppliedOffset`. */
   private previewEnts: Entity[] = [];
   /** World coords the preview is currently anchored at. */
   private lastAppliedOffset: IPoint = { x: 0, y: 0 };
@@ -59,7 +59,7 @@ export class PasteTool implements ITool {
   private get cadClipboard() { return this.injector.get(CadClipboardService) as CadClipboardService; }
 
   activate(): void {
-    // â”€â”€ Legacy shim: wrap bare Entity[] into the new service â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Legacy shim: wrap bare Entity[] into the new service ──────────────
     if (PasteTool.pendingClipboard?.length) {
       const ents = PasteTool.pendingClipboard;
       PasteTool.pendingClipboard = null;
@@ -95,7 +95,7 @@ export class PasteTool implements ITool {
     this.vm.markDirty();
   }
 
-  // â”€â”€â”€ Mouse events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Mouse events ──────────────────────────────────────────────────────────
 
   onMouseMove(wx: number, wy: number): void {
     this.cur = { x: wx, y: wy };
@@ -105,7 +105,7 @@ export class PasteTool implements ITool {
   }
 
   onMouseDown(wx: number, wy: number, _sx: number, _sy: number, e: MouseEvent): void {
-    // Left click â†’ commit. Right-click is handled via confirmAtCursor() from
+    // Left click → commit. Right-click is handled via confirmAtCursor() from
     // the host's context-menu handler so the browser's right-button-down
     // doesn't also fire a commit before the context menu appears.
     if (e.button !== 0) return;
@@ -121,7 +121,7 @@ export class PasteTool implements ITool {
     this.commitPlacement(this.cur.x, this.cur.y);
   }
 
-  // â”€â”€â”€ Keyboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Keyboard ─────────────────────────────────────────────────────────────
 
   onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
@@ -137,7 +137,7 @@ export class PasteTool implements ITool {
     }
   }
 
-  // â”€â”€â”€ Preview drawing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Preview drawing ───────────────────────────────────────────────────────
 
   drawPreview(ctx: CanvasRenderingContext2D): void {
     if (!this.hasCursor || !this.previewEnts.length) return;
@@ -163,10 +163,10 @@ export class PasteTool implements ITool {
     ctx.restore();
   }
 
-  // â”€â”€â”€ Tool metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Tool metadata ────────────────────────────────────────────────────────
 
   /**
-   * Paste has no meaningful "from" anchor so ortho/polar don't engage â€”
+   * Paste has no meaningful "from" anchor so ortho/polar don't engage —
    * matches AutoCAD PASTECLIP behaviour. OSnap and grid still apply.
    */
   getPhase(): string { return 'insert'; }
@@ -179,7 +179,7 @@ export class PasteTool implements ITool {
     this.vm.markDirty();
   }
 
-  // â”€â”€â”€ Private helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Private helpers ──────────────────────────────────────────────────────
 
   private translatePreview(targetX: number, targetY: number): void {
     const dx = targetX - this.lastAppliedOffset.x;
