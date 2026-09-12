@@ -8,6 +8,7 @@ import { Subscription } from 'rxjs';
 import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { CommandStackService } from '../../core/services/command-stack.service';
 import { AiModelService } from './services/ai-model.service';
+import type { AiModelId } from './models/ai-model';
 import type { AiTurnEvent, ActionResult, PendingPlan, ValidationIssue } from './models/ai-action.model';
 import type { LayoutReport, LayoutIssue } from './tools/views-intelligent-layout.tools';
 import { UiIconComponent } from '../../../../shared/ui/icon.component';
@@ -58,51 +59,52 @@ function nextId() { return `msg_${++msgIdSeq}`; }
       <!-- Settings popover: backend config -->
       @if (showSettings()) {
         <div class="ai-settings">
-          <!-- Ollama server URL (shown for local models) -->
-          @if (isOllama()) {
-            <label class="ai-settings-label">{{ t('editor.ui.ai.ollamaUrl') }}</label>
-            <div class="ai-key-row">
-              <input class="ai-key-input"
-                type="text"
-                placeholder="http://localhost:11434"
-                [ngModel]="modelSvc.ollamaUrl()"
-                (ngModelChange)="onOllamaUrlChange($event)"
-                autocomplete="off" spellcheck="false" />
+          @if (isCloud()) {
+            @if (needsDataConsent()) {
+              <div class="ai-settings-consent">
+                <p class="ai-settings-note ai-settings-warn">{{ t('editor.ui.ai.consentWarning', { provider: providerName() }) }}</p>
+                <button type="button" class="ai-consent-btn" (click)="grantDataConsent()">{{ t('editor.ui.ai.consentAccept') }}</button>
               </div>
-              <p class="ai-settings-note">{{ t('editor.ui.ai.ollamaNote') }}</p>
-            }
-            <!-- OpenRouter API key (shown for cloud models) -->
-            @if (isOpenRouter()) {
-              @if (needsDataConsent()) {
-                <div class="ai-settings-consent">
-                  <p class="ai-settings-note ai-settings-warn">{{ t('editor.ui.ai.consentWarning') }}</p>
-                  <button type="button" class="ai-consent-btn" (click)="grantDataConsent()">{{ t('editor.ui.ai.consentAccept') }}</button>
-                </div>
-              } @else {
-                <label class="ai-settings-label">{{ t('editor.ui.ai.openRouterKey') }}</label>
+            } @else {
+              <label class="ai-settings-label">{{ t('editor.ui.ai.apiKeyLabel', { provider: providerName() }) }}</label>
+              <div class="ai-key-row">
+                <input class="ai-key-input"
+                  [type]="showKey() ? 'text' : 'password'"
+                  [placeholder]="keyPlaceholder()"
+                  [ngModel]="modelSvc.apiKeyFor()"
+                  (ngModelChange)="onKeyChange($event)"
+                  autocomplete="off" spellcheck="false" />
+                <button type="button" class="ai-key-toggle" (click)="showKey.set(!showKey())">
+                  @if (showKey()) { <ui-icon name="eye-off" [size]="14" /> } @else { <ui-icon name="eye" [size]="14" /> }
+                </button>
+              </div>
+              <p class="ai-settings-note" [class.ai-settings-warn]="needsKey()">
+                {{ needsKey()
+                  ? t('editor.ui.ai.keyRequired', { provider: providerName() })
+                  : t('editor.ui.ai.keyStorageNote', { provider: providerName() }) }}
+              </p>
+              @if (isAnthropic()) {
+                <p class="ai-settings-note">{{ t('editor.ui.ai.claudeNote') }}</p>
+              }
+              @if (isCustomSlug()) {
+                <label class="ai-settings-label ai-settings-label--gap">{{ t('editor.ui.ai.customSlugLabel') }}</label>
                 <div class="ai-key-row">
                   <input class="ai-key-input"
-                    [type]="showKey() ? 'text' : 'password'"
-                    placeholder="sk-or-v1-…"
-                    [ngModel]="modelSvc.apiKey()"
-                    (ngModelChange)="onKeyChange($event)"
+                    type="text"
+                    placeholder="anthropic/claude-sonnet-5"
+                    [ngModel]="modelSvc.openRouterSlug()"
+                    (ngModelChange)="onSlugChange($event)"
                     autocomplete="off" spellcheck="false" />
-                    <button type="button" class="ai-key-toggle" (click)="showKey.set(!showKey())">
-                      {{ showKey() ? '🙈' : '👁' }}
-                    </button>
-                  </div>
-                  <p class="ai-settings-note" [class.ai-settings-warn]="needsKey()">
-                    {{ needsKey() ? t('editor.ui.ai.keyRequired') : t('editor.ui.ai.keyStorageNote') }}
-                  </p>
-                }
+                </div>
+                <p class="ai-settings-note" [class.ai-settings-warn]="needsSlug()">{{ t('editor.ui.ai.customSlugNote') }}</p>
               }
-              <!-- Regex selected -->
-              @if (modelSvc.selected.kind === 'local') {
-                <p class="ai-settings-note">{{ t('editor.ui.ai.offlineParserNote') }}</p>
-              }
-            </div>
+            }
+          } @else {
+            <p class="ai-settings-note">{{ t('editor.ui.ai.offlineParserNote') }}</p>
           }
-    
+        </div>
+      }
+
           <!-- Message list -->
           <div class="ai-messages" #scrollContainer>
     
@@ -120,6 +122,8 @@ function nextId() { return `msg_${++msgIdSeq}`; }
                   <button type="button" class="ai-example-chip" (click)="sendExample('Zoom to top view')">{{ t('editor.ui.ai.example.zoomToView') }}</button>
                   <button type="button" class="ai-example-chip" (click)="sendExample('Rename layer DIM to ANNOT')">{{ t('editor.ui.ai.example.renameLayer') }}</button>
                   <button type="button" class="ai-example-chip" (click)="sendExample('Generate a box culvert GAD 2m wide 1.5m high')">{{ t('editor.ui.ai.example.generateGad') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Draw a 4m by 3m bedroom with a 900 door on the south wall and a 1.5m window on the north wall')">{{ t('editor.ui.ai.example.drawRoom') }}</button>
+                  <button type="button" class="ai-example-chip" (click)="sendExample('Draw a column grid, 4 bays of 6m by 3 bays of 5m, with 400 square columns')">{{ t('editor.ui.ai.example.drawGrid') }}</button>
                 </div>
               </div>
             }
@@ -332,6 +336,7 @@ function nextId() { return `msg_${++msgIdSeq}`; }
       color: var(--cad-text-dim, #7f8694);
       margin-bottom: 4px;
     }
+    .ai-settings-label--gap { margin-top: 10px; }
     .ai-key-row { display: flex; gap: 4px; }
     .ai-key-input {
       flex: 1;
@@ -667,22 +672,38 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
   /** ID of the current thinking placeholder (for stop). */
   private _thinkingMsgId: string | null = null;
 
-  /** True when the selected model is an LLM but no API key is set. */
+  /** True when the selected model is a cloud LLM but its provider key is missing. */
   protected needsKey(): boolean {
-    return this.modelSvc.selected.kind === 'openrouter' && !this.modelSvc.hasApiKey();
+    return this.modelSvc.isCloud && !this.modelSvc.hasApiKey();
   }
 
-  protected isOllama(): boolean {
-    return this.modelSvc.selected.kind === 'ollama';
+  protected isCloud(): boolean {
+    return this.modelSvc.isCloud;
   }
 
-  protected isOpenRouter(): boolean {
-    return this.modelSvc.selected.kind === 'openrouter';
+  protected isAnthropic(): boolean {
+    return this.modelSvc.kind === 'anthropic';
   }
 
-  /** True when OpenRouter is selected but the user hasn't acknowledged that drawing data leaves the browser. */
+  protected isCustomSlug(): boolean {
+    return this.modelSvc.selected.id === 'or-custom';
+  }
+
+  protected needsSlug(): boolean {
+    return this.isCustomSlug() && !this.modelSvc.openRouterSlug();
+  }
+
+  protected providerName(): string {
+    return this.modelSvc.providerName;
+  }
+
+  protected keyPlaceholder(): string {
+    return this.isAnthropic() ? 'sk-ant-…' : 'sk-or-v1-…';
+  }
+
+  /** True when a cloud provider is selected but the user hasn't acknowledged that drawing data leaves the browser. */
   protected needsDataConsent(): boolean {
-    return this.isOpenRouter() && !this.modelSvc.hasDataConsent();
+    return this.modelSvc.isCloud && !this.modelSvc.hasDataConsent();
   }
 
   protected grantDataConsent(): void {
@@ -690,17 +711,17 @@ export class AiAgentPanelComponent implements AfterViewChecked, OnDestroy {
   }
 
   protected onModelChange(id: string): void {
-    this.modelSvc.setModel(id as any);
+    this.modelSvc.setModel(id as AiModelId);
     // Auto-open settings if the chosen model needs configuration.
-    if (this.needsKey()) this.showSettings.set(true);
+    if (this.needsKey() || this.needsSlug() || this.needsDataConsent()) this.showSettings.set(true);
   }
 
   protected onKeyChange(key: string): void {
     this.modelSvc.setApiKey(key);
   }
 
-  protected onOllamaUrlChange(url: string): void {
-    this.modelSvc.setOllamaUrl(url);
+  protected onSlugChange(slug: string): void {
+    this.modelSvc.setOpenRouterSlug(slug);
   }
 
   @ViewChild('scrollContainer') private scrollEl?: ElementRef<HTMLDivElement>;

@@ -1,31 +1,43 @@
-import { environment } from '../../../../../../environments/environment';
+export type AiProviderKind = 'local' | 'anthropic' | 'openrouter';
+
 export type AiModelId =
   | 'regex'
-  | 'gemma-4-31b'
-  | 'qwen3-coder-480b'
-  | 'ollama-gemma4-31b'
-  | 'ollama-qwen35-35b'
-  | 'ollama-deepseek-v4';
+  | 'claude-opus-5'
+  | 'claude-sonnet-5'
+  | 'claude-haiku-4-5'
+  | 'or-claude-sonnet-5'
+  | 'or-claude-opus-5'
+  | 'or-custom';
 
 export interface AiModelOption {
   id: AiModelId;
   label: string;
-  /** Model slug/name sent to the backend, or null for the local regex parser. */
+  /**
+   * Model slug sent to the provider, or null when the slug comes from
+   * elsewhere: the local regex parser has none, and `or-custom` reads the
+   * user-typed slug from settings.
+   */
   slug: string | null;
-  kind: 'local' | 'openrouter' | 'ollama';
+  kind: AiProviderKind;
   /** Short hint shown in the dropdown. */
   hint: string;
+  /**
+   * Anthropic only: opt into server-side refusal fallbacks so a safety
+   * decline is re-run on a sibling model inside the same request.
+   */
+  fallbacks?: boolean;
 }
 
 /**
  * Available reasoning backends.
  *
  * - `local`      → built-in deterministic regex parser (no network).
- * - `openrouter` → OpenRouter cloud API (needs an API key, may rate-limit).
- * - `ollama`     → self-hosted Ollama server (OpenAI-compatible endpoint).
- *
- * NOTE: cloud slugs occasionally change. If a model returns 404, list the
- * current slugs via GET {server}/api/tags (Ollama) or openrouter.ai/models.
+ * - `anthropic`  → Claude, called directly from the browser with the user's
+ *                  Anthropic API key (Messages API).
+ * - `openrouter` → OpenRouter (OpenAI-compatible chat completions) with the
+ *                  user's OpenRouter key. Fixed Claude slugs plus a free-text
+ *                  slug so any model on openrouter.ai/models can be used
+ *                  without a code change.
  */
 export const AI_MODELS: AiModelOption[] = [
   {
@@ -36,49 +48,66 @@ export const AI_MODELS: AiModelOption[] = [
     hint: 'Fast, deterministic, no API key needed',
   },
 
-  // ── Self-hosted Ollama models (recommended — no rate limits) ───────────────
+  // ── Claude direct (Anthropic API) ────────────────────────────────────────
   {
-    id: 'ollama-gemma4-31b',
-    label: 'Gemma 4 31B (local)',
-    slug: 'gemma4:31b',
-    kind: 'ollama',
-    hint: 'Self-hosted · balanced accuracy + latency (recommended)',
+    id: 'claude-opus-5',
+    label: 'Claude Opus 5',
+    slug: 'claude-opus-5',
+    kind: 'anthropic',
+    hint: 'Anthropic · best drafting judgement (recommended)',
+    fallbacks: true,
   },
   {
-    id: 'ollama-qwen35-35b',
-    label: 'Qwen 3.6 35B (local)',
-    slug: 'qwen3.6:35b',
-    kind: 'ollama',
-    hint: 'Self-hosted · best for complex/logic-heavy commands',
+    id: 'claude-sonnet-5',
+    label: 'Claude Sonnet 5',
+    slug: 'claude-sonnet-5',
+    kind: 'anthropic',
+    hint: 'Anthropic · fast, strong on everyday edits',
   },
   {
-    id: 'ollama-deepseek-v4',
-    label: 'DeepSeek V4 Pro (local→cloud)',
-    slug: 'deepseek-v4-pro:cloud',
-    kind: 'ollama',
-    hint: 'Self-hosted proxy to DeepSeek cloud',
+    id: 'claude-haiku-4-5',
+    label: 'Claude Haiku 4.5',
+    slug: 'claude-haiku-4-5',
+    kind: 'anthropic',
+    hint: 'Anthropic · cheapest, simple commands',
   },
 
-  // ── OpenRouter cloud (fallback — free tier rate-limits) ────────────────────
+  // ── OpenRouter ───────────────────────────────────────────────────────────
   {
-    id: 'gemma-4-31b',
-    label: 'Gemma 4 31B (OpenRouter)',
-    slug: 'google/gemma-4-31b-it:free',
+    id: 'or-claude-sonnet-5',
+    label: 'Claude Sonnet 5 (OpenRouter)',
+    slug: 'anthropic/claude-sonnet-5',
     kind: 'openrouter',
-    hint: 'Cloud · free tier may rate-limit',
+    hint: 'OpenRouter · needs an OpenRouter key',
   },
   {
-    id: 'qwen3-coder-480b',
-    label: 'Qwen3 Coder (OpenRouter)',
-    slug: 'qwen/qwen3-coder:free',
+    id: 'or-claude-opus-5',
+    label: 'Claude Opus 5 (OpenRouter)',
+    slug: 'anthropic/claude-opus-5',
     kind: 'openrouter',
-    hint: 'Cloud · free tier may rate-limit',
+    hint: 'OpenRouter · needs an OpenRouter key',
+  },
+  {
+    id: 'or-custom',
+    label: 'Custom slug (OpenRouter)',
+    slug: null,
+    kind: 'openrouter',
+    hint: 'OpenRouter · type any model slug in settings',
   },
 ];
 
-/** Default base URL for the self-hosted Ollama server. */
-export const DEFAULT_OLLAMA_URL = environment.defaultOllamaUrl;
+export const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
+export const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 export function getModelOption(id: AiModelId): AiModelOption {
   return AI_MODELS.find(m => m.id === id) ?? AI_MODELS[0];
+}
+
+/** Human-readable provider name for consent and key-storage notices. */
+export function providerLabel(kind: AiProviderKind): string {
+  switch (kind) {
+    case 'anthropic': return 'Anthropic';
+    case 'openrouter': return 'OpenRouter';
+    default: return 'CADO';
+  }
 }

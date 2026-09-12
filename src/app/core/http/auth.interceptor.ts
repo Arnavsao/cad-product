@@ -27,7 +27,7 @@ function isPublicUrl(url: string): boolean {
  * The token provider may be asynchronous (Supabase mints short-lived access tokens), so the request is deferred behind `from(Promise.resolve(...))` and
  * only sent once the token resolves. On 401 the provider is cleared and the
  * user is sent to `/sign-in?redirect_url=<where they were>` unless they are
- * already on a public route. Requests to other hosts (presigned S3 URLs, Ollama)
+ * already on a public route. Requests to other hosts (presigned S3 URLs, AI providers)
  * pass through untouched.
  *
  * The redirect is skipped entirely in embedded mode (no Supabase config): there

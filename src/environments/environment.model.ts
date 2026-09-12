@@ -8,8 +8,6 @@ export interface AppEnvironment {
    * browser never makes a cross-origin request and CORS stays out of the picture.
    */
   apiUrl: string;
-  /** Default Ollama endpoint offered in the AI panel settings. */
-  defaultOllamaUrl: string;
   /**
    * Supabase project URL (`https://<ref>.supabase.co`).
    *

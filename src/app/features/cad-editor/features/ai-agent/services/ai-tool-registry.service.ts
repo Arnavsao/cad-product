@@ -31,6 +31,9 @@ import { makeGenerateDrawingTool } from '../tools/generate-drawing.tool';
 import { makeViewZoomToTool, makeViewIsolateTool } from '../tools/view-navigation.tools';
 import { makeLayerRenameTool } from '../tools/layer-rename.tool';
 import { makeAddDimensionTool } from '../tools/annotation-add-dimension.tool';
+import { makeDrawEntitiesTool } from '../tools/draw-entities.tool';
+import { makeDrawRoomTool } from '../tools/draw-room.tool';
+import { makeDrawGridTool } from '../tools/draw-grid.tool';
 import { LibrarySearchService } from './library-search.service';
 import { GenerationPlannerService } from './generation-planner.service';
 import { AiLayoutReportService } from './ai-layout-report.service';
@@ -81,6 +84,10 @@ export class AiToolRegistryService {
       makeViewIsolateTool(),
       makeLayerRenameTool(),
       makeAddDimensionTool(),
+      // Drawing — the assistant's pencil
+      makeDrawEntitiesTool(),
+      makeDrawRoomTool(),
+      makeDrawGridTool(),
     ];
     for (const tool of allTools) {
       this._tools.set(tool.id, tool);

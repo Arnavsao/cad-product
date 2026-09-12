@@ -6,6 +6,8 @@ import type { CadContextSnapshot } from '../models/ai-context.model';
 import { AiModelService } from './ai-model.service';
 import { AiToolRegistryService } from './ai-tool-registry.service';
 import { COMPONENT_FAMILIES } from '../models/component-family.model';
+import { DRAFTING_KNOWLEDGE } from '../models/drafting-knowledge';
+import { ANTHROPIC_MESSAGES_URL, OPENROUTER_CHAT_URL, type AiProviderKind } from '../models/ai-model';
 
 export type GatewayResponse =
   | { type: 'actions'; actions: CadAction[] }
@@ -798,10 +800,23 @@ export function parseLocalWithFollowUp(
 
 // ── Gateway service ───────────────────────────────────────────────────────────
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+/** Anthropic Messages API — the subset of the wire format the gateway reads. */
+interface AnthropicContentBlock { type: string; text?: string; }
+interface AnthropicResponse {
+  content?: AnthropicContentBlock[];
+  stop_reason?: string;
+  stop_details?: { category?: string | null; explanation?: string } | null;
+  error?: { type?: string; message?: string };
+}
 
+/** OpenAI-compatible chat completion (OpenRouter). */
 interface OpenRouterChoice { message?: { content?: string }; }
-interface OpenRouterResponse { choices?: OpenRouterChoice[]; error?: { message?: string }; }
+interface OpenRouterResponse { choices?: OpenRouterChoice[]; error?: { message?: string; code?: number }; }
+
+/** Turns of history sent to the model; older turns are dropped to bound tokens. */
+const HISTORY_TURNS = 8;
+/** Drawing plans can be long JSON; leave room. */
+const MAX_OUTPUT_TOKENS = 8000;
 
 @Injectable({ providedIn: 'root' })
 export class LlmGatewayService {
@@ -817,108 +832,156 @@ export class LlmGatewayService {
     const model = this.modelSvc.selected;
 
     // ── Local regex parser ───────────────────────────────────────────────────
-    if (model.kind === 'local' || !model.slug) {
+    if (model.kind === 'local') {
       await new Promise(r => setTimeout(r, 200));
       return parseLocalWithFollowUp(prompt, context, history);
     }
 
-    // ── Resolve endpoint + auth for the chosen backend ───────────────────────
-    let url: string;
-    let authHeader: Record<string, string>;
-
-    if (model.kind === 'ollama') {
-      const base = this.modelSvc.ollamaUrl();
-      if (!base) {
-        return { type: 'error', message: 'No Ollama server URL set. Open settings (⚙) and enter your server address.' };
-      }
-      // Ollama exposes an OpenAI-compatible endpoint at /v1/chat/completions.
-      url = `${base}/v1/chat/completions`;
-      authHeader = { Authorization: 'Bearer ollama' }; // token ignored by Ollama
-    } else {
-      // OpenRouter
-      const apiKey = this.modelSvc.apiKey();
-      if (!apiKey) {
-        return {
-          type: 'error',
-          message: 'No OpenRouter API key set. Open settings (⚙) and paste your key, or switch to a local model.',
-        };
-      }
-      url = OPENROUTER_URL;
-      authHeader = {
-        Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://cadonline.app',
-        'X-Title': 'CADO Assistant',
+    const apiKey = this.modelSvc.apiKeyFor(model.kind);
+    if (!apiKey) {
+      return {
+        type: 'error',
+        message: `No ${this.modelSvc.providerName} API key set. Open settings (⚙) and paste your key, or switch to the offline parser.`,
       };
     }
+    const slug = this.modelSvc.resolvedSlug();
+    if (!slug) {
+      return { type: 'error', message: 'No OpenRouter model slug set. Open settings (⚙) and type one (see openrouter.ai/models).' };
+    }
 
-    // ── OpenAI-compatible chat completion (OpenRouter + Ollama) ──────────────
+    // History already ends with the current prompt (the orchestrator pushes it
+    // before calling), so take the turns before it and append the prompt once.
+    const priorTurns = history
+      .slice(0, -1)
+      .slice(-HISTORY_TURNS)
+      .filter(h => h.role === 'user' || h.role === 'assistant')
+      .map(h => ({ role: h.role as 'user' | 'assistant', content: h.content }));
+
     try {
-      const systemPrompt = this._buildSystemPrompt(context);
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        // Keep the last few turns for context (cap to limit tokens).
-        ...history.slice(-6),
-        { role: 'user', content: prompt },
-      ];
-
-      const body = {
-        model: model.slug,
-        messages,
-        temperature: 0.1,
-        stream: false,
-        response_format: { type: 'json_object' },
-      };
-
-      const resp = await firstValueFrom(
-        this.http.post<OpenRouterResponse>(url, body, {
-          headers: { 'Content-Type': 'application/json', ...authHeader },
-        }),
-      );
-
-      if (resp.error?.message) {
-        return { type: 'error', message: `Model error: ${resp.error.message}` };
-      }
-
-      const content = resp.choices?.[0]?.message?.content;
-      if (!content) {
-        return { type: 'error', message: 'The model returned an empty response.' };
-      }
-
-      return this._parseModelJson(content, prompt);
+      const raw = model.kind === 'anthropic'
+        ? await this._callAnthropic(slug, apiKey, context, priorTurns, prompt, !!model.fallbacks)
+        : await this._callOpenRouter(slug, apiKey, context, priorTurns, prompt);
+      if (raw.type === 'error') return raw;
+      return this._parseModelJson(raw.text, prompt);
     } catch (err: unknown) {
-      const msg = this._httpErrorMessage(err, model.kind);
-      return { type: 'error', message: msg };
+      return { type: 'error', message: this._httpErrorMessage(err, model.kind) };
     }
+  }
+
+  // ── Providers ──────────────────────────────────────────────────────────────
+
+  private async _callAnthropic(
+    slug: string,
+    apiKey: string,
+    ctx: CadContextSnapshot,
+    turns: Array<{ role: 'user' | 'assistant'; content: string }>,
+    prompt: string,
+    fallbacks: boolean,
+  ): Promise<{ type: 'text'; text: string } | { type: 'error'; message: string }> {
+    const { stable, volatile } = this._systemBlocks(ctx);
+    const body: Record<string, unknown> = {
+      model: slug,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      // Stable brief first with a cache breakpoint; the per-turn drawing
+      // context follows so only that part is re-read on every request.
+      system: [
+        { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: volatile },
+      ],
+      messages: [...turns, { role: 'user', content: prompt }],
+    };
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      // The key is the user's own and lives only in their browser; the API
+      // requires this header to accept a browser origin at all.
+      'anthropic-dangerous-direct-browser-access': 'true',
+    };
+    if (fallbacks) {
+      // A safety decline on the primary model re-runs on a sibling model
+      // inside the same request instead of surfacing as an empty turn.
+      headers['anthropic-beta'] = 'server-side-fallback-2026-07-01';
+      body['fallbacks'] = 'default';
+    }
+
+    const resp = await firstValueFrom(
+      this.http.post<AnthropicResponse>(ANTHROPIC_MESSAGES_URL, body, { headers }),
+    );
+    if (resp.error?.message) return { type: 'error', message: `Anthropic: ${resp.error.message}` };
+    if (resp.stop_reason === 'refusal') {
+      const why = resp.stop_details?.explanation ? ` ${resp.stop_details.explanation}` : '';
+      return { type: 'error', message: `The model declined this request.${why}` };
+    }
+    const text = (resp.content ?? []).filter(b => b.type === 'text' && b.text).map(b => b.text!).join('\n');
+    if (!text.trim()) return { type: 'error', message: 'The model returned an empty response.' };
+    if (resp.stop_reason === 'max_tokens') {
+      return { type: 'error', message: 'The plan was too long to finish. Ask for a smaller part of the drawing at a time.' };
+    }
+    return { type: 'text', text };
+  }
+
+  private async _callOpenRouter(
+    slug: string,
+    apiKey: string,
+    ctx: CadContextSnapshot,
+    turns: Array<{ role: 'user' | 'assistant'; content: string }>,
+    prompt: string,
+  ): Promise<{ type: 'text'; text: string } | { type: 'error'; message: string }> {
+    const { stable, volatile } = this._systemBlocks(ctx);
+    const body = {
+      model: slug,
+      messages: [
+        { role: 'system', content: `${stable}\n\n${volatile}` },
+        ...turns,
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.1,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      stream: false,
+      response_format: { type: 'json_object' },
+    };
+    const resp = await firstValueFrom(
+      this.http.post<OpenRouterResponse>(OPENROUTER_CHAT_URL, body, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://cado.website',
+          'X-Title': 'CADO Assistant',
+        },
+      }),
+    );
+    if (resp.error?.message) return { type: 'error', message: `OpenRouter: ${resp.error.message}` };
+    const content = resp.choices?.[0]?.message?.content;
+    if (!content) return { type: 'error', message: 'The model returned an empty response.' };
+    return { type: 'text', text: content };
   }
 
   // ── System prompt ──────────────────────────────────────────────────────────
 
-  private _buildSystemPrompt(ctx: CadContextSnapshot): string {
+  /**
+   * Two blocks: `stable` (role, output contract, tools, drafting knowledge —
+   * identical on every turn, so it is cacheable) and `volatile` (this
+   * drawing's layers, extents, selection, cursor).
+   */
+  private _systemBlocks(ctx: CadContextSnapshot): { stable: string; volatile: string } {
     const tools = this.registry.getToolDescriptions();
-    const layerList = ctx.layers.map(l =>
-      `${l.name}${l.locked ? ' (locked)' : ''}${l.visible ? '' : ' (hidden)'}`,
-    ).join(', ') || 'Layer 0';
-    const typeHist = Object.entries(ctx.summary.byType)
-      .map(([t, n]) => `${t}:${n}`).join(', ') || 'none';
-    const viewList = ctx.views.map(v =>
-      `"${v.label}" (${v.entityCount} ents)`,
-    ).join(', ') || 'none detected';
     const families = COMPONENT_FAMILIES.map(f =>
       `${f.id} (${f.params.filter(p => p.key !== 'layer').map(p => p.key).join(', ')})`,
     ).join('; ');
 
-    return [
-      'You are a CAD assistant that converts natural-language drawing commands into a strict JSON action plan.',
-      'You NEVER produce geometry coordinates yourself. You ONLY emit tool actions; deterministic CAD services do the work.',
+    const stable = [
+      'You are CADO\'s drafting assistant: a senior architectural and civil CAD drafter who turns natural-language requests into a strict JSON action plan for a 2D CAD editor.',
+      'You never edit the drawing yourself. You emit tool actions; deterministic CAD services validate and execute them, and the user can preview and undo everything.',
       '',
-      'Respond with ONE JSON object and NOTHING else. Two valid shapes:',
-      '1) {"type":"actions","actions":[ {"action":"<toolId>","target":<TargetSelector>,"parameters":{...},"metadata":{"intentText":"<user text>","confidence":0..1,"requiresConfirmation":<bool>}} ]}',
+      'Respond with ONE JSON object and NOTHING else (no prose, no code fences). Two valid shapes:',
+      '1) {"type":"actions","actions":[ {"action":"<toolId>","target":<TargetSelector>,"parameters":{...},"metadata":{"intentText":"<user text>","confidence":0..1,"requiresConfirmation":<bool>,"rationale":"<one short sentence>"}} ]}',
       '2) {"type":"clarify","question":"<one short question>"}',
       '',
-      'TargetSelector is one of:',
+      'TargetSelector (which existing entities an action operates on; drawing tools ignore it — pass {"kind":"selection"}):',
       '  {"kind":"selection"} | {"kind":"all"} | {"kind":"ids","ids":[..]} |',
       '  {"kind":"layer","layer":"<name>"} |',
-      '  {"kind":"query","where":{"type":["CIRCLE"],"layer":["L1"],"visibleOnly":true}}',
+      '  {"kind":"query","where":{"type":["CIRCLE"],"layer":["L1"],"color":[1],"visibleOnly":true}}',
       '',
       'Available tools:',
       tools,
@@ -926,21 +989,58 @@ export class LlmGatewayService {
       'Parametric component families for library.insert (all lengths in millimetres):',
       `  ${families}`,
       'Complete-drawing templates for generate.drawing: box culvert GAD, retaining wall GAD, drainage layout.',
-      'Colors are AutoCAD ACI integers: red=1 yellow=2 green=3 cyan=4 blue=5 magenta=6 white=7. Or a hex string like "#ff0000".',
-      'Convert metres to millimetres (5m -> 5000). Lineweights are hundredths of mm (0.25mm -> 25).',
-      'Set requiresConfirmation:true for delete, replace, mass recolor, layout changes, and auto-layout.',
-      'Targeting: a colour or type adjective ("red lines", "all text") is a query filter; "on layer X" filters by layer; "to layer X" is a destination.',
-      'If the user says "selected/these/them" or something is selected and no entities are named, target {"kind":"selection"}.',
-      'When the user answers a clarifying question with a fragment ("red", "5m right"), combine it with their previous request.',
-      'If the command is ambiguous or a required value is missing, return a clarify object instead of guessing.',
       '',
-      '── Current drawing context ──',
+      'Rules:',
+      '- Convert every unit to millimetres (5 m → 5000, 2.5 cm → 25). Lineweights are hundredths of a mm (0.25 mm → 25). Colors are ACI integers or "#rrggbb".',
+      '- Set requiresConfirmation:true for delete, replace, mass recolor, layout changes, auto-layout, and any plan with more than 25 new primitives.',
+      '- Targeting: a colour or type adjective ("red lines", "all text") is a query filter; "on layer X" filters by layer; "to layer X" is a destination.',
+      '- If the user says "selected/these/them", or something is selected and no entities are named, target {"kind":"selection"}.',
+      '- When the user answers a clarifying question with a fragment ("red", "5m right"), combine it with their previous request.',
+      '- Drawing requests: do the drafting yourself. Pick sensible sizes from the fundamentals below when the user gives none, state the assumption in metadata.rationale, and only clarify when a wrong guess would waste real work (e.g. no idea where to place a whole floor plan).',
+      '- Several actions in one plan are fine and execute in order as one undo step: e.g. draw.grid then draw.room ×N then draw.entities for furniture.',
+      '- Multiple rooms: compute each room\'s x,y so shared walls line up (next x = x + width + wallThickness). Doors between adjacent rooms go on the shared wall of ONE room only.',
+      '',
+      '## Drafting fundamentals',
+      DRAFTING_KNOWLEDGE,
+    ].join('\n');
+
+    const layerList = ctx.layers.map(l =>
+      `${l.name} [${l.color}${l.locked ? ', locked' : ''}${l.visible ? '' : ', hidden'}${l.frozen ? ', frozen' : ''}, ${l.entityCount} ents]`,
+    ).join('; ') || 'Layer 0';
+    const typeHist = Object.entries(ctx.summary.byType)
+      .map(([t, n]) => `${t}:${n}`).join(', ') || 'none (empty drawing)';
+    const viewList = ctx.views.map(v =>
+      `"${v.label}" bbox x=${r(v.bbox.x)} y=${r(v.bbox.y)} w=${r(v.bbox.w)} h=${r(v.bbox.h)} (${v.entityCount} ents)`,
+    ).join('; ') || 'none detected';
+    const ext = ctx.summary.worldExtents;
+    const extents = ext
+      ? `x ${r(ext.x)}…${r(ext.x + ext.w)}, y ${r(ext.y)}…${r(ext.y + ext.h)} (w ${r(ext.w)}, h ${r(ext.h)})`
+      : 'empty — nothing drawn yet';
+    const sel = ctx.selection;
+    const selDigest = sel.entities && sel.entities.length
+      ? sel.entities.slice(0, 40).map(e =>
+        `#${e.id} ${e.type} on ${e.layer}${e.bbox ? ` @ x=${r(e.bbox.x)} y=${r(e.bbox.y)} w=${r(e.bbox.w)} h=${r(e.bbox.h)}` : ''}`,
+      ).join('; ')
+      : '';
+    const vp = ctx.viewport;
+    const vpCenter = vp.scale
+      ? `x=${r((vp.canvasWidth / 2 - vp.panX) / vp.scale)} y=${r(-(vp.canvasHeight / 2 - vp.panY) / vp.scale)}`
+      : 'unknown';
+
+    const volatile = [
+      '## Current drawing',
       `Active layer: ${ctx.activeLayer}`,
       `Layers: ${layerList}`,
-      `Entity counts by type: ${typeHist}`,
-      `Current selection: ${ctx.selection.count} entit${ctx.selection.count === 1 ? 'y' : 'ies'}`,
+      `Entity counts by type: ${typeHist} (total ${ctx.summary.entityCount})`,
+      `Drawing extents (mm): ${extents}`,
+      `Cursor (last world position, mm): x=${r(ctx.cursor.x)} y=${r(ctx.cursor.y)}`,
+      `Viewport centre (mm, approximate): ${vpCenter}`,
+      `Selection: ${sel.count} entit${sel.count === 1 ? 'y' : 'ies'}${sel.bbox ? ` bbox x=${r(sel.bbox.x)} y=${r(sel.bbox.y)} w=${r(sel.bbox.w)} h=${r(sel.bbox.h)}` : ''}${selDigest ? ` — ${selDigest}` : ''}`,
       `Detected views (${ctx.views.length}): ${viewList}`,
+      `Library items: ${ctx.libraryCatalog.slice(0, 40).map(i => i.name).join(', ') || 'none'}`,
     ].join('\n');
+
+    return { stable, volatile };
   }
 
   // ── Response parsing ─────────────────────────────────────────────────────────
@@ -959,7 +1059,9 @@ export class LlmGatewayService {
       }
 
       if (obj['type'] === 'actions' && Array.isArray(obj['actions'])) {
-        const actions = (obj['actions'] as CadAction[]).map(a => this._normaliseAction(a, prompt));
+        const actions = (obj['actions'] as CadAction[])
+          .filter(a => a && typeof a.action === 'string')
+          .map(a => this._normaliseAction(a, prompt));
         if (!actions.length) {
           return { type: 'clarify', question: 'I could not turn that into an action. Could you rephrase?' };
         }
@@ -979,9 +1081,16 @@ export class LlmGatewayService {
     const start = candidate.indexOf('{');
     if (start === -1) return null;
     let depth = 0;
+    let inString = false;
     for (let i = start; i < candidate.length; i++) {
       const c = candidate[i];
-      if (c === '{') depth++;
+      if (inString) {
+        if (c === '\\') i++;
+        else if (c === '"') inString = false;
+        continue;
+      }
+      if (c === '"') inString = true;
+      else if (c === '{') depth++;
       else if (c === '}') {
         depth--;
         if (depth === 0) return candidate.slice(start, i + 1);
@@ -1006,24 +1115,32 @@ export class LlmGatewayService {
     };
   }
 
-  private _httpErrorMessage(err: unknown, kind: 'openrouter' | 'ollama'): string {
-    const e = err as { status?: number; error?: { error?: { message?: string } } };
+  private _httpErrorMessage(err: unknown, kind: AiProviderKind): string {
+    const e = err as {
+      status?: number;
+      error?: { error?: { message?: string; type?: string }; message?: string };
+    };
+    const provider = kind === 'anthropic' ? 'Anthropic' : 'OpenRouter';
+    const apiMsg = e?.error?.error?.message ?? e?.error?.message;
 
-    if (kind === 'ollama') {
-      if (e?.status === 0) {
-        return 'Cannot reach the Ollama server. Check the URL in settings (⚙), that the server is running, and that OLLAMA_ORIGINS allows this app. If the app is served over HTTPS, the browser will block an http:// server (mixed content).';
-      }
-      if (e?.status === 404) return 'Ollama: model not found (404). Make sure the model is pulled on the server (ollama list).';
-      if (e?.status === 500) return 'Ollama server error (500). The model may be loading or out of memory — try again in a moment.';
-    } else {
-      if (e?.status === 401) return 'OpenRouter rejected the API key (401). Check the key in settings.';
-      if (e?.status === 402) return 'OpenRouter: insufficient credits / rate limited (402) for this free model.';
-      if (e?.status === 404) return 'Model not found (404). The free slug may have changed — see openrouter.ai/models.';
-      if (e?.status === 429) return 'Rate limited (429). Wait a moment, switch models, or use a local Ollama model.';
+    if (e?.status === 0) return `Cannot reach ${provider}. Check your network connection.`;
+    if (e?.status === 401) return `${provider} rejected the API key (401). Check the key in settings (⚙).`;
+    if (e?.status === 402) return `${provider}: insufficient credits (402). Top up your account.`;
+    if (e?.status === 403) return `${provider} refused the request (403).${apiMsg ? ` ${apiMsg}` : ''}`;
+    if (e?.status === 404) {
+      return kind === 'anthropic'
+        ? 'Anthropic: model not found (404). The model id may have been retired.'
+        : 'OpenRouter: model not found (404). Check the slug against openrouter.ai/models.';
     }
-
-    const apiMsg = e?.error?.error?.message;
+    if (e?.status === 400) return `${provider} rejected the request (400).${apiMsg ? ` ${apiMsg}` : ''}`;
+    if (e?.status === 429) return `${provider} rate limit hit (429). Wait a moment and try again.`;
+    if (e?.status === 529 || e?.status === 503) return `${provider} is overloaded right now. Try again shortly.`;
     if (apiMsg) return `Model request failed: ${apiMsg}`;
     return err instanceof Error ? err.message : 'Model request failed.';
   }
+}
+
+/** Round for prompt display: whole millimetres are plenty. */
+function r(v: number): number {
+  return Math.round(v);
 }

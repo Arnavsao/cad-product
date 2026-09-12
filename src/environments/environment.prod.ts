@@ -10,7 +10,6 @@ export const environment: AppEnvironment = {
   appName: 'CADO',
   // Relative: nginx proxies `/api/` to the API container (see nginx.conf).
   apiUrl: '/api/v1',
-  defaultOllamaUrl: 'http://localhost:11434',
   // Same Supabase project as development. Both values are public by design
   // (the anon key is the browser-side "publishable" key; RLS is what protects
   // data), so they are committed rather than injected. Leaving EITHER empty
