@@ -1046,6 +1046,22 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * True when focus is in a form field that must keep the browser's own
+   * clipboard and editing shortcuts — Ctrl+V/C/X/A/Z and friends.
+   *
+   * The command line is deliberately excluded: AutoCAD routes those keys to the
+   * drawing even while the user is typing a command, and CADO matches that.
+   * Every *other* input — the AI Agent's API-key box, panel fields, dialogs — is
+   * an ordinary text field, and stealing Ctrl+V there meant a pasted key never
+   * landed in the box and was instead dropped onto the canvas as text.
+   */
+  private isNativeEditingTarget(e: KeyboardEvent): boolean {
+    if (!this.isEditingText(e)) return false;
+    const target = e.target as HTMLElement;
+    return !target.classList.contains('cmd-input');
+  }
+
+  /**
    * Human-readable age of the last autosave, for the header indicator.
    *
    * Reads the `lastSavedAt` signal AND `nowTick`, so the label re-renders as
@@ -1164,10 +1180,17 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('window:keydown', ['$event'])
   onKeyDown(e: KeyboardEvent): void {
     // ── Ctrl/Cmd global shortcuts ─────────────────────────────────────────────
-    // Undo/redo/select-all/copy/paste are always active regardless of focus
-    // (e.g. command-line input), but NOT while the inline text/table editor
-    // is open (those manage their own undo history).
-    if (this.textEditor.state() === null && this.tableEditor.state() === null) {
+    // Undo/redo/select-all/copy/paste stay active over the canvas and the
+    // command line, but NOT while the inline text/table editor is open (those
+    // manage their own undo history) and NOT while focus sits in an ordinary
+    // form field, which must keep the browser's native clipboard behaviour —
+    // otherwise Ctrl+V in e.g. the AI Agent's API-key box is swallowed here and
+    // pasted onto the drawing instead of into the field.
+    if (
+      this.textEditor.state() === null &&
+      this.tableEditor.state() === null &&
+      !this.isNativeEditingTarget(e)
+    ) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) this.cmds.redo();
@@ -1211,7 +1234,7 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       }
 
       // ── Plot / Export shortcuts (AutoCAD parity) ──────────────────────────
-      //   Ctrl+P → Plot dialog Â· Ctrl+Shift+P → Quick Plot (last settings)
+      //   Ctrl+P → Plot dialog · Ctrl+Shift+P → Quick Plot (last settings)
       //   Ctrl+E → Export dialog
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
