@@ -6,6 +6,45 @@ DXF import fidelity. An imported drawing now renders as AutoCAD renders it: corr
 values, decoded text, per-style fonts and real lineweights.
 
 ### Added
+* **The assistant can draw.** Until now the AI panel could only select, recolour, move, hide and
+  insert canned components; anything new on the canvas had to come from a template. Three tools
+  give it a pencil, all committing as one undo step through the same `validate → compile →
+  ICommand[]` contract as every other action:
+  * `draw.entities` — a flat list of primitives in world millimetres (line, polyline, rect, circle,
+    arc, ellipse, text with 9-point justification, hatch with a frozen boundary, linear dimension),
+    each with optional layer, ACI/hex colour, linetype and lineweight. Malformed primitives are
+    skipped with a warning rather than failing the plan; more than 25 primitives goes to review.
+  * `draw.room` — a walled room in plan: double-line walls with closed corners and jamb returns,
+    door openings with leaf and 90° swing arc, windows with a glazing line, a centred name/area
+    label, optional overall dimensions. Deterministic geometry, so "a 4 by 3 m bedroom with a 900
+    door on the south wall" draws the same way every time.
+  * `draw.grid` — a structural column grid: CENTER-linetype lines, lettered bubbles along the top
+    (skipping I and O), numbered bubbles down the left, optional solid-hatched columns at every
+    intersection.
+
+  Layers the plan references are created on the fly with the conventional colour (A-WALL white,
+  A-GLAZ cyan, S-GRID grey…) and removed again on undo. `shared/draw-spec.ts` is the pure
+  spec → entity builder; `tools/draw-tools.spec.ts` covers it and both parametric tools.
+
+* **Drafting fundamentals in the brief.** `models/drafting-knowledge.ts` is a compact drafter's
+  handbook the model reads on every turn: AIA/ISO layer names, lineweights and linetypes by role,
+  ACI colours, text heights and dimension offsets by plot scale, and typical sizes for interiors
+  (walls, doors, windows, kitchens, bathrooms, beds, sofas, desks, parking) and civil work (lanes,
+  kerbs, drains, culverts, retaining walls, column grids, slabs, footings, bridge decks), plus the
+  section hatch patterns and the composition rules (outline → openings → fixtures → labels →
+  dimensions, keep a plan under ~300 primitives). The per-turn context now includes drawing
+  extents, the cursor's world position, the viewport centre, the selection's per-entity bboxes and
+  each layer's colour, so "next to the selected wall" and "in the empty space to the right" resolve
+  to coordinates.
+
+* **Claude, called directly.** Pick Claude Opus 5, Sonnet 5 or Haiku 4.5 in the model menu and
+  paste an Anthropic API key in the panel settings; the browser calls the Messages API itself
+  (`anthropic-dangerous-direct-browser-access`, the key never leaves this device). The stable half
+  of the system prompt (role, output contract, tools, drafting brief) carries a prompt-cache
+  breakpoint so only the drawing context is re-read each turn. Opus opts into server-side refusal
+  fallbacks; a `refusal` or `max_tokens` stop is surfaced as a readable error rather than an empty
+  turn.
+
 * **The whole product is now translatable, not just the editor's commands.** Transloco shipped with
   490 keys covering the command prompts, tool names and the sign-in page; everything else — the
   dashboard, settings, profile, organization, trash, every dialog and toast, onboarding, the shared
@@ -75,6 +114,13 @@ values, decoded text, per-style fonts and real lineweights.
   previous object is deleted best-effort.
 
 ### Changed
+* **OpenRouter keeps its own key and accepts any slug.** The two free-tier models
+  (`google/gemma-4-31b-it:free`, `qwen/qwen3-coder:free`) are gone; the menu offers Claude Sonnet 5
+  and Opus 5 through OpenRouter plus a "Custom slug" entry whose model id is typed in settings, so
+  a renamed or new model on openrouter.ai/models needs no code change. The consent notice and key
+  labels are per-provider (`{{provider}}` parameter) and one acknowledgement covers every cloud
+  backend.
+
 * **The assistant's local parser understands which entities you mean.** Every entity-level
   command (select, delete, recolour, change layer, lineweight) now goes through one target
   builder instead of five copies of "type word or nothing". It reads a colour adjective as a
@@ -113,7 +159,21 @@ values, decoded text, per-style fonts and real lineweights.
   allowlist, and its `@default("dark")` is a ground-shaped placeholder that `findTheme` ignores —
   which is precisely the mechanism that lets the client default apply to a fresh account.
 
+### Removed
+* **The Ollama backend.** The three self-hosted models, the server-URL setting,
+  `environment.defaultOllamaUrl` and the `OLLAMA_ORIGINS` note are removed; the offline regex
+  parser stays as the no-network option. Site docs, the legal drafts and the architecture notes now
+  describe the built-in parser, Claude and OpenRouter.
+
 ### Known gaps
+* Thirteen non-English site paragraphs (`site.contact.block.security.body1`,
+  `site.docs.ai.privacyNote`, `site.useCases.different.scripts.cado`,
+  `site.content.groups.ai.summary`, `site.home.ai.lede`) still mention the Ollama option in their
+  translations; the English is updated and the docs backend cards are translated in all fourteen
+  languages.
+* The regex parser does not draw. "Draw a circle" with Regex selected returns a clarify; pick a
+  Claude or OpenRouter model for drawing requests.
+
 * **The plural scheme has two forms; Czech, Polish and Russian need three.** 23 counted strings
   are keyed `…One` / `…Other`, which covers English and most of the set. Czech and Slovak-style
   plurals distinguish 1 / 2–4 / 5+, and Russian 1 / 2–4 / 5+ by final digit, so a single `Other`
@@ -126,6 +186,68 @@ values, decoded text, per-style fonts and real lineweights.
   certain of, but the first native review is still outstanding. English is the reference.
 
 ### Fixed
+* **Degree signs and palette arrows rendered as `Â°` and `â–¼`.** Fourteen source files had been
+  written back through a cp1252 round-trip at some point, double-encoding every non-ASCII literal
+  on disk. The user-visible casualties were the `°` suffix on the dynamic-input angle field of
+  LINE, POLYLINE, ARC, ELLIPSE, XLINE, LEADER, MIRROR and the rotation grip, the `°` and `²` in the
+  Properties palette's own schema labels, and the palette's collapse chevrons and entity glyph.
+  Every affected byte sequence is decoded back to the character it was meant to be; the repo now
+  scans clean for double-encoded runs.
+
+* **The Create Block dialog's base-point radios sprawled across the panel.** The
+  editor's form-control baseline in `styles.scss` matched `:is(input, select, textarea)` — which
+  includes radios and checkboxes — and gave them `width: 100%` plus text padding and an 8px radius.
+  A radio stretched to 246px, pushing its label to the far right and wrapping "Use origin (0, 0)"
+  onto two lines. Toggle-shaped inputs are now excluded from the baseline (inside `:where()`, so
+  the rule's specificity is unchanged and the component styles that refine it still win) and given
+  their intrinsic size, `flex: none` and the theme accent. This fixes every radio and checkbox in
+  the editor, not just that dialog.
+
+* **A new viewport stayed invisible until you moved the mouse.** `ViewportManagerService` paints
+  through `drawAll()` into the canvas's cached static-layer bitmap, but the cache key was built
+  only from document, view and layout state — never from the viewports themselves. Adding, moving,
+  resizing or zooming one called `markDirty()`, which sets the repaint flag without bumping any
+  signal, so the render loop re-blitted the stale bitmap. It only appeared once an unrelated edit
+  evicted the cache, or a pan exceeded the 15% redraw threshold. The key now includes
+  `ViewportManagerService.renderKey()` — a fingerprint of every viewport's rectangle, camera, name,
+  scale and flags.
+
+* **A viewport looked at empty space instead of the drawing.** A `Viewport`'s camera pan is an
+  absolute screen-space origin, but the main view splits its origin across `panX` and `vpCenterX`
+  (`ViewModelService.w2s` adds both). `add()` seeded the camera from `panX` alone, so every new
+  viewport was off by half the canvas in each axis and framed a region the user had never been
+  looking at. It now folds the centre in, and opens on the current model view the way MVIEW does.
+  `viewport-camera.spec.ts` pins the two mappings together. VPORTS also reports its phase now, so
+  the command line advances from "Specify corner of viewport:" to "Specify opposite corner:".
+
+* **SCALE dragging was unusable at anything but one drawing size.** The factor was the cursor's
+  world distance from the base point divided by a hardcoded 100 units. On a site plan a few pixels
+  of travel crossed thousands of units and multiplied the selection by fifty; on a zoomed-in detail
+  nothing reachable on screen ever got near 100 units, so the selection could only collapse. The
+  reference is now the selection's own extent — the distance from the base point to the farthest
+  corner of its bounding box — making the drag scale- and zoom-invariant: on the corner is 1.0,
+  twice as far is 2.0, halfway in is 0.5. Degenerate selections fall back to AutoCAD's implicit
+  1-unit reference, and typing an exact factor is unchanged. Extracted to `scale-reference.ts`
+  with `scale-reference.spec.ts`.
+
+* **Opening the symbol picker dumped all four standard symbols into the drawing.** `SymbolTool`
+  called `ensureStandardBlocks()` on activation, registering Centerline, Datum, NorthArrow and
+  SectionMarker before the user had chosen anything — so the Blocks palette filled with symbols
+  nobody had inserted, and cancelling the picker still left them behind. The picker renders from
+  its own SVG catalog and never needed the definitions; registration is now per-symbol and happens
+  after the pick. The standard-symbol list is exported once from `symbol.service.ts` instead of
+  being repeated as a literal in the panel and in `InsertBlockTool`.
+
+* **The ribbon was wider on one side than the other.** `.toolbar-section` carried `2px 10px` but
+  the first and last sections overrode their outer padding to 4px, and the ≤1550px rule reset the
+  shorthand without touching those overrides — so the gutters differed by section and by viewport
+  width. One `--tb-section-pad` custom property now drives every section, and the wrap pads
+  vertically only, so the space either side of a divider and at both outer edges is the same value.
+
+* **The Viewports palette and the AI key field used emoji as icons.** `👁`, `∅` and `🙈` render in
+  the font's own colours and ignore the theme. Both now use the `ui-icon` `eye` / `eye-off` stroke
+  glyphs, which inherit `currentColor` like every other icon in the editor.
+
 * **Switching language left the previous language on screen in a dozen places.** Everything
   rendered through the `*transloco` directive followed the switch; everything resolved in
   TypeScript did not. Text was computed once — in a field initialiser, a `computed()` that read
