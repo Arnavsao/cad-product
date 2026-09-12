@@ -269,7 +269,7 @@ export interface AiBackend {
 /** Source: `ai-model.ts`, `ai-model.service.ts`, `llm-gateway.service.ts`. */
 export const AI_BACKENDS: readonly AiBackend[] = [
   { id: 'builtin', nameKey: 'site.docs.ai.backend.builtin.name', whereKey: 'site.docs.ai.backend.builtin.where', bodyKey: 'site.docs.ai.backend.builtin.body' },
-  { id: 'ollama', nameKey: 'site.docs.ai.backend.ollama.name', whereKey: 'site.docs.ai.backend.ollama.where', bodyKey: 'site.docs.ai.backend.ollama.body' },
+  { id: 'anthropic', nameKey: 'site.docs.ai.backend.anthropic.name', whereKey: 'site.docs.ai.backend.anthropic.where', bodyKey: 'site.docs.ai.backend.anthropic.body' },
   { id: 'openrouter', nameKey: 'site.docs.ai.backend.openrouter.name', whereKey: 'site.docs.ai.backend.openrouter.where', bodyKey: 'site.docs.ai.backend.openrouter.body' },
 ];
 

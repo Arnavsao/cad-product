@@ -32,9 +32,10 @@
 
     <h2>4. AI features</h2>
     <p>
-      The AI drafting assistant can run against a local model (Ollama, self-hosted) or an external
-      provider (OpenRouter). Using the external provider sends a summary of your drawing and your
-      prompts to that third party; the in-app consent notice explains this before it happens.
+      The AI drafting assistant can run against the built-in offline parser or an external provider
+      (Anthropic's Claude API, or OpenRouter) using an API key you supply. Using an external provider
+      sends a summary of your drawing and your prompts to that third party; the in-app consent notice
+      explains this before it happens.
     </p>
 
     <h2>5. Acceptable use</h2>
@@ -71,11 +72,11 @@
 
     <h2>2. AI features</h2>
     <p>
-      If you choose the local (Ollama) model, your drawing data never leaves your machine/network.
-      If you choose OpenRouter, a summary of your drawing (layers, entity counts/types, current
-      selection — not the raw file) and your prompts are sent to OpenRouter to generate a
-      response. This only happens after you've selected that model and acknowledged the in-app
-      notice.
+      If you use the built-in parser, your drawing data never leaves your machine. If you choose a
+      Claude model (Anthropic) or OpenRouter, a summary of your drawing (layers, entity counts/types,
+      current selection — not the raw file) and your prompts are sent to that provider to generate a
+      response, authenticated with your own API key. This only happens after you've selected that
+      model and acknowledged the in-app notice.
     </p>
 
     <h2>3. Cookies</h2>

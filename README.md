@@ -70,7 +70,6 @@ Runtime configuration lives in `src/environments/`:
 | `apiUrl`                | Base URL of the CADO API (drawings, folders, profile). Relative `/api/v1` in both dev (proxied by `ng serve`) and prod (proxied by nginx). |
 | `supabaseUrl`           | Supabase project URL — public, safe to commit. |
 | `supabaseAnonKey`       | Supabase anon key — public, safe to commit. **Either empty disables auth**: the dashboard is unreachable and the editor runs standalone (embedded mode). |
-| `defaultOllamaUrl`      | Default Ollama endpoint pre-filled in the AI panel settings (users can override it in the UI). |
 | `appName`               | Product name.                                                                          |
 
 `environment.prod.ts` is swapped in by `ng build` (`fileReplacements`) — template the publishable key in your release

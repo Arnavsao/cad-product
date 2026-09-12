@@ -29,8 +29,8 @@ exist before the first build.
 3. `features/ai-agent/services/ai-audit.service.ts` — `environment.nodeApiUrl` → `environment.apiUrl`; skips the POST when
    no backend is configured. **Changed in 1.1.0:** the POST was removed entirely; the audit log is local-only
    (IndexedDB with a localStorage fallback).
-4. `features/ai-agent/models/ai-model.ts` and the AI panel — the hard-coded LAN Ollama address
-   (`http://192.168.1.109:11434`) is now `environment.defaultOllamaUrl` (default `http://localhost:11434`).
+4. `features/ai-agent/models/ai-model.ts` and the AI panel — the Ollama backend (and its `environment.defaultOllamaUrl`)
+   was removed in September 2026; cloud models are Claude direct or OpenRouter with the user's own key.
 
 No algorithmic or rendering code was changed.
 

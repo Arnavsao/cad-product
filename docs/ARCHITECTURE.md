@@ -64,7 +64,9 @@ Every interactive tool (`tools/draw`, `tools/modify`, `tools/select`, `tools/blo
 
 ## AI drafting assistant (`features/ai-agent`)
 
-* `LlmGatewayService` talks to Ollama (local) or OpenRouter directly from the browser.
+* `LlmGatewayService` talks to Claude (Anthropic Messages API) or OpenRouter directly from the browser with the
+  user's own key; the offline regex parser needs no network. `models/drafting-knowledge.ts` is the drafting brief
+  (layers, lineweights, interior and civil sizes) sent as the stable, cacheable half of the system prompt.
 * `AiToolRegistryService` exposes editor capabilities as tool-calls; `tools/` contains the implementations.
 * `AiAuditService` keeps an append-only audit log in IndexedDB (localStorage fallback). It is **local-only** — the
   assistant's actions are the user's own drafting history, not telemetry.
