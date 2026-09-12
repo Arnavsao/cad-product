@@ -7,6 +7,7 @@ import { ToolManagerService } from '../../core/services/tool-manager.service';
 import { CommandStackService } from '../../core/services/command-stack.service';
 import { BlockEditorService } from '../../core/services/block-editor.service';
 import { BlockThumbnailService } from '../../core/services/block-thumbnail.service';
+import { isStandardSymbol } from '../../core/services/symbol.service';
 import { InsertBlockTool } from '../../tools/block/insert-block-tool';
 import { RenameBlockCmd, DeleteBlockDefCmd, PurgeBlockCmd } from '../../core/models/block-commands.model';
 import { TranslocoDirective } from '@jsverse/transloco';
@@ -29,7 +30,7 @@ interface BlockSection {
   rows: BlockRow[];
 }
 
-const STANDARD_BLOCK_NAMES = new Set(['Centerline', 'Datum', 'NorthArrow', 'SectionMarker']);
+
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -184,7 +185,7 @@ export class BlocksPanelComponent {
         refCount: refCounts.get(name) ?? 0,
         thumb: this.thumbs.getThumbnail(def, docVer),
         description: def.description ?? '',
-        section: STANDARD_BLOCK_NAMES.has(name) ? 'standard' : 'created',
+        section: isStandardSymbol(name) ? 'standard' : 'created',
       });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));

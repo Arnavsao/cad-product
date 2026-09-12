@@ -9,6 +9,7 @@ import { ToolManagerService } from '../../core/services/tool-manager.service';
 import { AddEntityCmd } from '../../core/models/command.model';
 import { InsertBlockDialogService } from '../../features/block-dialogs/insert-block-dialog.service';
 import { AttribPromptDialogService } from '../../features/block-dialogs/attrib-prompt-dialog.service';
+import { isStandardSymbol } from '../../core/services/symbol.service';
 
 /**
  * INSERT tool. Pick a block from the dialog (or via requestedBlockName from
@@ -69,7 +70,7 @@ export class InsertBlockTool implements ITool {
       this.tools.setTool('select');
       return;
     }
-    if (['Centerline', 'Datum', 'NorthArrow', 'SectionMarker'].includes(this.blockName)) {
+    if (isStandardSymbol(this.blockName)) {
       let minX = Infinity, maxX = -Infinity;
       for (const e of def.entities) {
         const b = e.bbox?.();

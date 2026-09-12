@@ -9,25 +9,37 @@ export const ENG_SYMBOLS: Record<string, string[]> = {
   'Arrows': ['→', '←', '↑', '↓'],
 };
 
+/** Block names the symbol picker can insert. Shared so the Blocks panel and
+ *  InsertBlockTool classify them the same way this service creates them. */
+export const STANDARD_SYMBOL_NAMES = ['Centerline', 'Datum', 'NorthArrow', 'SectionMarker'] as const;
+
+export type StandardSymbolName = (typeof STANDARD_SYMBOL_NAMES)[number];
+
+export function isStandardSymbol(name: string): name is StandardSymbolName {
+  return (STANDARD_SYMBOL_NAMES as readonly string[]).includes(name);
+}
+
 @Injectable({ providedIn: 'root' })
 export class SymbolService {
   private doc = inject(DocumentService);
 
-  ensureStandardBlocks(): void {
+  /**
+   * Register the definition for ONE standard symbol, if the drawing lacks it.
+   *
+   * Deliberately per-symbol: registering the whole set up front (which is what
+   * this service used to do when the picker opened) dumped four block
+   * definitions into the drawing the moment the user glanced at the symbol
+   * list, so the Blocks panel filled with symbols nobody had inserted. A block
+   * definition should enter the drawing only when its symbol is actually used.
+   */
+  ensureStandardBlock(name: string): void {
     const file = this.doc.activeFile;
-    if (!file) return;
-
-    if (!file.blocks.has('Centerline')) {
-      file.blocks.set('Centerline', this.createCenterlineBlock());
-    }
-    if (!file.blocks.has('Datum')) {
-      file.blocks.set('Datum', this.createDatumBlock());
-    }
-    if (!file.blocks.has('NorthArrow')) {
-      file.blocks.set('NorthArrow', this.createNorthArrowBlock());
-    }
-    if (!file.blocks.has('SectionMarker')) {
-      file.blocks.set('SectionMarker', this.createSectionMarkerBlock());
+    if (!file || file.blocks.has(name)) return;
+    switch (name) {
+      case 'Centerline': file.blocks.set(name, this.createCenterlineBlock()); break;
+      case 'Datum': file.blocks.set(name, this.createDatumBlock()); break;
+      case 'NorthArrow': file.blocks.set(name, this.createNorthArrowBlock()); break;
+      case 'SectionMarker': file.blocks.set(name, this.createSectionMarkerBlock()); break;
     }
   }
 
