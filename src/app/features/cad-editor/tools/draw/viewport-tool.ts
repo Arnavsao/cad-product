@@ -62,6 +62,11 @@ export class ViewportTool implements ITool {
     ctx.restore();
   }
 
+  /** Drives the VPORTS prompt: corner → opposite corner. */
+  getPhase(): string {
+    return this.p1 ? 'opposite' : 'first';
+  }
+
   onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
       this.p1 = null;

@@ -34,7 +34,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
           <div class="vp-row" [class.active]="vp.active">
             <div class="vp-name-row">
               <button class="icon-btn" type="button" (click)="toggleActivate(vp)" [title]="vp.active ? t('editor.ui.viewports.deactivate') : t('editor.ui.viewports.activate')">{{ vp.active ? '●' : '○' }}</button>
-              <button class="icon-btn" type="button" (click)="toggleVisible(vp)" [title]="vp.visible ? t('editor.ui.viewports.hide') : t('editor.ui.viewports.show')">{{ vp.visible ? '👁' : '∅' }}</button>
+              <button class="icon-btn" type="button" (click)="toggleVisible(vp)" [title]="vp.visible ? t('editor.ui.viewports.hide') : t('editor.ui.viewports.show')">@if (vp.visible) { <ui-icon name="eye" [size]="14" /> } @else { <ui-icon name="eye-off" [size]="14" /> }</button>
               <button class="icon-btn" type="button" (click)="toggleLock(vp)" [title]="vp.locked ? t('editor.ui.viewports.unlock') : t('editor.ui.viewports.lock')">@if (vp.locked) { <ui-icon name="lock" [size]="14" /> } @else { <ui-icon name="unlock" [size]="14" /> }</button>
               <input class="vp-name-input" type="text" [(ngModel)]="vp.name" (blur)="markDirty()" />
               <button class="icon-btn icon-del" type="button" (click)="remove(vp)" [title]="t('editor.ui.viewports.delete')"><ui-icon name="trash" [size]="14" /></button>

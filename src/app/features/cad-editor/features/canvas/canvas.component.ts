@@ -572,6 +572,11 @@ export class CanvasComponent implements AfterViewInit, OnDestroy {
           this.layoutMgr.version(),
           this.layoutMgr.activeLayoutId(),
           this.layoutCameraKey(),
+          // Viewports are painted INTO this cached bitmap, so their geometry and
+          // cameras have to take part in the key -- otherwise adding, moving or
+          // zooming one leaves the stale cache on screen until an unrelated
+          // edit evicts it.
+          this.vps.renderKey(),
         ].join('|');
 
         const panX = this.vm.panX;

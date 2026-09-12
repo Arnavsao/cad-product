@@ -43,7 +43,17 @@ export class ViewportManagerService {
   }
 
   add(x: number, y: number, w: number, h: number): Viewport {
-    const vp = new Viewport(x, y, w, h, { scale: this.vm.scale, panX: this.vm.panX, panY: this.vm.panY });
+    // A Viewport's camera pan is an ABSOLUTE screen-space origin, whereas the
+    // main view splits its origin across `panX` and `vpCenterX` (see
+    // ViewModelService.w2s). Seeding from `panX` alone left every new viewport
+    // looking at a spot half a canvas away from what the user could see, which
+    // is why a freshly drawn viewport came up empty. Fold the centre in so the
+    // viewport opens on the current model view, as AutoCAD's MVIEW does.
+    const vp = new Viewport(x, y, w, h, {
+      scale: this.vm.scale,
+      panX: this.vm.panX + this.vm.vpCenterX,
+      panY: this.vm.panY + this.vm.vpCenterY,
+    });
     this.viewports.push(vp);
     this.activate(vp.id);
     this.vm.markDirty();
@@ -312,6 +322,37 @@ export class ViewportManagerService {
     vp.layerOverrides.set(layerName, !cur);
     this.vm.markDirty();
     this.bump();
+  }
+
+  /**
+   * Fingerprint of everything `drawAll` paints, for the canvas static-layer
+   * cache key.
+   *
+   * `drawAll` renders into the cached background bitmap, so that cache must be
+   * invalidated whenever a viewport's rectangle, camera or flags change.
+   * `version` alone is not enough: the drag handlers below move/resize/pan a
+   * viewport in place and only call `markDirty()`, which sets the repaint flag
+   * without bumping any signal. Keying on the geometry as well means a freshly
+   * added viewport shows up on the very next frame instead of waiting for some
+   * unrelated edit to evict the cache.
+   */
+  renderKey(): string {
+    if (!this.viewports.length) return '0';
+    const parts: string[] = [];
+    for (const v of this.viewports) {
+      parts.push(
+        v.id,
+        v.x.toFixed(1), v.y.toFixed(1), v.w.toFixed(1), v.h.toFixed(1),
+        v.camScale.toFixed(6), v.camPanX.toFixed(1), v.camPanY.toFixed(1),
+        v.visible ? '1' : '0',
+        v.active ? '1' : '0',
+        v.locked ? '1' : '0',
+        v.name,
+        v.scalePreset ?? '',
+        String(v.layerOverrides.size),
+      );
+    }
+    return parts.join(',');
   }
 
   bump(): void {
