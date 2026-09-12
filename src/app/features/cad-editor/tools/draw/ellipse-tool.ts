@@ -356,7 +356,7 @@ export class EllipseTool implements ITool {
         wy: this.cur.y,
         primaryFieldKey: 'angle',
         fields: [
-          { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(angDeg), suffix: 'Â°', width: 80 },
+          { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(angDeg), suffix: '°', width: 80 },
         ],
       };
     }

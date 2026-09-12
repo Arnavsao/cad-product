@@ -435,7 +435,7 @@ export class HatchTool implements ITool {
    *
    * This mirrors AutoCAD's `-BHATCH` / `HATCH` > "Select all" workflow.
    *
-   * Performance note: `findAllRegions` is an O(EÂ²) global computation. For
+   * Performance note: `findAllRegions` is an O(E²) global computation. For
    * very large drawings (> 5000 entities), this may take a few hundred
    * milliseconds. A future Phase 7+ enhancement can move it to a Web Worker.
    */

@@ -125,7 +125,7 @@ export class LineTool implements ITool {
       primaryFieldKey: 'length',
       fields: [
         { key: 'length', label: 'Length', liveValue: formatLen(length), width: 80 },
-        { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(angleDeg), suffix: 'Â°', width: 60 },
+        { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(angleDeg), suffix: '°', width: 60 },
       ],
     };
   }

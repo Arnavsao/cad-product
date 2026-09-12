@@ -188,7 +188,7 @@ export class MirrorTool implements ITool {
         primaryFieldKey: 'length',
         fields: [
           { key: 'length', label: 'Length', liveValue: formatLen(len), width: 80 },
-          { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(ang), suffix: 'Â°', width: 60 },
+          { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(ang), suffix: '°', width: 60 },
         ],
       };
     }

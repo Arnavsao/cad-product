@@ -2366,7 +2366,7 @@ export class GripManagerService {
         wy: this.activeGrip.y,
         primaryFieldKey: 'rotation',
         fields: [
-          { key: 'rotation', label: 'Rotation', liveValue: rotationVal.toFixed(1), suffix: 'Â°', width: 140 },
+          { key: 'rotation', label: 'Rotation', liveValue: rotationVal.toFixed(1), suffix: '°', width: 140 },
         ],
       };
     }
@@ -2380,7 +2380,7 @@ export class GripManagerService {
       primaryFieldKey: 'dist',
       fields: [
         { key: 'dist', label: 'Dist', liveValue: fmt(dist), width: 70 },
-        { key: 'angle', label: 'Angle', liveValue: fmt(angDeg), suffix: 'Â°', width: 60 },
+        { key: 'angle', label: 'Angle', liveValue: fmt(angDeg), suffix: '°', width: 60 },
         { key: 'dx', label: 'ΔX', liveValue: fmt(dx), width: 70 },
         { key: 'dy', label: 'ΔY', liveValue: fmt(dy), width: 70 },
       ],

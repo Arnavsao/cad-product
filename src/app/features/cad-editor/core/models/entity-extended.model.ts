@@ -357,7 +357,7 @@ export class TextEntity extends Entity {
       ...super.getPropertiesSchema(),
       { key: 'x', label: 'Position X', type: 'number', category: 'Geometry', precision: 3 },
       { key: 'y', label: 'Position Y', type: 'number', category: 'Geometry', precision: 3 },
-      { key: 'rotationDeg', label: 'Rotation', type: 'number', category: 'Geometry', precision: 1, suffix: 'Â°' },
+      { key: 'rotationDeg', label: 'Rotation', type: 'number', category: 'Geometry', precision: 1, suffix: '°' },
 
       { key: 'text', label: 'Text', type: 'text', category: 'Text' },
       {
@@ -376,7 +376,7 @@ export class TextEntity extends Entity {
       { key: 'lineSpacing', label: 'Line Spacing', type: 'number', category: 'Text', precision: 2, step: 0.1, min: 0.5 },
       { key: 'charSpacing', label: 'Char Spacing', type: 'number', category: 'Text', precision: 2, step: 0.1 },
       { key: 'widthFactor', label: 'Width Factor', type: 'number', category: 'Text', precision: 3, step: 0.1, min: 0.01 },
-      { key: 'obliqueAngle', label: 'Oblique Angle', type: 'number', category: 'Text', precision: 1, suffix: 'Â°' },
+      { key: 'obliqueAngle', label: 'Oblique Angle', type: 'number', category: 'Text', precision: 1, suffix: '°' },
 
       { key: 'backgroundMask', label: 'Background Mask', type: 'boolean', category: 'Background' },
       { key: 'backgroundColor', label: 'Background Color', type: 'color', category: 'Background' },
@@ -1216,7 +1216,7 @@ export class HatchEntity extends Entity {
       // PATTERN
       { key: 'patternType', label: 'Type', type: 'dropdown', category: 'Pattern' },
       { key: 'pattern', label: 'Pattern Name', type: 'dropdown', category: 'Pattern' },
-      { key: 'angle', label: 'Angle', type: 'number', category: 'Pattern', precision: 1, suffix: 'Â°' },
+      { key: 'angle', label: 'Angle', type: 'number', category: 'Pattern', precision: 1, suffix: '°' },
       { key: 'scale', label: 'Scale', type: 'number', category: 'Pattern', precision: 3, min: 0.001, step: 0.1 },
       { key: 'doubleHatch', label: 'Double Hatch', type: 'boolean', category: 'Pattern' },
       { key: 'originX', label: 'Origin X', type: 'number', category: 'Pattern', precision: 3 },
@@ -1513,7 +1513,7 @@ export class InsertEntity extends Entity {
       { key: 'y', label: 'Position Y', type: 'number', category: 'Geometry', precision: 3 },
       { key: 'sx', label: 'Scale X', type: 'number', category: 'Geometry', precision: 3, step: 0.1 },
       { key: 'sy', label: 'Scale Y', type: 'number', category: 'Geometry', precision: 3, step: 0.1 },
-      { key: 'rotation', label: 'Rotation', type: 'number', category: 'Geometry', precision: 1, suffix: 'Â°', step: 1 },
+      { key: 'rotation', label: 'Rotation', type: 'number', category: 'Geometry', precision: 1, suffix: '°', step: 1 },
     ] as IPropertySchema[];
     for (let i = 0; i < this.attribs.length; i++) {
       const att = this.attribs[i];
@@ -1633,7 +1633,7 @@ export class XLineEntity extends Entity {
       ...super.getPropertiesSchema(),
       { key: 'x', label: 'Base X', type: 'number', category: 'Geometry', precision: 3 },
       { key: 'y', label: 'Base Y', type: 'number', category: 'Geometry', precision: 3 },
-      { key: 'angleDeg', label: 'Angle', type: 'number', category: 'Geometry', precision: 2, suffix: 'Â°', step: 1 },
+      { key: 'angleDeg', label: 'Angle', type: 'number', category: 'Geometry', precision: 2, suffix: '°', step: 1 },
     ];
   }
 
@@ -1856,7 +1856,7 @@ export class LeaderEntity extends Entity {
       { key: 'bold', label: 'Bold', type: 'boolean', category: 'Text' },
       { key: 'italic', label: 'Italic', type: 'boolean', category: 'Text' },
       { key: 'underline', label: 'Underline', type: 'boolean', category: 'Text' },
-      { key: 'textRotationOverrideDeg', label: 'Text Rotation', type: 'text-rotation', category: 'Text', precision: 1, suffix: 'Â°' },
+      { key: 'textRotationOverrideDeg', label: 'Text Rotation', type: 'text-rotation', category: 'Text', precision: 1, suffix: '°' },
       { key: 'lineSpacing', label: 'Line Spacing', type: 'number', category: 'Text', precision: 2, step: 0.1, min: 0.5 },
       { key: 'landingLength', label: 'Landing Length', type: 'number', category: 'Leader', precision: 2, step: 0.5, min: 0 },
       {
@@ -2801,7 +2801,7 @@ export class DimensionEntity extends Entity {
       { key: 'textHeight', label: 'Text Height', type: 'number', category: 'Text', precision: 2, step: 0.1, min: 0 },
       { key: 'textOffset', label: 'Text Offset', type: 'number', category: 'Text', precision: 2, step: 0.1 },
       { key: 'textFlipped', label: 'Flip Text', type: 'boolean', category: 'Text' },
-      { key: 'textRotationOverrideDeg', label: 'Text Rotation', type: 'text-rotation', category: 'Text', precision: 1, suffix: 'Â°' },
+      { key: 'textRotationOverrideDeg', label: 'Text Rotation', type: 'text-rotation', category: 'Text', precision: 1, suffix: '°' },
       {
         key: 'textPlacement', label: 'Text Placement', type: 'dropdown', category: 'Text',
         options: ['auto', 'inside', 'outside', 'above']
@@ -2928,7 +2928,7 @@ function drawArrowHead(
   const nx = -uy, ny = ux;
   if (type === 'tick') {
     const half = size * 0.5;
-    // 45Â° tick across the dim line
+    // 45° tick across the dim line
     const tx = (ux + nx) * half;
     const ty = (uy + ny) * half;
     ctx.beginPath();
@@ -3519,7 +3519,7 @@ export class JoggedRadiusDimensionEntity extends Entity {
       { key: 'textHeight', label: 'Text Height', type: 'number', category: 'Text', precision: 2, step: 0.1, min: 0 },
       { key: 'textOffset', label: 'Text Offset', type: 'number', category: 'Text', precision: 2, step: 0.1 },
       { key: 'textFlipped', label: 'Flip Text', type: 'boolean', category: 'Text' },
-      { key: 'textRotationOverrideDeg', label: 'Text Rotation', type: 'text-rotation', category: 'Text', precision: 1, suffix: 'Â°' },
+      { key: 'textRotationOverrideDeg', label: 'Text Rotation', type: 'text-rotation', category: 'Text', precision: 1, suffix: '°' },
       { key: 'arrowType', label: 'Arrow Type', type: 'dropdown', category: 'Arrows', options: ['closed', 'open', 'tick', 'dot', 'none'] },
       { key: 'arrowSize', label: 'Arrow Size', type: 'number', category: 'Arrows', precision: 2, step: 0.1, min: 0 },
     ];

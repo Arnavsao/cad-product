@@ -109,9 +109,9 @@ export class PolylineTool implements ITool {
    * at the start point.  Returns null when start and end are collinear with
    * the tangent (i.e. the arc degenerates to a straight line).
    *
-   * Math:  the centre lies on the line `start + t * n` where n âŠ¥ tangent,
+   * Math:  the centre lies on the line `start + t * n` where n ⊥ tangent,
    *        AND on the perpendicular bisector of the chord start→end.
-   *   âŸ¹  t = –(|chord|Â²) / (2 Â· chord Â· n)
+   *   ⟹  t = –(|chord|²) / (2 · chord · n)
    */
   private tangentArcGeom(start: IPoint, end: IPoint, tangent: IPoint): ArcGeom | null {
     // Normal to tangent (pointing left of travel direction)
@@ -311,7 +311,7 @@ export class PolylineTool implements ITool {
       primaryFieldKey: 'length',
       fields: [
         { key: 'length', label: `Length${modeLabel}`, liveValue: formatLen(length),       width: 80 },
-        { key: 'angle',  label: 'Angle',               liveValue: formatAngleDeg(angleDeg), suffix: 'Â°', width: 60 },
+        { key: 'angle',  label: 'Angle',               liveValue: formatAngleDeg(angleDeg), suffix: '°', width: 60 },
       ],
     };
   }

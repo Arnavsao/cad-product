@@ -270,7 +270,7 @@ export class LeaderTool implements ITool {
         primaryFieldKey: 'length',
         fields: [
           { key: 'length', label: 'Length', liveValue: formatLen(Math.hypot(dx, dy)), width: 80 },
-          { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(Math.atan2(dy, dx) * 180 / Math.PI), suffix: 'Â°', width: 60 },
+          { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(Math.atan2(dy, dx) * 180 / Math.PI), suffix: '°', width: 60 },
         ],
       };
     }

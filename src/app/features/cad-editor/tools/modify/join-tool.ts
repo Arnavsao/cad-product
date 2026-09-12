@@ -14,7 +14,7 @@
  *   • Dashed-orange path  — the resulting polyline for each valid chain
  *     with "↦ N → 1" / "↻ N → 1" badge
  *   • Red dashed outline  — rejected entities (branching / unsupported /
- *     closed / degenerate) with reason label (âŠ  reason)
+ *     closed / degenerate) with reason label (⊠ reason)
  *   • Dim-orange dashed   — isolated entities (valid type, no neighbor yet)
  *
  * Commit:
@@ -301,7 +301,7 @@ export class JoinTool implements ITool {
 
   /**
    * Draw a red (or dim-orange for isolated) dashed outline around a rejected
-   * entity, plus a âŠ  reason label near its bounding box.
+   * entity, plus a ⊠ reason label near its bounding box.
    */
   private drawRejectedEntity(
     ctx: CanvasRenderingContext2D,
@@ -326,7 +326,7 @@ export class JoinTool implements ITool {
       ctx.font      = '10px monospace';
       ctx.fillStyle = isIsolated ? 'rgba(240,160,48,0.85)' : 'rgba(220,50,50,0.9)';
       ctx.fillText(
-        isIsolated ? '? no neighbor' : `âŠ  ${reason}`,
+        isIsolated ? '? no neighbor' : `⊠ ${reason}`,
         labelS.x + 4,
         labelS.y - 4,
       );

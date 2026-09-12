@@ -392,12 +392,12 @@ export class OffsetTool implements ITool {
     }
 
     if (source instanceof XLineEntity) {
-      // The normal to an XLINE (angle Î¸) is perpendicular: (−sin Î¸, cos Î¸).
+      // The normal to an XLINE (angle θ) is perpendicular: (−sin θ, cos θ).
       // Determine which side of the line the cursor is on via the sign of the
       // signed distance: positive → left-normal side; negative → right-normal.
       const cos = Math.cos(source.angle);
       const sin = Math.sin(source.angle);
-      // Left-normal (ccw 90Â° rotation of direction)
+      // Left-normal (ccw 90° rotation of direction)
       let nx = -sin;
       let ny = cos;
       // Signed distance from the base point to the cursor along the normal:
@@ -459,7 +459,7 @@ export class OffsetTool implements ITool {
     // Step 1 — establish a per-segment normal sign convention.
     //
     // Closed: signedArea > 0 → CCW (in y-up math coords). For CCW polygons
-    // the right-hand normal (rotate direction 90Â° CW = (dy, -dx)/len) points
+    // the right-hand normal (rotate direction 90° CW = (dy, -dx)/len) points
     // OUTWARD from the interior. CW polygons (area < 0) use the left-hand
     // normal. We then flip every segment's outward direction when the cursor
     // is INSIDE the polygon, producing a clean inward offset.

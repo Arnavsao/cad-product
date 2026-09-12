@@ -321,7 +321,7 @@ export class ArcTool implements ITool {
           wx: this.cur.x, wy: this.cur.y, primaryFieldKey: 'chord',
           fields: [
             { key: 'chord', label: 'Chord', liveValue: formatLen(Math.hypot(dx, dy)), width: 80 },
-            { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(Math.atan2(dy, dx) * 180 / Math.PI), suffix: 'Â°', width: 60 },
+            { key: 'angle', label: 'Angle', liveValue: formatAngleDeg(Math.atan2(dy, dx) * 180 / Math.PI), suffix: '°', width: 60 },
           ],
         };
       }
@@ -345,7 +345,7 @@ export class ArcTool implements ITool {
       const liveAngle = this.seaLiveAngle(S, E, this.cur);
       return {
         wx: this.cur.x, wy: this.cur.y, primaryFieldKey: 'angle',
-        fields: [{ key: 'angle', label: 'Angle', liveValue: formatAngleDeg(liveAngle), suffix: 'Â°', width: 80 }],
+        fields: [{ key: 'angle', label: 'Angle', liveValue: formatAngleDeg(liveAngle), suffix: '°', width: 80 }],
       };
     }
 
@@ -355,7 +355,7 @@ export class ArcTool implements ITool {
       const liveDir = Math.atan2(this.cur.y - S.y, this.cur.x - S.x) * 180 / Math.PI;
       return {
         wx: this.cur.x, wy: this.cur.y, primaryFieldKey: 'direction',
-        fields: [{ key: 'direction', label: 'Direction', liveValue: formatAngleDeg(liveDir), suffix: 'Â°', width: 80 }],
+        fields: [{ key: 'direction', label: 'Direction', liveValue: formatAngleDeg(liveDir), suffix: '°', width: 80 }],
       };
     }
 
@@ -380,7 +380,7 @@ export class ArcTool implements ITool {
         sweep = ((sweep % 360) + 360) % 360;
         return {
           wx: this.cur.x, wy: this.cur.y, primaryFieldKey: 'angle',
-          fields: [{ key: 'angle', label: 'Angle', liveValue: formatAngleDeg(sweep), suffix: 'Â°', width: 80 }],
+          fields: [{ key: 'angle', label: 'Angle', liveValue: formatAngleDeg(sweep), suffix: '°', width: 80 }],
         };
       }
       if (this.mode.endsWith('l')) {

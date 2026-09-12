@@ -114,7 +114,7 @@ export class XLineTool implements ITool {
       return {
         wx: this.cur.x, wy: this.cur.y,
         primaryFieldKey: 'angle',
-        fields: [{ key: 'angle', label: 'Angle', liveValue: '0', suffix: 'Â°', width: 90 }],
+        fields: [{ key: 'angle', label: 'Angle', liveValue: '0', suffix: '°', width: 90 }],
       };
     }
     if (this.mode === XLineMode.OFFSET && this.offsetSource && this.offsetDist === null) {
