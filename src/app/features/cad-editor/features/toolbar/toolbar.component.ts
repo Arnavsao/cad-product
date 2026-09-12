@@ -113,10 +113,14 @@ import { ViewModelService } from '../../core/services/view-model.service';
     }
 
     .cad-toolbar-wrap {
-      /* Symmetric breathing room: the same 6px above the first row, below the
-         last, and at both ends, so the ribbon reads as one padded strip
-         rather than content pressed against its top edge. */
-      padding: 6px 6px;
+      /* One inset value governs the whole ribbon: every section pays the same
+         gutter left and right, so the space either side of a divider and the
+         space at both outer edges is that same value. The wrap itself pads
+         vertically only — adding horizontal padding here would make the outer
+         edges wider than the inter-section gaps, which is exactly the
+         unevenness this replaces. */
+      --tb-section-pad: 10px;
+      padding: 6px 0;
       /* min-height, not height: with flex-wrap nowrap this ribbon's min-content
          width is wider than a 1600px viewport, and because it sits in the root
          grid's auto-sized column that width was imposed on the whole editor.
@@ -138,11 +142,10 @@ import { ViewModelService } from '../../core/services/view-model.service';
     .toolbar-section {
       display: flex;
       align-items: center;
-      padding: 2px 10px;
+      padding: 2px var(--tb-section-pad);
       border-right: 1px solid var(--cad-border);
     }
-    .toolbar-section:first-child { padding-left: 4px; }
-    .toolbar-section:last-child { border-right: 0; padding-right: 4px; }
+    .toolbar-section:last-child { border-right: 0; }
 
     .toolbar-section-buttons {
       display: grid !important;
@@ -379,9 +382,9 @@ import { ViewModelService } from '../../core/services/view-model.service';
       .tb-btn-group:not(.large) .btn-text {
         display: none;
       }
-      .toolbar-section {
-        padding: 0 4px;
-      }
+      /* Tighten the gutter, but keep it a single value so the ribbon stays
+         evenly padded at every width. */
+      .cad-toolbar-wrap { --tb-section-pad: 6px; }
     }
   `]
 })

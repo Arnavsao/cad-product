@@ -59,8 +59,14 @@ html {
  * `input, select, textarea` rule would style any third-party DOM we do not own
  * and break its layout. Every form of ours opts in with `uiInput`, so the scope
  * costs nothing. The editor's own styles refine these further.
+ *
+ * Toggle-shaped controls are excluded: `width: 100%` plus the text padding and
+ * border turned every radio and checkbox into a full-width box, which is what
+ * spread the Create Block dialog's base-point radios across the panel. The
+ * exclusion sits in `:where()` so it contributes no specificity and the rule
+ * still loses to the component styles that refine it, exactly as before.
  * --------------------------------------------------------------- */
-.cad-editor-root :is(input, select, textarea),
+.cad-editor-root :is(input, select, textarea):where(:not([type='radio'], [type='checkbox'], [type='range'], [type='color'], [type='file'])),
 [uiInput] {
   font-size: var(--ui-text-md, 14px);
   color: var(--color-input-text);
@@ -71,6 +77,13 @@ html {
   outline: none;
   width: 100%;
   transition: border-color .14s, box-shadow .14s, background .14s;
+}
+
+/* Toggles keep their intrinsic size and never stretch inside a flex row. */
+.cad-editor-root :is(input[type='radio'], input[type='checkbox']) {
+  width: auto;
+  flex: none;
+  accent-color: var(--cad-accent, #4a6cf7);
 }
 
 .cad-editor-root :is(input, textarea)::placeholder,
