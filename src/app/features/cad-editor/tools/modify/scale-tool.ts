@@ -10,6 +10,7 @@ import { getSelectedEntities, hitTestAll } from '../select/select-tool';
 import { scaleEntityInPlace, snapshotEntity } from '../geometry-utils';
 import { beginDragPreview, endDragPreview, drawTransformGhost, commitEntityTransforms } from '../drag-preview';
 import { evalExpression } from '../../core/utils/expression-parser';
+import { scaleReferenceDistance, scaleFactorFor } from './scale-reference';
 
 export class ScaleTool implements ITool {
   readonly name = 'scale';
@@ -17,6 +18,8 @@ export class ScaleTool implements ITool {
   private cur: IPoint = { x: 0, y: 0 };
   private targets: Entity[] = [];
   private snapshots: { ent: Entity; snap: Record<string, unknown> }[] = [];
+  /** Cursor distance from the base point that means "factor 1.0". See scale-reference.ts. */
+  private refDist = 1;
 
   constructor(private injector: Injector) {}
 
@@ -40,15 +43,20 @@ export class ScaleTool implements ITool {
 
     if (!this.basePoint) {
       this.basePoint = { x: wx, y: wy };
+      this.refDist = scaleReferenceDistance(this.targets, wx, wy);
       this.snapshots = this.targets.map((ent) => ({ ent, snap: snapshotEntity(ent) }));
       beginDragPreview(this.vm, this.targets);
       this.dyn.clearEdits();
       return;
     }
 
+    this.applyFactor(this.factorFor(wx, wy));
+  }
+
+  private factorFor(wx: number, wy: number): number {
+    if (!this.basePoint) return 1;
     const dist = Math.hypot(wx - this.basePoint.x, wy - this.basePoint.y);
-    const factor = Math.max(0.001, dist / 100.0);
-    this.applyFactor(factor);
+    return scaleFactorFor(dist, this.refDist);
   }
 
   private applyFactor(factor: number): boolean {
@@ -77,8 +85,7 @@ export class ScaleTool implements ITool {
 
   drawPreview(ctx: CanvasRenderingContext2D): void {
     if (!this.basePoint) return;
-    const dist = Math.hypot(this.cur.x - this.basePoint.x, this.cur.y - this.basePoint.y);
-    const factor = Math.max(0.001, dist / 100.0);
+    const factor = this.factorFor(this.cur.x, this.cur.y);
     if (Number.isFinite(factor)) {
       drawTransformGhost(ctx, this.vm, this.doc, this.targets, {
         kind: 'scale', cx: this.basePoint.x, cy: this.basePoint.y, factor,
@@ -107,8 +114,7 @@ export class ScaleTool implements ITool {
 
   getDynamicInputState(): IDynamicInputState | null {
     if (!this.basePoint) return null;
-    const d = Math.hypot(this.cur.x - this.basePoint.x, this.cur.y - this.basePoint.y);
-    const factor = Math.max(0.001, d / 100.0);
+    const factor = this.factorFor(this.cur.x, this.cur.y);
     return {
       wx: this.cur.x,
       wy: this.cur.y,
@@ -135,6 +141,7 @@ export class ScaleTool implements ITool {
     endDragPreview(this.vm);
     this.basePoint = null;
     this.snapshots = [];
+    this.refDist = 1;
   }
 
   onKeyDown(e: KeyboardEvent): void {
