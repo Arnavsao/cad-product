@@ -142,6 +142,21 @@ export class AdminUsersController {
     return this.users.notify(id, dto);
   }
 
+  /**
+   * `GET /admin/users/:id/export` — everything we hold, as JSON.
+   *
+   * Audited despite being a read: handing over somebody's personal data is
+   * exactly the kind of access that should leave a trace, which is the one
+   * exception to "reads are not audited" the module makes (the other being a
+   * drawing download).
+   */
+  @AdminOnly(PlatformRole.ADMIN)
+  @Audited({ action: 'user.export', targetType: 'user', reasonField: null })
+  @Get('users/:id/export')
+  exportData(@Param('id', ParseCuidPipe) id: string): Promise<Record<string, unknown>> {
+    return this.users.exportData(id);
+  }
+
   // --- Staff ---------------------------------------------------------------
 
   @AdminOnly(PlatformRole.ADMIN)

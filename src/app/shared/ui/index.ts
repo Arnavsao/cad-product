@@ -8,6 +8,7 @@ export { UiInputDirective } from './input.directive';
 export { UiCardComponent, type UiCardPadding } from './card.component';
 export { UiEmptyStateComponent } from './empty-state.component';
 export { UiBadgeComponent, type UiBadgeTone } from './badge.component';
+export { UiBannerComponent, type UiBannerTone } from './banner.component';
 export { UiStatTileComponent } from './stat-tile.component';
 export { UiSkeletonComponent } from './skeleton.component';
 export { PAGE_SIZES, UiPaginatorComponent } from './paginator.component';

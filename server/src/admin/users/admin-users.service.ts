@@ -271,6 +271,93 @@ export class AdminUsersService {
     return this.get(userId);
   }
 
+  /**
+   * Everything we hold about one account, as JSON.
+   *
+   * For data-subject requests, where the obligation is to hand over the
+   * personal data and the thing that makes it awkward is that it lives in nine
+   * tables. Drawing CONTENT is deliberately excluded: it is the user's own file
+   * and they already have it, and streaming megabytes of DXF through a support
+   * endpoint would turn a records request into a data-exfiltration path.
+   *
+   * Staff-only fields are excluded for the same reason they are excluded from
+   * `/me`: this is the user's data, not our notes about them.
+   */
+  async exportData(userId: string): Promise<Record<string, unknown>> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        preferences: true,
+        subscription: true,
+        memberships: { include: { organization: { select: { id: true, name: true, slug: true } } } },
+      },
+    });
+    if (!user) {
+      throw ApiException.notFound('USER_NOT_FOUND', 'No such user');
+    }
+
+    const [drawings, folders, feedback, notifications] = await Promise.all([
+      this.prisma.drawing.findMany({
+        where: { ownerId: userId },
+        select: {
+          id: true,
+          name: true,
+          format: true,
+          byteSize: true,
+          currentVersion: true,
+          createdAt: true,
+          updatedAt: true,
+          deletedAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.folder.findMany({
+        where: { ownerId: userId },
+        select: { id: true, name: true, parentId: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.feedback.findMany({
+        where: { userId },
+        // Not `internalNote`, `assigneeId` or `status`: those are our notes
+        // about the report, not the user's data.
+        select: { id: true, kind: true, rating: true, message: true, createdAt: true, repliedAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.notification.findMany({
+        where: { userId },
+        select: { id: true, kind: true, title: true, body: true, readAt: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      account: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        imageUrl: user.imageUrl,
+        createdAt: user.createdAt.toISOString(),
+        onboardedAt: user.onboardedAt?.toISOString() ?? null,
+      },
+      preferences: user.preferences,
+      subscription: user.subscription
+        ? {
+            plan: user.subscription.plan.toLowerCase(),
+            status: user.subscription.status.toLowerCase(),
+            currentPeriodEnd: user.subscription.currentPeriodEnd,
+            cancelAtPeriodEnd: user.subscription.cancelAtPeriodEnd,
+          }
+        : null,
+      organizations: user.memberships.map((m) => ({ ...m.organization, role: m.role.toLowerCase() })),
+      drawings,
+      folders,
+      feedback,
+      notifications,
+    };
+  }
+
   /** Sends one in-app notification from staff. */
   async notify(userId: string, input: { title: string; body?: string; linkUrl?: string }): Promise<void> {
     const target = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });

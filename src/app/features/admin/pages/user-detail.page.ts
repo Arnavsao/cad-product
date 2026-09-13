@@ -85,6 +85,9 @@ import {
               <button uiButton variant="secondary" [disabled]="busy()" (click)="grantPlan()">Grant a plan</button>
             }
           }
+          @if (canGrant()) {
+            <button uiButton variant="ghost" [disabled]="busy()" (click)="exportData()">Export data</button>
+          }
           @if (u.status !== 'deleted') {
             <button uiButton variant="danger" [disabled]="busy()" (click)="remove()">Delete account</button>
           }
@@ -336,6 +339,31 @@ export class AdminUserDetailPage {
     });
     if (!ok) return;
     await this.run(() => this.api.revokePlan(this.id()), 'Grant revoked');
+  }
+
+  /**
+   * Downloads everything we hold about the account, for a data-subject request.
+   *
+   * Built as a blob and clicked rather than opened as a link: the endpoint needs
+   * the bearer token, which a plain `<a href>` would not send.
+   */
+  protected async exportData(): Promise<void> {
+    this.busy.set(true);
+    try {
+      const data = await this.api.exportUserData(this.id());
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `cado-account-${this.user()?.email ?? this.id()}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      this.notify.success('Export downloaded');
+    } catch {
+      this.notify.error('Could not build that export.');
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected async message(): Promise<void> {

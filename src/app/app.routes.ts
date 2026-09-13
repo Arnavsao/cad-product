@@ -194,6 +194,14 @@ export const routes: Routes = [
       { path: 'feedback/:id', title: 'Admin · Report',
         loadComponent: () =>
           import('./features/admin/pages/feedback-detail.page').then((m) => m.AdminFeedbackDetailPage) },
+      { path: 'organizations', title: 'Admin · Organizations',
+        loadComponent: () =>
+          import('./features/admin/pages/organizations.page').then((m) => m.AdminOrganizationsPage) },
+      { path: 'drawings', title: 'Admin · Drawings',
+        loadComponent: () => import('./features/admin/pages/drawings.page').then((m) => m.AdminDrawingsPage) },
+      { path: 'announcements', title: 'Admin · Announcements',
+        loadComponent: () =>
+          import('./features/admin/pages/announcements.page').then((m) => m.AdminAnnouncementsPage) },
       { path: 'flags', title: 'Admin · Feature flags',
         loadComponent: () => import('./features/admin/pages/flags.page').then((m) => m.AdminFlagsPage) },
       { path: 'staff', title: 'Admin · Staff',

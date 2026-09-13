@@ -48,6 +48,41 @@ values, decoded text, per-style fonts and real lineweights.
   Staff cannot read customer drawings: admin drawing views are metadata only, and the one download
   path is behind an owner-only flag that ships off. See [docs/ADMIN.md](docs/ADMIN.md).
 
+* **Organizations, drawings, storage and announcements in the portal.** The rest of what
+  running a beta actually asks for.
+
+  **Organizations** get exactly two operations, because they are the two a workspace's own
+  members cannot perform: renaming, and transferring ownership when the only owner has
+  left and nobody remaining can promote anyone. The transfer demotes the previous owner to
+  admin rather than ejecting them, and both writes go in one transaction so an
+  organization is never momentarily ownerless. A rename leaves the slug alone — it is in
+  the join links members already hold. Staff are never added as members: putting ourselves
+  inside somebody's workspace to look around would put us inside their drawings.
+
+  **Drawings** are listed as metadata only — name, owner, workspace, size, version, trash
+  state — and can be restored or permanently deleted with a reason. Nothing here opens a
+  customer's drawing. Purging deletes the row first and the objects after, using the
+  *owner's* storage prefix rather than the acting staff member's, which is the difference
+  between freeing the files and silently orphaning them forever.
+
+  **The storage scan** compares the bucket with the database in both directions, which
+  nothing could do before. An object with no row is garbage costing money and can be
+  swept; a row with no object is the more serious direction, because that drawing will
+  fail to open for its owner and no sweep fixes it. The scan is capped and reports when it
+  hit the cap, so a partial answer is never mistaken for a clean bill of health, and the
+  sweep re-scans rather than trusting a list the browser sends back.
+
+  **Announcements** are written, saved as a draft, read back, and then published — two
+  steps, because publishing with the inbox option on writes a notification into every
+  active account and cannot be recalled. That is also why a second publish is refused
+  rather than being a quiet no-op. Published announcements appear as a dismissible banner
+  to signed-in users; suspended and deleted accounts are skipped in the fan-out.
+
+  **Data export** hands over everything we hold about one account as JSON, for
+  data-subject requests. Drawing content is excluded — it is the user's own file and they
+  already have it — and so are our notes about them. It is audited despite being a read,
+  which is the one exception the module makes.
+
 * **Feedback triage, and plans staff can grant.** The portal's second half: the part
   the beta actually runs on.
 

@@ -467,6 +467,177 @@ describeIfDb('Admin portal (e2e)', () => {
     });
   });
 
+  describe('organizations', () => {
+    let orgId: string;
+
+    beforeAll(async () => {
+      // Created through the real endpoint, so the caller becomes its owner
+      // exactly as a user's would.
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/organizations')
+        .set(auth('plain'))
+        .send({ name: `E2E Studio ${stamp}` });
+      expect(res.status).toBe(201);
+      orgId = res.body.data.id;
+    });
+
+    afterAll(async () => {
+      await prisma.organization.deleteMany({ where: { id: orgId } });
+    });
+
+    it('lists organizations with their owner and member count', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/organizations')
+        .query({ q: `E2E Studio ${stamp}` })
+        .set(auth('support'));
+      expect(res.status).toBe(200);
+      expect(res.body.data.items[0]).toMatchObject({
+        id: orgId,
+        memberCount: 1,
+        ownerEmail: `plain-${stamp}@example.com`,
+      });
+    });
+
+    it('renames without changing the slug that join links carry', async () => {
+      const before = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/admin/organizations/${orgId}`)
+        .set(auth('admin'))
+        .send({ name: `Renamed ${stamp}`, reason: 'e2e: customer asked' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.name).toBe(`Renamed ${stamp}`);
+      expect(res.body.data.slug).toBe(before.slug);
+    });
+
+    it('refuses to transfer ownership to a non-member', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/admin/organizations/${orgId}/transfer-ownership`)
+        .set(auth('admin'))
+        .send({ userId: localIds.victim, reason: 'e2e' });
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe('NOT_A_MEMBER');
+    });
+
+    it('transfers ownership, demoting the previous owner to admin', async () => {
+      await prisma.orgMembership.create({
+        data: { organizationId: orgId, userId: localIds.victim, role: 'MEMBER' },
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/admin/organizations/${orgId}/transfer-ownership`)
+        .set(auth('admin'))
+        .send({ userId: localIds.victim, reason: 'e2e: original owner left' });
+      expect(res.status).toBe(201);
+
+      const roles = Object.fromEntries(
+        res.body.data.members.map((m: { userId: string; role: string }) => [m.userId, m.role]),
+      );
+      expect(roles[localIds.victim]).toBe('owner');
+      // Demoted, not removed: they are usually still on the team.
+      expect(roles[localIds.plain]).toBe('admin');
+    });
+
+    it('refuses SUPPORT on a change', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/admin/organizations/${orgId}`)
+        .set(auth('support'))
+        .send({ name: 'Nope', reason: 'should be refused' });
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('announcements', () => {
+    let announcementId: string;
+
+    afterAll(async () => {
+      await prisma.announcement.deleteMany({ where: { id: announcementId } });
+      await prisma.notification.deleteMany({ where: { title: `E2E notice ${stamp}` } });
+    });
+
+    it('is invisible to users until it is published', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/admin/announcements')
+        .set(auth('admin'))
+        .send({ title: `E2E notice ${stamp}`, body: 'Maintenance at 22:00 UTC.', pushToInbox: true });
+      expect(created.status).toBe(201);
+      announcementId = created.body.data.id;
+      expect(created.body.data.publishedAt).toBeNull();
+      expect(created.body.data.live).toBe(false);
+
+      const active = await request(app.getHttpServer()).get('/api/v1/announcements/active').set(auth('plain'));
+      expect(active.body.data.find((a: { id: string }) => a.id === announcementId)).toBeUndefined();
+    });
+
+    it('goes live and reaches the inbox when published', async () => {
+      const published = await request(app.getHttpServer())
+        .post(`/api/v1/admin/announcements/${announcementId}/publish`)
+        .set(auth('admin'));
+      expect(published.status).toBe(201);
+      expect(published.body.data.live).toBe(true);
+      expect(published.body.data.notified).toBeGreaterThan(0);
+
+      const active = await request(app.getHttpServer()).get('/api/v1/announcements/active').set(auth('plain'));
+      expect(active.body.data.find((a: { id: string }) => a.id === announcementId)).toBeDefined();
+
+      const inbox = await request(app.getHttpServer()).get('/api/v1/notifications').set(auth('plain'));
+      expect(inbox.body.data.items.some((n: { title: string }) => n.title === `E2E notice ${stamp}`)).toBe(true);
+    });
+
+    it('refuses a second publish, which would re-notify everybody', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/admin/announcements/${announcementId}/publish`)
+        .set(auth('admin'));
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe('ALREADY_PUBLISHED');
+    });
+  });
+
+  describe('drawings and storage', () => {
+    it('lists drawings as metadata only, with no content or key leak to SUPPORT', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/admin/drawings').set(auth('support'));
+      expect(res.status).toBe(200);
+      for (const row of res.body.data.items) {
+        expect(row.storageKey).toBeUndefined();
+        expect(row.content).toBeUndefined();
+      }
+    });
+
+    it('refuses the storage scan below OWNER', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/admin/storage/orphans').set(auth('admin'));
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({ required: 'owner', actual: 'admin' });
+    });
+  });
+
+  describe('data export', () => {
+    it('returns the account\'s own data and no staff notes', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/users/${localIds.plain}/export`)
+        .set(auth('admin'));
+      expect(res.status).toBe(200);
+      expect(res.body.data.account.email).toBe(`plain-${stamp}@example.com`);
+      expect(res.body.data.drawings).toBeDefined();
+      // Our notes about them are not their data.
+      expect(JSON.stringify(res.body)).not.toContain('internalNote');
+      expect(JSON.stringify(res.body)).not.toContain('platformRole');
+    });
+
+    it('is recorded in the audit trail, unlike other reads', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/audit')
+        .query({ action: 'user.export', targetId: localIds.plain })
+        .set(auth('owner'));
+      expect(res.body.data.items.length).toBeGreaterThan(0);
+    });
+
+    it('refuses SUPPORT', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/users/${localIds.plain}/export`)
+        .set(auth('support'));
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe('user list', () => {
     it('paginates and filters by status', async () => {
       const res = await request(app.getHttpServer())

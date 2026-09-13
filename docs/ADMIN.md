@@ -116,6 +116,57 @@ unexpired grant, so a complimentary Pro never downgrades a paying Team customer.
 The user's billing pane says "Complimentary Pro until …"; the reason staff typed
 is internal and is not sent to them.
 
+### Fix an organization nobody inside it can fix
+
+Organizations → expand a row. Two operations exist, because they are the two
+its own members cannot perform: **Rename**, and **Transfer ownership** when the
+only owner has left and nobody remaining can promote anyone (promoting to owner
+is itself owner-only). The transfer demotes the previous owner to admin rather
+than removing them, and both writes go in one transaction so the organization is
+never momentarily ownerless. The slug is deliberately left alone on a rename —
+it is in the join links members already hold.
+
+Staff are never added as members. Putting ourselves inside somebody's workspace
+to "have a look" would put us inside their drawings.
+
+### Announce something
+
+Announcements → write it, save the draft, read it back, then **Publish**. Two
+steps on purpose: nothing is shown to anyone until the publish, which is the
+single deliberate act. Published announcements show as a banner to every
+signed-in user; dismissals are per browser.
+
+Ticking **also put it in everyone's inbox** fans a notification out to every
+active account in batches when you publish. That cannot be recalled, which is
+why a second publish is refused rather than being a quiet no-op. Suspended and
+deleted accounts are skipped.
+
+### Find a drawing, or work out where storage went
+
+Drawings lists every drawing as metadata: name, owner, workspace, size, version
+and whether it is in the trash. There is no way to open one — what is inside a
+customer's drawing is theirs. **Restore** lifts a drawing out of the trash;
+**Purge** deletes the row and its files permanently and needs a reason.
+
+**Scan storage** (owner only) compares the bucket with the database both ways.
+An object with no row is garbage costing money, and can be swept. A row with no
+object is the more serious direction: that drawing will fail to open for its
+owner, and no sweep fixes it. The scan is capped and says so when it hits the
+cap, so a partial answer is never mistaken for a clean bill of health.
+
+### Answer a data-subject request
+
+Users → open the account → **Export data**. Downloads JSON of everything we hold:
+profile, preferences, subscription, organizations, drawing and folder metadata,
+their own feedback, and their notifications. Drawing *content* is excluded — it
+is their file and they already have it, and streaming it through a support
+endpoint would turn a records request into an exfiltration path. Staff notes
+(the internal note on a report, the staff tier) are excluded too: those are our
+records about them, not their data.
+
+The export is audited despite being a read, which is the one exception the
+module makes to "reads are not recorded".
+
 ### Answer "what happened to this account?"
 
 Audit log → filter by action (`user.suspend`, `staff.setRole`, `flag.set`) and
@@ -147,6 +198,6 @@ case and the user has asked for help.
 
 ## What is not built yet
 
-Announcements, organization management, drawing and storage tools, the billing
-console, email campaigns and scheduled jobs. See
-[ADMIN-PORTAL-PLAN.md](ADMIN-PORTAL-PLAN.md) for what each phase covers.
+The billing console (subscriptions, webhook replay, MRR), email campaigns,
+staff MFA, and scheduled housekeeping jobs — all Phase 3. See
+[ADMIN-PORTAL-PLAN.md](ADMIN-PORTAL-PLAN.md).

@@ -173,6 +173,13 @@
       </div>
       }
       <app-invitations-banner />
+      <!-- Product announcements published from the admin portal. Dismissals are
+           per browser; see `AnnouncementsService`. -->
+      @for (announcement of announcements.visible(); track announcement.id) {
+      <ui-banner [linkUrl]="announcement.linkUrl" (dismissed)="announcements.dismiss(announcement.id)">
+        <strong>{{ announcement.title }}</strong> {{ announcement.body }}
+      </ui-banner>
+      }
       <router-outlet />
     </div>
 

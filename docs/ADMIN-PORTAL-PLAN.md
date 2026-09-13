@@ -1,6 +1,6 @@
 # CADO Admin Portal — Implementation Plan
 
-Status: proposal, 2026-09-14. Owner: TBD. Target: Phase 1 live before the beta invitation email goes out; Phases 2–3 carry the same portal through to the main launch.
+Status: Phases 0, 1 and 2 implemented (2026-09-14); Phase 3 outstanding. Owner: TBD. Target: Phase 1 live before the beta invitation email goes out; Phases 2–3 carry the same portal through to the main launch.
 
 ## 1. Why now, and what it has to do
 

@@ -27,6 +27,8 @@ import { InboxService } from './data/inbox.service';
 import { InboxDropdownComponent } from './components/inbox-dropdown.component';
 import { UPLOAD_ACCEPT, UploadService } from './data/upload.service';
 import { FolderDto } from '../../core/api/api.models';
+import { UiBannerComponent } from '../../shared/ui';
+import { AnnouncementsService } from '../../core/announcements/announcements.service';
 
 /** Which nav entry (left rail or header action) the current URL belongs to. */
 type DashboardSection =
@@ -108,6 +110,7 @@ const UPLOAD_MENU: readonly MenuItemSpec[] = [
     WorkspaceSwitcherComponent,
     OverlayModule,
     InboxDropdownComponent,
+    UiBannerComponent,
   ],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
@@ -124,6 +127,7 @@ export class DashboardShellComponent {
   protected readonly workspace = inject(WorkspaceService);
   protected readonly upload = inject(UploadService);
   protected readonly inbox = inject(InboxService);
+  protected readonly announcements = inject(AnnouncementsService);
 
   protected readonly appName = environment.appName;
   protected readonly uploadAccept = UPLOAD_ACCEPT;
@@ -238,6 +242,9 @@ export class DashboardShellComponent {
     // The badge needs a count on arrival. `refreshCount` swallows its own errors,
     // so a notifications outage never blocks the dashboard from rendering.
     void this.inbox.refreshCount();
+    // Announcements are the least important thing on the page and fail silently,
+    // so they are fetched alongside rather than awaited by anything.
+    void this.announcements.load();
 
     // Adopt `?q=` when it changes from outside (deep link, Back, nav link).
     effect(() => {

@@ -102,6 +102,89 @@ export interface AdminFeedbackQuery {
   pageSize?: number;
 }
 
+/** One organization as the admin list shows it. */
+export interface AdminOrgRowDto {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  memberCount: number;
+  drawingCount: number;
+  bytesUsed: number;
+  ownerEmail: string | null;
+  createdAt: string;
+}
+
+export interface AdminOrgDetailDto extends AdminOrgRowDto {
+  joinCode: string;
+  members: { userId: string; email: string; name: string | null; role: string; joinedAt: string }[];
+  invites: { id: string; email: string; role: string; expiresAt: string; createdAt: string }[];
+  updatedAt: string;
+}
+
+/** One drawing, metadata only — the portal never fetches content. */
+export interface AdminDrawingRowDto {
+  id: string;
+  name: string;
+  format: string;
+  byteSize: number;
+  currentVersion: number;
+  ownerId: string;
+  ownerEmail: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  deletedAt: string | null;
+  lastOpenedAt: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface AdminDrawingQuery {
+  q?: string;
+  ownerId?: string;
+  organizationId?: string;
+  /** 'true' for the trash, 'false' for live rows, omitted for both. */
+  deleted?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** What the storage scan found, both directions. */
+export interface StorageOrphansDto {
+  orphanedObjects: { key: string; bytes: number }[];
+  brokenDrawings: { id: string; name: string; ownerEmail: string; storageKey: string }[];
+  truncated: boolean;
+  scannedObjects: number;
+  reclaimableBytes: number;
+}
+
+export type AnnouncementKind = 'system' | 'drawing' | 'storage' | 'account';
+
+export interface AdminAnnouncementDto {
+  id: string;
+  title: string;
+  body: string;
+  kind: AnnouncementKind;
+  linkUrl: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  pushToInbox: boolean;
+  publishedAt: string | null;
+  /** Published, started, and not yet ended. */
+  live: boolean;
+  createdByEmail: string | null;
+  createdAt: string;
+}
+
+/** What a signed-in user is shown. */
+export interface PublicAnnouncementDto {
+  id: string;
+  title: string;
+  body: string;
+  kind: AnnouncementKind;
+  linkUrl: string | null;
+}
+
 /** A flag as the public `GET /flags` reports it. */
 export interface FlagDto {
   key: string;

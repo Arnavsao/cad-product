@@ -6,12 +6,19 @@ import { AdminGuard } from './admin.guard';
 import { AuditController } from './audit/audit.controller';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuditService } from './audit/audit.service';
+import { AdminAnnouncementsController } from './announcements/announcements.controller';
+import { AnnouncementsService } from './announcements/announcements.service';
+import { PublicAnnouncementsController } from './announcements/public-announcements.controller';
+import { AdminDrawingsController } from './drawings/admin-drawings.controller';
+import { AdminDrawingsService } from './drawings/admin-drawings.service';
 import { AdminFeedbackController } from './feedback/admin-feedback.controller';
 import { AdminFeedbackService } from './feedback/admin-feedback.service';
 import { AdminFlagsController } from './flags/admin-flags.controller';
 import { OverviewController } from './overview/overview.controller';
 import { OverviewService } from './overview/overview.service';
 import { SystemController } from './system/system.controller';
+import { AdminOrgsController } from './organizations/admin-orgs.controller';
+import { AdminOrgsService } from './organizations/admin-orgs.service';
 import { AdminUsersController } from './users/admin-users.controller';
 import { AdminUsersService } from './users/admin-users.service';
 
@@ -39,12 +46,19 @@ import { AdminUsersService } from './users/admin-users.service';
     AdminUsersController,
     AdminFlagsController,
     AdminFeedbackController,
+    AdminOrgsController,
+    AdminDrawingsController,
+    AdminAnnouncementsController,
+    PublicAnnouncementsController,
     AuditController,
     SystemController,
   ],
   providers: [
     AdminUsersService,
     AdminFeedbackService,
+    AdminOrgsService,
+    AdminDrawingsService,
+    AnnouncementsService,
     OverviewService,
     AuditService,
     AuditInterceptor,

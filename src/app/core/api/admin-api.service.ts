@@ -3,16 +3,23 @@ import { firstValueFrom } from 'rxjs';
 import { HttpManagerService } from '../services/http-manager.service';
 import { environment } from '../../../environments/environment';
 import {
+  AdminAnnouncementDto,
+  AdminDrawingQuery,
+  AdminDrawingRowDto,
   AdminFeedbackDetailDto,
   AdminFeedbackQuery,
   AdminFeedbackRowDto,
   AdminFlagDto,
+  AdminOrgDetailDto,
+  AdminOrgRowDto,
   AdminOverviewDto,
   AdminUserDetailDto,
   AdminUserQuery,
   AdminUserRowDto,
   AuditEntryDto,
+  AnnouncementKind,
   FeedbackStatus,
+  StorageOrphansDto,
   SystemInfoDto,
   TimeseriesMetric,
   TimeseriesPointDto,
@@ -147,6 +154,94 @@ export class AdminApiService {
     }
     const qs = params.toString();
     return `${environment.apiUrl}/admin/feedback/export.csv${qs ? `?${qs}` : ''}`;
+  }
+
+  // --- Organizations -------------------------------------------------------
+
+  listOrgs(query: { q?: string; page?: number; pageSize?: number } = {}): Promise<Page<AdminOrgRowDto>> {
+    return firstValueFrom(this.api.get<Page<AdminOrgRowDto>>('admin/organizations', { params: { ...query } }));
+  }
+
+  getOrg(id: string): Promise<AdminOrgDetailDto> {
+    return firstValueFrom(this.api.get<AdminOrgDetailDto>(`admin/organizations/${enc(id)}`));
+  }
+
+  /** `PATCH /admin/organizations/:id` — ADMIN. The slug is deliberately unchanged. */
+  renameOrg(id: string, name: string, reason: string): Promise<AdminOrgDetailDto> {
+    return firstValueFrom(this.api.patch<AdminOrgDetailDto>(`admin/organizations/${enc(id)}`, { name, reason }));
+  }
+
+  /** 422 NOT_A_MEMBER when the target has not joined; 409 ALREADY_OWNER. */
+  transferOrgOwnership(id: string, userId: string, reason: string): Promise<AdminOrgDetailDto> {
+    return firstValueFrom(
+      this.api.post<AdminOrgDetailDto>(`admin/organizations/${enc(id)}/transfer-ownership`, { userId, reason }),
+    );
+  }
+
+  regenerateOrgJoinCode(id: string): Promise<AdminOrgDetailDto> {
+    return firstValueFrom(
+      this.api.post<AdminOrgDetailDto>(`admin/organizations/${enc(id)}/regenerate-join-code`, {}),
+    );
+  }
+
+  // --- Drawings and storage ------------------------------------------------
+
+  listDrawings(query: AdminDrawingQuery = {}): Promise<Page<AdminDrawingRowDto>> {
+    return firstValueFrom(this.api.get<Page<AdminDrawingRowDto>>('admin/drawings', { params: { ...query } }));
+  }
+
+  restoreDrawing(id: string): Promise<AdminDrawingRowDto> {
+    return firstValueFrom(this.api.post<AdminDrawingRowDto>(`admin/drawings/${enc(id)}/restore`, {}));
+  }
+
+  /** Permanent: deletes the row and every object under the drawing's prefix. */
+  purgeDrawing(id: string, reason: string): Promise<{ id: string; bytesFreed: number }> {
+    return firstValueFrom(
+      this.api.post<{ id: string; bytesFreed: number }>(`admin/drawings/${enc(id)}/purge`, { reason }),
+    );
+  }
+
+  /** `GET /admin/storage/orphans` — OWNER only; walks the bucket, so it is slow. */
+  storageOrphans(): Promise<StorageOrphansDto> {
+    return firstValueFrom(this.api.get<StorageOrphansDto>('admin/storage/orphans'));
+  }
+
+  purgeStorageOrphans(): Promise<{ deleted: number; bytesFreed: number }> {
+    return firstValueFrom(this.api.post<{ deleted: number; bytesFreed: number }>('admin/storage/orphans/purge', {}));
+  }
+
+  // --- Announcements -------------------------------------------------------
+
+  listAnnouncements(): Promise<AdminAnnouncementDto[]> {
+    return firstValueFrom(this.api.get<AdminAnnouncementDto[]>('admin/announcements'));
+  }
+
+  createAnnouncement(input: {
+    title: string;
+    body: string;
+    kind?: AnnouncementKind;
+    linkUrl?: string;
+    startsAt?: string;
+    endsAt?: string;
+    pushToInbox?: boolean;
+  }): Promise<AdminAnnouncementDto> {
+    return firstValueFrom(this.api.post<AdminAnnouncementDto>('admin/announcements', input));
+  }
+
+  /** Publishing is irreversible when `pushToInbox` is on: 409 on a second call. */
+  publishAnnouncement(id: string): Promise<AdminAnnouncementDto & { notified: number }> {
+    return firstValueFrom(
+      this.api.post<AdminAnnouncementDto & { notified: number }>(`admin/announcements/${enc(id)}/publish`, {}),
+    );
+  }
+
+  deleteAnnouncement(id: string): Promise<{ id: string }> {
+    return firstValueFrom(this.api.delete<{ id: string }>(`admin/announcements/${enc(id)}`));
+  }
+
+  /** `GET /admin/users/:id/export` — ADMIN, and audited despite being a read. */
+  exportUserData(id: string): Promise<Record<string, unknown>> {
+    return firstValueFrom(this.api.get<Record<string, unknown>>(`admin/users/${enc(id)}/export`));
   }
 
   // --- Flags ---------------------------------------------------------------
