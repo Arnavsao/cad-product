@@ -315,7 +315,10 @@ cat <<SUMMARY
    Manual follow-ups (third-party dashboards):
      - Supabase -> Auth -> URL Configuration: add ${WEB_ORIGIN}
      - Dodo webhook -> ${WEB_ORIGIN}/api/v1/billing/webhook
-     - R2 bucket CORS: allow origin ${WEB_ORIGIN}
+     - R2 bucket CORS: npm --prefix server run r2:cors -- \
+         --env-file ~/cado-prod.env --origin ${WEB_ORIGIN} --apply
+       (the browser PUTs and GETs presigned URLs on the bucket host itself, so
+        without a matching rule every open and every save fails CORS)
 
    Tear down:
      az group delete --name ${RESOURCE_GROUP} --yes --no-wait

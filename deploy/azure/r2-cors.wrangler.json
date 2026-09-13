@@ -1,0 +1,14 @@
+{
+  "rules": [
+    {
+      "id": "cado-web",
+      "allowed": {
+        "origins": ["https://cado.website", "https://www.cado.website", "http://localhost:4200"],
+        "methods": ["GET", "PUT", "HEAD"],
+        "headers": ["content-type"]
+      },
+      "exposeHeaders": ["ETag"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

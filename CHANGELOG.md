@@ -186,6 +186,22 @@ values, decoded text, per-style fonts and real lineweights.
   certain of, but the first native review is still outstanding. English is the reference.
 
 ### Fixed
+* **Opening a drawing on cado.website failed with "Unable to reach the server".** Nothing was
+  wrong with the server. The editor fetches drawing content straight from the storage bucket over
+  a presigned URL (`StorageService.presignGet` → `HttpManagerService.getText`), so the bucket, not
+  the API and not nginx, decides whether the browser may read the response — and the R2 bucket had
+  no CORS rule naming `https://cado.website`. Every open failed the CORS check, and so did every
+  presigned upload: saves over 5 MB (`content/presign`) and every DXF/DWG import, which additionally
+  preflight because a `PUT` carrying `Content-Type` is not a CORS-simple request. Inline saves
+  under 5 MB go through the API on the same origin and were unaffected, which is why the failure
+  looked intermittent.
+
+  The bucket policy was only ever a prose line in `provision.sh`'s manual follow-ups, which is
+  exactly how it got missed when the custom domain was added. It is now a script —
+  `npm --prefix server run r2:cors -- --env-file <file> [--apply]` — that prints the live policy,
+  shows the diff it would write, and writes GET/PUT/HEAD + `content-type` + exposed `ETag` for the
+  origins given. `deploy/azure/README.md` documents re-running it whenever a new web origin appears.
+
 * **Degree signs and palette arrows rendered as `Â°` and `â–¼`.** Fourteen source files had been
   written back through a cp1252 round-trip at some point, double-encoding every non-ASCII literal
   on disk. The user-visible casualties were the `°` suffix on the dynamic-input angle field of

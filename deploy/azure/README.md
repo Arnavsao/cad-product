@@ -335,8 +335,25 @@ Third-party dashboards this script cannot reach:
 - **Supabase** → Auth → URL Configuration: add the web origin to Site URL and
   the redirect allowlist, or logins bounce to localhost.
 - **Dodo** → Webhooks: `https://<web-fqdn>/api/v1/billing/webhook`.
-- **R2 bucket CORS**: allow the web origin, or presigned uploads fail in the
-  browser.
+- **R2 bucket CORS**: the editor fetches and uploads to presigned URLs on the
+  bucket's own host, so the bucket decides whether those requests are allowed.
+  Without a rule matching the web origin, every open and every save fails with
+  `No 'Access-Control-Allow-Origin' header is present` and the editor reports
+  "Unable to reach the server". Apply it with:
+
+  ```bash
+  npm --prefix server run r2:cors -- --env-file ~/cado-prod.env            # show current
+  npm --prefix server run r2:cors -- --env-file ~/cado-prod.env --apply    # write it
+  ```
+
+  Re-run it whenever a new web origin appears (a custom domain, a preview
+  hostname); the rule lists origins explicitly and replaces the whole policy.
+
+  The API's own R2 token is object-scoped and gets `AccessDenied` on bucket
+  settings — correctly so. Bucket CORS needs an account-level credential, so
+  the same policy is also kept in two paste-ready shapes: `r2-cors.json` for the
+  dashboard (R2 → bucket → Settings → CORS Policy) and `r2-cors.wrangler.json`
+  for `npx wrangler r2 bucket cors set drawings --file deploy/azure/r2-cors.wrangler.json`.
 - **CSP**: `nginx.common.azure.conf.template` allows only Clerk's default
   `*.clerk.accounts.dev`. A custom Clerk domain must be added to `script-src`
   and `frame-src` or sign-in silently fails to load.

@@ -23,7 +23,8 @@
     "prisma:studio": "prisma studio",
     "mint-token": "tsx scripts/mint-dev-token.ts",
     "postinstall": "prisma generate",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "r2:cors": "node scripts/r2-cors.mjs"
   },
   "prettier": {
     "singleQuote": true,
