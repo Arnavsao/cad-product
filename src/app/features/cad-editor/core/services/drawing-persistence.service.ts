@@ -161,6 +161,10 @@ export class DrawingPersistenceService {
     // away. Route it at the real save instead, and let a failed save veto the
     // close.
     this.docManager.setSaveHandler((tabId) => this.saveTab(tabId));
+    // Whatever the answer to the close prompt, a closed tab must not leave a
+    // recovery snapshot behind — that is the "unsaved work was recovered"
+    // banner firing for work the user chose to discard.
+    this.docManager.setCloseHandler((tabId) => this.autosave.forget(tabId));
   }
 
   // ── bindings ────────────────────────────────────────────────────────────

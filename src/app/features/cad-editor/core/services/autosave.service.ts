@@ -186,6 +186,18 @@ export class AutosaveService {
     void this.store.deleteRecovery(recoveryIdForTab(tabId));
   }
 
+  /**
+   * A tab is closing: drop its recovery snapshot and stop tracking it. Unlike
+   * `markClean` this makes no claim that the work was saved — the tab is simply
+   * gone, and a snapshot for a tab that no longer exists is only ever a false
+   * "unsaved work recovered" alarm at the next launch.
+   */
+  forget(tabId: string): void {
+    if (!tabId) return;
+    this.savedDepths.delete(tabId);
+    void this.store.deleteRecovery(recoveryIdForTab(tabId));
+  }
+
   /** Forget all tracked state (e.g. after restoring a recovery session). */
   reset(): void {
     this.savedDepths.clear();

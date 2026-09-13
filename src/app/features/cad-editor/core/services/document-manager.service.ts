@@ -28,6 +28,8 @@ export class DocumentManagerService {
    * this service; injecting it back would close a DI cycle.
    */
   private saveHandler: ((tabId: string) => Promise<boolean>) | null = null;
+  /** Fired once a close is definitely going ahead — see `setCloseHandler`. */
+  private closeHandler: ((tabId: string) => void) | null = null;
 
   constructor() {
     // Ensure entity IDs are generated sequentially per document
@@ -119,6 +121,18 @@ export class DocumentManagerService {
   }
 
   /**
+   * Called with the tab id when a close is going ahead — after "Yes" saved,
+   * after "No" discarded, or on a forced close — and NOT when a vetoed save
+   * kept the tab open. Persistence uses it to drop the tab's autosave
+   * snapshot: without it, answering "No" left the snapshot behind and the next
+   * session announced "unsaved work was recovered" for work the user had just
+   * chosen to throw away.
+   */
+  public setCloseHandler(fn: (tabId: string) => void): void {
+    this.closeHandler = fn;
+  }
+
+  /**
    * Close a tab, offering to save it first when it is dirty.
    *
    * Async because answering "Yes" now performs a REAL save (through
@@ -144,6 +158,11 @@ export class DocumentManagerService {
 
     // Re-check: the await above yielded, so the tab may already be gone.
     if (!this.docsSignal().some(d => d.tabId === tabId)) return;
+
+    // The close is happening. Let persistence forget the tab's snapshot; a
+    // reopened tab is still dirty in memory and will simply be snapshotted
+    // again on the next autosave pass.
+    this.closeHandler?.(tabId);
 
     // Push to closed stack
     this.closedDocuments.push(docToClose);

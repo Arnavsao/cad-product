@@ -186,6 +186,16 @@ values, decoded text, per-style fonts and real lineweights.
   certain of, but the first native review is still outstanding. English is the reference.
 
 ### Fixed
+* **"Unsaved work from a previous session was recovered" fired for work you had just discarded.**
+  Closing a dirty tab asks "Save changes before closing?"; answering **No** closed the tab but left
+  its autosave snapshot in IndexedDB, because only the *save* path told autosave to forget the tab.
+  The next launch then found the orphaned snapshot and announced recovered work — the banner in
+  the screenshot that started this — training users to dismiss a message that matters when it is
+  real. `DocumentManagerService.setCloseHandler` now fires on every path that actually removes a
+  tab (discard, saved, forced) and not when a vetoed save keeps it open; persistence routes it to
+  the new `AutosaveService.forget(tabId)`. A reopened tab is still dirty in memory and is simply
+  snapshotted again on the next pass. `document-manager-close.spec.ts` pins all five outcomes.
+
 * **CI had been red — and production two days stale — since the previous commit.** MinIO removed
   its repositories from Docker Hub; `docker compose up` in the `api` job failed with
   `pull access denied for minio/minio, repository does not exist`, every CI run failed, and the

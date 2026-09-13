@@ -43,6 +43,7 @@ describe('DrawingPersistenceService — workspaces and view-only access', () => 
     closeDocument: jasmine.Spy;
     closeBlankDocuments: jasmine.Spy;
     setSaveHandler: jasmine.Spy;
+    setCloseHandler: jasmine.Spy;
   };
   let persist: DrawingPersistenceService;
 
@@ -85,6 +86,7 @@ describe('DrawingPersistenceService — workspaces and view-only access', () => 
       closeDocument: jasmine.createSpy('closeDocument').and.resolveTo(undefined),
       closeBlankDocuments: jasmine.createSpy('closeBlankDocuments'),
       setSaveHandler: jasmine.createSpy('setSaveHandler'),
+      setCloseHandler: jasmine.createSpy('setCloseHandler'),
     };
 
     TestBed.configureTestingModule({
