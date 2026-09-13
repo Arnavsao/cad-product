@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "Отменяется в конце периода.",
   "dashboard.settings.planHint.ended": "Ваша подписка завершилась.",
   "dashboard.settings.planHint.free": "У вас бесплатный тариф.",
+  "dashboard.settings.planHint.granted": "Бесплатный {{plan}} от команды CADO.",
+  "dashboard.settings.planHint.grantedUntil": "Бесплатный {{plan}} до {{date}} от команды CADO.",
   "dashboard.settings.planHint.pastDue": "Последний платёж не прошёл. Обновите карту, чтобы сохранить доступ.",
   "dashboard.settings.planHint.renews": "Продлевается {{date}}.",
   "dashboard.settings.planHint.trial": "У вас пробный период.",

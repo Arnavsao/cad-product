@@ -1,5 +1,5 @@
 import type { Feedback } from '../generated/prisma/client';
-import { FeedbackKind } from '../generated/prisma/client';
+import { FeedbackKind, FeedbackStatus } from '../generated/prisma/client';
 import { FEEDBACK_KINDS, type FeedbackDto, type FeedbackKindWire } from './dto/feedback.dto';
 
 // Prisma enum members are upper-case (`FeedbackKind.BUG`), the API speaks
@@ -31,5 +31,8 @@ export function toFeedbackDto(row: Feedback): FeedbackDto {
     message: row.message,
     email: row.email,
     createdAt: row.createdAt.toISOString(),
+    repliedAt: row.repliedAt?.toISOString() ?? null,
+    // Collapsed to a boolean on purpose — see `FeedbackDto.closed`.
+    closed: row.status === FeedbackStatus.RESOLVED || row.status === FeedbackStatus.WONT_FIX,
   };
 }

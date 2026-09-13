@@ -189,6 +189,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/pages/users.page').then((m) => m.AdminUsersPage) },
       { path: 'users/:id', title: 'Admin · Account',
         loadComponent: () => import('./features/admin/pages/user-detail.page').then((m) => m.AdminUserDetailPage) },
+      { path: 'feedback', title: 'Admin · Feedback',
+        loadComponent: () => import('./features/admin/pages/feedback.page').then((m) => m.AdminFeedbackPage) },
+      { path: 'feedback/:id', title: 'Admin · Report',
+        loadComponent: () =>
+          import('./features/admin/pages/feedback-detail.page').then((m) => m.AdminFeedbackDetailPage) },
       { path: 'flags', title: 'Admin · Feature flags',
         loadComponent: () => import('./features/admin/pages/flags.page').then((m) => m.AdminFlagsPage) },
       { path: 'staff', title: 'Admin · Staff',

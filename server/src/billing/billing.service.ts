@@ -17,6 +17,9 @@ const FREE_STATE: BillingStateDto = {
   cancelAtPeriodEnd: false,
   trialEndsAt: null,
   manageable: false,
+  // No subscription row means no staff grant either.
+  grantedPlan: null,
+  grantedUntil: null,
 };
 
 /**
@@ -46,6 +49,19 @@ const FREE_STATE: BillingStateDto = {
  *   from both by {@link effectivePlan}. Storing an "isPro" boolean alongside
  *   them would be a third fact that can contradict the other two.
  */
+/** Columns an entitlement decision reads. */
+export type EntitlementRow = Pick<Subscription, 'plan' | 'status' | 'overridePlan' | 'overrideUntil'>;
+
+/**
+ * Plan ordering, so "the better of the bought plan and the granted one" is a
+ * comparison rather than a pile of conditionals.
+ */
+const PLAN_RANK: Record<BillingPlan, number> = {
+  [BillingPlan.FREE]: 0,
+  [BillingPlan.PRO]: 1,
+  [BillingPlan.TEAM]: 2,
+};
+
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
@@ -86,10 +102,35 @@ export class BillingService {
    * Separate from the stored `plan` because a cancelled Pro subscription still
    * has `plan = PRO` on the row (that is the historical fact of what they
    * bought) while entitling them to nothing. Feature checks must use this.
+   *
+   * Since the admin portal can grant a plan directly, this is also where a
+   * staff override is folded in — the whole point of keeping `effectivePlan`
+   * the single read is that a second source of entitlement changes one function
+   * rather than every caller.
    */
-  effectivePlan(row: Pick<Subscription, 'plan' | 'status'> | null): BillingPlan {
+  effectivePlan(row: EntitlementRow | null, now: Date = new Date()): BillingPlan {
     if (!row) return BillingPlan.FREE;
-    return (ENTITLING_STATUSES as readonly string[]).includes(row.status) ? row.plan : BillingPlan.FREE;
+    const paid = (ENTITLING_STATUSES as readonly string[]).includes(row.status) ? row.plan : BillingPlan.FREE;
+    const granted = this.activeOverride(row, now);
+    if (!granted) return paid;
+    // The better of the two, never simply the override: a staff grant of Pro
+    // must not downgrade somebody who has since bought Team, and an expired
+    // grant must not disturb a real subscription.
+    return PLAN_RANK[granted] > PLAN_RANK[paid] ? granted : paid;
+  }
+
+  /**
+   * The staff grant, if there is one and it has not lapsed.
+   *
+   * Expiry is evaluated on read rather than by a job that clears the column:
+   * a grant that ends at midnight should end at midnight, not whenever a
+   * sweeper next runs, and leaving the columns in place keeps "what was granted
+   * and why" answerable after it expires.
+   */
+  activeOverride(row: EntitlementRow | null, now: Date = new Date()): BillingPlan | null {
+    if (!row?.overridePlan) return null;
+    if (row.overrideUntil && row.overrideUntil.getTime() <= now.getTime()) return null;
+    return row.overridePlan;
   }
 
   // ─── Checkout ────────────────────────────────────────────────────────────
@@ -381,12 +422,18 @@ export class BillingService {
 
   private toDto(row: Subscription | null): BillingStateDto {
     if (!row) return FREE_STATE;
+    const granted = this.activeOverride(row);
     return {
       plan: this.effectivePlan(row).toLowerCase() as BillingStateDto['plan'],
       status: row.status.toLowerCase() as BillingStateDto['status'],
       currentPeriodEnd: row.currentPeriodEnd?.toISOString() ?? null,
       cancelAtPeriodEnd: row.cancelAtPeriodEnd,
       trialEndsAt: row.trialEndsAt?.toISOString() ?? null,
+      // Told to the user, so the dashboard can say "complimentary Pro until …"
+      // rather than showing a plan they never bought with no explanation. The
+      // reason staff typed is NOT included: it is an internal note.
+      grantedPlan: granted ? (granted.toLowerCase() as BillingStateDto['plan']) : null,
+      grantedUntil: granted ? (row.overrideUntil?.toISOString() ?? null) : null,
       // The portal needs a Dodo customer, which only exists once something has
       // been bought (or at least attempted).
       manageable: this.enabled,

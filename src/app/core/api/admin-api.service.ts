@@ -1,13 +1,18 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { HttpManagerService } from '../services/http-manager.service';
+import { environment } from '../../../environments/environment';
 import {
+  AdminFeedbackDetailDto,
+  AdminFeedbackQuery,
+  AdminFeedbackRowDto,
   AdminFlagDto,
   AdminOverviewDto,
   AdminUserDetailDto,
   AdminUserQuery,
   AdminUserRowDto,
   AuditEntryDto,
+  FeedbackStatus,
   SystemInfoDto,
   TimeseriesMetric,
   TimeseriesPointDto,
@@ -98,6 +103,50 @@ export class AdminApiService {
   /** `DELETE /admin/staff/:userId` — demotes to plain user. */
   removeStaff(userId: string): Promise<AdminUserRowDto> {
     return firstValueFrom(this.api.delete<AdminUserRowDto>(`admin/staff/${enc(userId)}`));
+  }
+
+  /** `POST /admin/users/:id/plan-override` — ADMIN. Omit `days` for no expiry. */
+  grantPlan(id: string, input: { plan: string; days?: number; reason: string }): Promise<AdminUserDetailDto> {
+    return firstValueFrom(this.api.post<AdminUserDetailDto>(`admin/users/${enc(id)}/plan-override`, input));
+  }
+
+  /** `DELETE /admin/users/:id/plan-override` — leaves any bought plan alone. */
+  revokePlan(id: string): Promise<AdminUserDetailDto> {
+    return firstValueFrom(this.api.delete<AdminUserDetailDto>(`admin/users/${enc(id)}/plan-override`));
+  }
+
+  // --- Feedback ------------------------------------------------------------
+
+  /** `GET /admin/feedback` — SUPPORT and up. */
+  listFeedback(query: AdminFeedbackQuery = {}): Promise<Page<AdminFeedbackRowDto>> {
+    return firstValueFrom(this.api.get<Page<AdminFeedbackRowDto>>('admin/feedback', { params: { ...query } }));
+  }
+
+  getFeedback(id: string): Promise<AdminFeedbackDetailDto> {
+    return firstValueFrom(this.api.get<AdminFeedbackDetailDto>(`admin/feedback/${enc(id)}`));
+  }
+
+  /** `PATCH /admin/feedback/:id` — every field independent; omit what you are not changing. */
+  updateFeedback(
+    id: string,
+    patch: { status?: FeedbackStatus; assigneeId?: string | null; internalNote?: string },
+  ): Promise<AdminFeedbackDetailDto> {
+    return firstValueFrom(this.api.patch<AdminFeedbackDetailDto>(`admin/feedback/${enc(id)}`, patch));
+  }
+
+  /** `POST /admin/feedback/:id/reply` — 422 NO_REPLY_ADDRESS when sent anonymously. */
+  replyToFeedback(id: string, body: string): Promise<AdminFeedbackDetailDto> {
+    return firstValueFrom(this.api.post<AdminFeedbackDetailDto>(`admin/feedback/${enc(id)}/reply`, { body }));
+  }
+
+  /** Absolute URL of the CSV export, for a plain link. */
+  feedbackExportUrl(query: AdminFeedbackQuery = {}): string {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+    }
+    const qs = params.toString();
+    return `${environment.apiUrl}/admin/feedback/export.csv${qs ? `?${qs}` : ''}`;
   }
 
   // --- Flags ---------------------------------------------------------------

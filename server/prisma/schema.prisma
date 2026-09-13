@@ -571,6 +571,21 @@ model Subscription {
   /// When a trial ends. Null when the subscription never had one.
   trialEndsAt       DateTime? @map("trial_ends_at")
 
+  /// Plan granted by staff, independent of anything Dodo says.
+  ///
+  /// Kept in its OWN columns rather than by writing `plan`, because that column
+  /// is a projection of Dodo's state: overwriting it would make the next
+  /// webhook silently revoke the grant, and nothing would record that a human
+  /// had decided otherwise. `BillingService.effectivePlan` takes the better of
+  /// the two, so a beta tester on a complimentary Pro keeps it until
+  /// `overrideUntil` passes, and a real subscription is never downgraded by an
+  /// expired grant.
+  overridePlan   BillingPlan? @map("override_plan")
+  /// When the grant lapses. Null means it does not expire on its own.
+  overrideUntil  DateTime?    @map("override_until")
+  /// Why it was granted. Required by the endpoint; kept for the audit trail.
+  overrideReason String?      @map("override_reason")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

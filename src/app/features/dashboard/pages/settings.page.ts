@@ -510,6 +510,23 @@ export class SettingsPage {
   /** One line describing where the subscription stands — a key plus its params, resolved in the template. */
   protected readonly planHint = computed<{ key: string; params?: Record<string, string> }>(() => {
     const b = this.billing();
+
+    // A plan the team granted takes precedence over every subscription line
+    // below: somebody on a complimentary Pro has no renewal date and no card,
+    // so "renews on…" would be wrong, and saying nothing at all leaves them
+    // looking at a plan they never bought with no explanation.
+    if (b.grantedPlan && b.grantedPlan === this.plan()) {
+      const plan = this.transloco.translate(
+        b.grantedPlan === 'team' ? 'dashboard.settings.plan.team' : 'dashboard.settings.plan.pro',
+      );
+      return b.grantedUntil
+        ? {
+            key: 'dashboard.settings.planHint.grantedUntil',
+            params: { plan, date: new Date(b.grantedUntil).toLocaleDateString(this.language.localeCode()) },
+          }
+        : { key: 'dashboard.settings.planHint.granted', params: { plan } };
+    }
+
     if (this.plan() === 'free') {
       // Distinguish "never subscribed" from "subscription ended" — the second
       // is a person who may well want to come back, and telling them their

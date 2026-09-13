@@ -22,6 +22,15 @@ export interface BillingStateDto {
   trialEndsAt: string | null;
   /** True when a customer-portal link can be created on this deployment. */
   manageable: boolean;
+  /**
+   * Plan granted by staff rather than bought, when one is active.
+   *
+   * Surfaced so the dashboard can explain a plan the user never paid for.
+   * Null for everybody else, which is almost everybody.
+   */
+  grantedPlan: PlanWire | null;
+  /** When the grant lapses; null means it does not expire on its own. */
+  grantedUntil: string | null;
 }
 
 /** Body of `POST /billing/checkout`. */

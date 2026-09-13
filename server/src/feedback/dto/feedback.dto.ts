@@ -42,6 +42,17 @@ export interface FeedbackDto {
   message: string;
   email: string | null;
   createdAt: string;
+  /**
+   * Whether staff have answered, and whether the report is closed.
+   *
+   * The beta asks people to write in, so the least it can do is show that
+   * somebody read it. Only these two facts are exposed: the assignee and the
+   * internal note are staff's business, and `status` is narrowed to open/closed
+   * rather than leaking the triage vocabulary (`wont_fix` is a fine thing for
+   * staff to record and a poor thing to show the person who reported it).
+   */
+  repliedAt: string | null;
+  closed: boolean;
 }
 
 /** `POST /feedback` — public, so every field that identifies the sender is optional. */

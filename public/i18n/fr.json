@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "Résiliation à la fin de la période.",
   "dashboard.settings.planHint.ended": "Votre abonnement a pris fin.",
   "dashboard.settings.planHint.free": "Vous utilisez l'offre gratuite.",
+  "dashboard.settings.planHint.granted": "{{plan}} offert par l’équipe CADO.",
+  "dashboard.settings.planHint.grantedUntil": "{{plan}} offert par l’équipe CADO jusqu’au {{date}}.",
   "dashboard.settings.planHint.pastDue": "Votre dernier paiement a échoué. Mettez votre carte à jour pour conserver l'accès.",
   "dashboard.settings.planHint.renews": "Se renouvelle le {{date}}.",
   "dashboard.settings.planHint.trial": "Vous êtes en période d'essai.",

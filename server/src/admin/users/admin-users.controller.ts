@@ -28,6 +28,7 @@ import {
   DeleteUserDto,
   ListUsersQueryDto,
   NotifyUserDto,
+  PlanOverrideDto,
   SetStaffRoleDto,
   SuspendUserDto,
   type AdminUserDetailDto,
@@ -101,6 +102,37 @@ export class AdminUsersController {
   ): Promise<AdminUserDetailDto> {
     AuditContext.setBefore(req, await this.users.snapshot(id));
     return this.users.softDelete(actor, id, dto.reason);
+  }
+
+  /**
+   * `POST /admin/users/:id/plan-override` — grant a plan without a payment.
+   *
+   * ADMIN rather than OWNER: handing a beta tester a complimentary Pro is
+   * routine support work, and it costs nothing real while billing is off.
+   */
+  @AdminOnly(PlatformRole.ADMIN)
+  @Audited({ action: 'user.planOverride', targetType: 'user' })
+  @Post('users/:id/plan-override')
+  async grantPlan(
+    @Req() req: Request,
+    @CurrentUser() actor: User,
+    @Param('id', ParseCuidPipe) id: string,
+    @Body() dto: PlanOverrideDto,
+  ): Promise<AdminUserDetailDto> {
+    AuditContext.setBefore(req, await this.users.snapshot(id));
+    return this.users.setPlanOverride(actor, id, dto);
+  }
+
+  @AdminOnly(PlatformRole.ADMIN)
+  @Audited({ action: 'user.planOverrideCleared', targetType: 'user', reasonField: null })
+  @Delete('users/:id/plan-override')
+  async revokePlan(
+    @Req() req: Request,
+    @CurrentUser() actor: User,
+    @Param('id', ParseCuidPipe) id: string,
+  ): Promise<AdminUserDetailDto> {
+    AuditContext.setBefore(req, await this.users.snapshot(id));
+    return this.users.clearPlanOverride(actor, id);
   }
 
   @Audited({ action: 'user.notify', targetType: 'user', reasonField: null })

@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "Az időszak végén megszűnik.",
   "dashboard.settings.planHint.ended": "Az előfizetésed lejárt.",
   "dashboard.settings.planHint.free": "Az ingyenes csomagot használod.",
+  "dashboard.settings.planHint.granted": "Ingyenes {{plan}} a CADO csapatától.",
+  "dashboard.settings.planHint.grantedUntil": "Ingyenes {{plan}} eddig: {{date}}, a CADO csapatától.",
   "dashboard.settings.planHint.pastDue": "Az utolsó fizetésed sikertelen volt. Frissítsd a kártyádat a hozzáférés megtartásához.",
   "dashboard.settings.planHint.renews": "Megújul: {{date}}.",
   "dashboard.settings.planHint.trial": "Próbaidőszakot használsz.",

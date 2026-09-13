@@ -56,12 +56,30 @@ async function build(opts: { dodo?: DodoClient | null; products?: Record<string,
   return { service: moduleRef.get(BillingService), prisma, dodo: moduleRef.get<DodoClient | null>(DODO_CLIENT) };
 }
 
+/**
+ * An entitlement row with no staff grant — the shape almost every account has.
+ * A helper because `effectivePlan` now reads four columns and spelling the two
+ * null ones out in every assertion would bury what each test is about.
+ */
+function entitlement(
+  plan: BillingPlan,
+  status: SubscriptionStatus,
+  override: { overridePlan?: BillingPlan | null; overrideUntil?: Date | null } = {},
+) {
+  return {
+    plan,
+    status,
+    overridePlan: override.overridePlan ?? null,
+    overrideUntil: override.overrideUntil ?? null,
+  };
+}
+
 describe('BillingService', () => {
   describe('effectivePlan — what the account is actually entitled to', () => {
     it('grants the plan while ACTIVE or TRIALING', async () => {
       const { service } = await build();
-      expect(service.effectivePlan({ plan: BillingPlan.PRO, status: SubscriptionStatus.ACTIVE })).toBe(BillingPlan.PRO);
-      expect(service.effectivePlan({ plan: BillingPlan.TEAM, status: SubscriptionStatus.TRIALING })).toBe(BillingPlan.TEAM);
+      expect(service.effectivePlan(entitlement(BillingPlan.PRO, SubscriptionStatus.ACTIVE))).toBe(BillingPlan.PRO);
+      expect(service.effectivePlan(entitlement(BillingPlan.TEAM, SubscriptionStatus.TRIALING))).toBe(BillingPlan.TEAM);
     });
 
     it('KEEPS access while PAST_DUE', async () => {
@@ -69,19 +87,78 @@ describe('BillingService', () => {
       // first failure punishes an expired card; the grace period is their
       // retry schedule, after which the status becomes CANCELLED.
       const { service } = await build();
-      expect(service.effectivePlan({ plan: BillingPlan.PRO, status: SubscriptionStatus.PAST_DUE })).toBe(BillingPlan.PRO);
+      expect(service.effectivePlan(entitlement(BillingPlan.PRO, SubscriptionStatus.PAST_DUE))).toBe(BillingPlan.PRO);
     });
 
     it('revokes access when CANCELLED or INCOMPLETE, without forgetting what was bought', async () => {
       const { service } = await build();
-      expect(service.effectivePlan({ plan: BillingPlan.PRO, status: SubscriptionStatus.CANCELLED })).toBe(BillingPlan.FREE);
-      expect(service.effectivePlan({ plan: BillingPlan.TEAM, status: SubscriptionStatus.INCOMPLETE })).toBe(BillingPlan.FREE);
+      expect(service.effectivePlan(entitlement(BillingPlan.PRO, SubscriptionStatus.CANCELLED))).toBe(BillingPlan.FREE);
+      expect(service.effectivePlan(entitlement(BillingPlan.TEAM, SubscriptionStatus.INCOMPLETE))).toBe(BillingPlan.FREE);
     });
 
     it('treats no subscription row as Free', async () => {
       // Every account that predates billing has no row and must still work.
       const { service } = await build();
       expect(service.effectivePlan(null)).toBe(BillingPlan.FREE);
+    });
+
+    describe('staff grants', () => {
+      const LATER = new Date('2027-01-01T00:00:00Z');
+      const EARLIER = new Date('2020-01-01T00:00:00Z');
+
+      it('grants the plan staff gave, with nothing bought', async () => {
+        const { service } = await build();
+        const row = entitlement(BillingPlan.FREE, SubscriptionStatus.INCOMPLETE, { overridePlan: BillingPlan.PRO });
+        expect(service.effectivePlan(row)).toBe(BillingPlan.PRO);
+      });
+
+      it('ignores a grant that has expired', async () => {
+        const { service } = await build();
+        const row = entitlement(BillingPlan.FREE, SubscriptionStatus.INCOMPLETE, {
+          overridePlan: BillingPlan.PRO,
+          overrideUntil: EARLIER,
+        });
+        expect(service.effectivePlan(row)).toBe(BillingPlan.FREE);
+      });
+
+      it('honours a grant with no expiry', async () => {
+        const { service } = await build();
+        const row = entitlement(BillingPlan.FREE, SubscriptionStatus.INCOMPLETE, {
+          overridePlan: BillingPlan.TEAM,
+          overrideUntil: null,
+        });
+        expect(service.effectivePlan(row)).toBe(BillingPlan.TEAM);
+      });
+
+      it('never downgrades somebody who bought MORE than they were granted', async () => {
+        // A complimentary Pro must not take Team away from a paying customer.
+        const { service } = await build();
+        const row = entitlement(BillingPlan.TEAM, SubscriptionStatus.ACTIVE, {
+          overridePlan: BillingPlan.PRO,
+          overrideUntil: LATER,
+        });
+        expect(service.effectivePlan(row)).toBe(BillingPlan.TEAM);
+      });
+
+      it('rescues an account whose subscription lapsed but whose grant has not', async () => {
+        const { service } = await build();
+        const row = entitlement(BillingPlan.TEAM, SubscriptionStatus.CANCELLED, {
+          overridePlan: BillingPlan.PRO,
+          overrideUntil: LATER,
+        });
+        expect(service.effectivePlan(row)).toBe(BillingPlan.PRO);
+      });
+
+      it('expires exactly at the boundary, not after it', async () => {
+        const { service } = await build();
+        const at = new Date('2026-06-01T12:00:00Z');
+        const row = entitlement(BillingPlan.FREE, SubscriptionStatus.INCOMPLETE, {
+          overridePlan: BillingPlan.PRO,
+          overrideUntil: at,
+        });
+        expect(service.effectivePlan(row, new Date(at.getTime() - 1))).toBe(BillingPlan.PRO);
+        expect(service.effectivePlan(row, at)).toBe(BillingPlan.FREE);
+      });
     });
   });
 
@@ -95,6 +172,8 @@ describe('BillingService', () => {
         cancelAtPeriodEnd: false,
         trialEndsAt: null,
         manageable: false,
+        grantedPlan: null,
+        grantedUntil: null,
       });
     });
 

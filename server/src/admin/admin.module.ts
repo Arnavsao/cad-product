@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
+import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
 import { AdminGuard } from './admin.guard';
 import { AuditController } from './audit/audit.controller';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuditService } from './audit/audit.service';
+import { AdminFeedbackController } from './feedback/admin-feedback.controller';
+import { AdminFeedbackService } from './feedback/admin-feedback.service';
 import { AdminFlagsController } from './flags/admin-flags.controller';
 import { OverviewController } from './overview/overview.controller';
 import { OverviewService } from './overview/overview.service';
@@ -30,14 +33,22 @@ import { AdminUsersService } from './users/admin-users.service';
  * here read flags too.
  */
 @Module({
-  imports: [NotificationsModule, StorageModule],
+  imports: [NotificationsModule, StorageModule, MailModule],
   controllers: [
     OverviewController,
     AdminUsersController,
     AdminFlagsController,
+    AdminFeedbackController,
     AuditController,
     SystemController,
   ],
-  providers: [AdminUsersService, OverviewService, AuditService, AuditInterceptor, AdminGuard],
+  providers: [
+    AdminUsersService,
+    AdminFeedbackService,
+    OverviewService,
+    AuditService,
+    AuditInterceptor,
+    AdminGuard,
+  ],
 })
 export class AdminModule {}

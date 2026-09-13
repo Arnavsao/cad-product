@@ -20,6 +20,8 @@ export const DEFAULT_BILLING: BillingStateDto = {
   cancelAtPeriodEnd: false,
   trialEndsAt: null,
   manageable: false,
+  grantedPlan: null,
+  grantedUntil: null,
 };
 
 /** Preferences assumed before `/me` has answered (and for embedded mode). */

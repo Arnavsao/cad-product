@@ -110,6 +110,105 @@ describe('AdminUsersService', () => {
     });
   });
 
+  describe('plan overrides', () => {
+    it('writes the grant columns and never touches the bought plan', async () => {
+      prisma.user.findUnique.mockResolvedValue(user());
+      prisma.subscription.upsert.mockResolvedValue({} as never);
+      jest.spyOn(service, 'get').mockResolvedValue({} as never);
+
+      await service.setPlanOverride(ACTOR, 'cuser000000000000000000001', {
+        plan: 'pro',
+        days: 30,
+        reason: 'beta tester',
+      });
+
+      const call = prisma.subscription.upsert.mock.calls[0][0];
+      const update = call.update as Record<string, unknown>;
+      expect(update['overridePlan']).toBe('PRO');
+      expect(update['overrideReason']).toBe('beta tester');
+      // `plan` is Dodo's projection — writing it would let the next webhook
+      // silently revoke what a human just granted.
+      expect('plan' in update).toBe(false);
+    });
+
+    it('leaves the grant open-ended when no duration is given', async () => {
+      prisma.user.findUnique.mockResolvedValue(user());
+      prisma.subscription.upsert.mockResolvedValue({} as never);
+      jest.spyOn(service, 'get').mockResolvedValue({} as never);
+
+      await service.setPlanOverride(ACTOR, 'cuser000000000000000000001', { plan: 'team', reason: 'partner' });
+      const update = prisma.subscription.upsert.mock.calls[0][0].update as Record<string, unknown>;
+      expect(update['overrideUntil']).toBeNull();
+    });
+
+    it('creates a row for an account that never went through checkout', async () => {
+      prisma.user.findUnique.mockResolvedValue(user());
+      prisma.subscription.upsert.mockResolvedValue({} as never);
+      jest.spyOn(service, 'get').mockResolvedValue({} as never);
+
+      await service.setPlanOverride(ACTOR, 'cuser000000000000000000001', { plan: 'pro', reason: 'tester' });
+      const create = prisma.subscription.upsert.mock.calls[0][0].create as Record<string, unknown>;
+      expect(create['dodoCustomerId']).toBe('');
+      expect(create['overridePlan']).toBe('PRO');
+    });
+
+    it('404s for an unknown account instead of creating an orphan subscription', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(
+        service.setPlanOverride(ACTOR, 'cmissing0000000000000000001', { plan: 'pro', reason: 'x' }),
+      ).rejects.toMatchObject({ code: 'USER_NOT_FOUND' });
+      expect(prisma.subscription.upsert).not.toHaveBeenCalled();
+    });
+
+    it('reports the GRANTED plan in the list, not the raw column', async () => {
+      // The bug this pins: the list read `subscription.plan` (still "free" for
+      // a granted account) while the account really had Pro.
+      prisma.user.count.mockResolvedValue(1);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          ...user(),
+          subscription: {
+            plan: 'FREE',
+            status: 'INCOMPLETE',
+            overridePlan: 'PRO',
+            overrideUntil: new Date(Date.now() + 86_400_000),
+          },
+        },
+      ] as never);
+      (prisma.$transaction as unknown as jest.Mock).mockImplementation((ops: unknown[]) => Promise.all(ops));
+      (prisma.drawing.groupBy as unknown as jest.Mock).mockResolvedValue([]);
+
+      const page = await service.list({});
+      expect(page.items[0].plan).toBe('pro');
+    });
+
+    it('reports free once the grant has expired', async () => {
+      prisma.user.count.mockResolvedValue(1);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          ...user(),
+          subscription: {
+            plan: 'FREE',
+            status: 'INCOMPLETE',
+            overridePlan: 'PRO',
+            overrideUntil: new Date(Date.now() - 1000),
+          },
+        },
+      ] as never);
+      (prisma.$transaction as unknown as jest.Mock).mockImplementation((ops: unknown[]) => Promise.all(ops));
+      (prisma.drawing.groupBy as unknown as jest.Mock).mockResolvedValue([]);
+
+      const page = await service.list({});
+      expect(page.items[0].plan).toBe('free');
+    });
+
+    it('clearing a grant that is not there is not an error', async () => {
+      prisma.subscription.updateMany.mockResolvedValue({ count: 0 });
+      jest.spyOn(service, 'get').mockResolvedValue({} as never);
+      await expect(service.clearPlanOverride(ACTOR, 'cuser000000000000000000001')).resolves.toBeDefined();
+    });
+  });
+
   describe('softDelete', () => {
     it('sets deletedAt without touching the drawings', async () => {
       prisma.user.findUnique.mockResolvedValue(user());

@@ -2,7 +2,8 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { ApiException } from '../../common/errors/api-error';
 import { clampPage, type Page } from '../../common/utils/pagination';
-import { BillingPlan, PlatformRole, Prisma, type User } from '../../generated/prisma/client';
+import { BillingPlan, PlatformRole, Prisma, SubscriptionStatus, type User } from '../../generated/prisma/client';
+import type { PlanWire as BillingPlanWire } from '../../billing/dto/billing.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   AccountStatus,
@@ -15,6 +16,7 @@ import type { PlatformRoleWire } from '../platform-role';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
+const DAY_MS = 86_400_000;
 
 /**
  * Staff-facing account operations.
@@ -114,6 +116,9 @@ export class AdminUsersService {
             status: user.subscription.status.toLowerCase(),
             currentPeriodEnd: user.subscription.currentPeriodEnd?.toISOString() ?? null,
             cancelAtPeriodEnd: user.subscription.cancelAtPeriodEnd,
+            overridePlan: user.subscription.overridePlan?.toLowerCase() ?? null,
+            overrideUntil: user.subscription.overrideUntil?.toISOString() ?? null,
+            overrideReason: user.subscription.overrideReason,
           }
         : null,
       feedbackCount: user._count.feedback,
@@ -124,7 +129,17 @@ export class AdminUsersService {
   async snapshot(userId: string): Promise<Record<string, unknown> | undefined> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, platformRole: true, suspendedAt: true, suspendedReason: true, deletedAt: true },
+      select: {
+        id: true,
+        email: true,
+        platformRole: true,
+        suspendedAt: true,
+        suspendedReason: true,
+        deletedAt: true,
+        // The grant rides along so a plan change's audit entry shows what it
+        // replaced, not just what it became.
+        subscription: { select: { overridePlan: true, overrideUntil: true, overrideReason: true } },
+      },
     });
     return user ? { ...user, platformRole: platformRoleToWire(user.platformRole) } : undefined;
   }
@@ -183,6 +198,76 @@ export class AdminUsersService {
       data: { deletedAt: new Date(), suspendedReason: reason },
     });
     this.logger.log(`${actor.email} deleted ${target.email}: ${reason}`);
+    return this.get(userId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Plan grants
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Grants a plan without a payment.
+   *
+   * Written to the `override*` columns, never to `plan`: that column is Dodo's
+   * projection, so writing it would make the next webhook silently revoke the
+   * grant. `BillingService.effectivePlan` takes the better of the two.
+   *
+   * The row is created if the account has never been through checkout, which is
+   * the normal case for a beta tester — `dodoCustomerId` is left blank, and the
+   * billing endpoints already treat a customerless row as "nothing to manage".
+   */
+  async setPlanOverride(
+    actor: User,
+    userId: string,
+    input: { plan: BillingPlanWire; days?: number; reason: string },
+  ): Promise<AdminUserDetailDto> {
+    const target = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true } });
+    if (!target) {
+      throw ApiException.notFound('USER_NOT_FOUND', 'No such user');
+    }
+
+    const plan = input.plan.toUpperCase() as BillingPlan;
+    const until = input.days ? new Date(Date.now() + input.days * DAY_MS) : null;
+
+    await this.prisma.subscription.upsert({
+      where: { userId },
+      create: {
+        userId,
+        // No Dodo customer: this account has never bought anything, and a grant
+        // does not create one. An empty string rather than null because the
+        // column is required — see the note on `Subscription.dodoCustomerId`.
+        dodoCustomerId: '',
+        overridePlan: plan,
+        overrideUntil: until,
+        overrideReason: input.reason,
+      },
+      update: { overridePlan: plan, overrideUntil: until, overrideReason: input.reason },
+    });
+
+    this.logger.log(
+      `${actor.email} granted ${input.plan} to ${target.email}` +
+        `${until ? ` until ${until.toISOString().slice(0, 10)}` : ' indefinitely'}: ${input.reason}`,
+    );
+    return this.get(userId);
+  }
+
+  /**
+   * Removes a grant. The bought plan, if any, is untouched — the columns are
+   * separate precisely so revoking a complimentary upgrade cannot cancel a real
+   * subscription.
+   */
+  async clearPlanOverride(actor: User, userId: string): Promise<AdminUserDetailDto> {
+    const updated = await this.prisma.subscription.updateMany({
+      where: { userId },
+      data: { overridePlan: null, overrideUntil: null, overrideReason: null },
+    });
+    if (updated.count === 0) {
+      // Nothing to clear is not an error: the end state the caller asked for
+      // is the state we are in.
+      this.logger.debug(`No plan grant to clear for ${userId}`);
+    } else {
+      this.logger.log(`${actor.email} cleared the plan grant on ${userId}`);
+    }
     return this.get(userId);
   }
 
@@ -332,7 +417,7 @@ export class AdminUsersService {
   }
 
   private toRow(
-    user: User & { subscription?: { plan: BillingPlan } | null },
+    user: User & { subscription?: SubscriptionPlanColumns | null },
     usage: { bytesUsed: number; drawingCount: number } | undefined,
   ): AdminUserRowDto {
     return {
@@ -343,7 +428,11 @@ export class AdminUsersService {
       imageUrl: user.imageUrl,
       platformRole: platformRoleToWire(user.platformRole),
       status: statusOf(user),
-      plan: (user.subscription?.plan ?? BillingPlan.FREE).toLowerCase(),
+      // What the account is ENTITLED to, not what the `plan` column holds — a
+      // staff grant is exactly as real to the user as a purchase, and a list
+      // that showed "free" beside a working Pro account would send staff
+      // looking for a bug that is not there.
+      plan: effectivePlanOf(user.subscription).toLowerCase(),
       onboarded: user.onboardedAt !== null,
       drawingCount: usage?.drawingCount ?? 0,
       bytesUsed: usage?.bytesUsed ?? 0,
@@ -351,6 +440,45 @@ export class AdminUsersService {
       createdAt: user.createdAt.toISOString(),
     };
   }
+}
+
+/** The subscription columns an entitlement decision reads. */
+type SubscriptionPlanColumns = {
+  plan: BillingPlan;
+  status?: SubscriptionStatus;
+  overridePlan?: BillingPlan | null;
+  overrideUntil?: Date | null;
+};
+
+/** Plan ordering; mirrors `PLAN_RANK` in `BillingService`. */
+const PLAN_ORDER: Record<BillingPlan, number> = {
+  [BillingPlan.FREE]: 0,
+  [BillingPlan.PRO]: 1,
+  [BillingPlan.TEAM]: 2,
+};
+
+/** Statuses that entitle; mirrors `ENTITLING_STATUSES`. */
+const ENTITLING: readonly SubscriptionStatus[] = [
+  SubscriptionStatus.ACTIVE,
+  SubscriptionStatus.TRIALING,
+  SubscriptionStatus.PAST_DUE,
+];
+
+/**
+ * The plan a row actually entitles, grant included.
+ *
+ * Duplicates `BillingService.effectivePlan`'s rule rather than calling it,
+ * because this list reads hundreds of rows and injecting the billing service
+ * here would pull its Dodo client and config into a module that has no other
+ * use for them. The two must agree; the specs on both sides pin the behaviour.
+ */
+function effectivePlanOf(row: SubscriptionPlanColumns | null | undefined): BillingPlan {
+  if (!row) return BillingPlan.FREE;
+  const paid = row.status && ENTITLING.includes(row.status) ? row.plan : BillingPlan.FREE;
+  const granted =
+    row.overridePlan && (!row.overrideUntil || row.overrideUntil.getTime() > Date.now()) ? row.overridePlan : null;
+  if (!granted) return paid;
+  return PLAN_ORDER[granted] > PLAN_ORDER[paid] ? granted : paid;
 }
 
 /** Deleted outranks suspended: an account can be both, and deleted is the end state. */

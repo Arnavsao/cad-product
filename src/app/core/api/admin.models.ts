@@ -34,6 +34,9 @@ export interface AdminUserDetailDto extends AdminUserRowDto {
     status: string | null;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
+    overridePlan: string | null;
+    overrideUntil: string | null;
+    overrideReason: string | null;
   } | null;
   feedbackCount: number;
 }
@@ -54,6 +57,49 @@ export type TimeseriesMetric = 'signups' | 'active' | 'drawings' | 'feedback';
 export interface TimeseriesPointDto {
   date: string;
   value: number;
+}
+
+/** Triage state of one report. */
+export type FeedbackStatus = 'new' | 'triaged' | 'in_progress' | 'resolved' | 'wont_fix';
+export type FeedbackKind = 'bug' | 'idea' | 'question' | 'other';
+
+/** Statuses that still want attention. */
+export const OPEN_FEEDBACK_STATUSES: readonly FeedbackStatus[] = ['new', 'triaged', 'in_progress'];
+
+/** One submission as the triage list shows it. */
+export interface AdminFeedbackRowDto {
+  id: string;
+  kind: FeedbackKind;
+  status: FeedbackStatus;
+  rating: number | null;
+  excerpt: string;
+  fromEmail: string | null;
+  fromUserId: string | null;
+  fromName: string | null;
+  assigneeId: string | null;
+  assigneeEmail: string | null;
+  appVersion: string | null;
+  repliedAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminFeedbackDetailDto extends AdminFeedbackRowDto {
+  message: string;
+  internalNote: string | null;
+  resolvedAt: string | null;
+  context: { route?: string; appVersion?: string; userAgent?: string } | null;
+  /** False when the report was sent anonymously with no address. */
+  replyable: boolean;
+}
+
+export interface AdminFeedbackQuery {
+  q?: string;
+  status?: FeedbackStatus;
+  kind?: FeedbackKind;
+  appVersion?: string;
+  assignee?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 /** A flag as the public `GET /flags` reports it. */

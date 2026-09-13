@@ -398,6 +398,71 @@ function withArticle(role: string): string {
   return /^[aeiou]/i.test(role) ? `an ${role}` : `a ${role}`;
 }
 
+// -----------------------------------------------------------------------------
+// 6 — a reply to something the user sent us
+// -----------------------------------------------------------------------------
+
+export interface FeedbackReplyInput {
+  /** What staff wrote back. Plain text; paragraphs split on blank lines. */
+  body: string;
+  /** The opening line of their original report, so they know which one this is. */
+  originalMessage: string;
+  /** When they sent it, already formatted. */
+  submittedOn: string;
+  preferencesUrl: string;
+}
+
+/** How much of the original report is quoted back. Enough to identify it, not to re-send it. */
+const QUOTE_LENGTH = 200;
+
+/**
+ * A staff reply to a feedback submission.
+ *
+ * Two things make this template different from the other five. There is no
+ * call-to-action button — the useful action is to reply to the email, which the
+ * Reply-To header already makes possible, and a button pointing back into the
+ * app would be a worse answer than the words above it. And the body is written
+ * by a person rather than assembled from fields, so it is split on blank lines
+ * into paragraphs and escaped like any other user-controlled value.
+ */
+export function feedbackReply(input: FeedbackReplyInput): RenderedEmail {
+  const heading = 'Re: your message to CADO';
+  const quoted = truncate(input.originalMessage, QUOTE_LENGTH);
+
+  const paragraphs = input.body
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const context = `You wrote on ${input.submittedOn}: "${quoted}"`;
+  const lines = [...paragraphs, context];
+  const htmlLines = [...paragraphs.map(plain), `<span style="color:${INK_FAINT}">${esc(context)}</span>`];
+  const footer = 'You received this because you sent us a message through CADO. Just reply to this email to continue.';
+
+  return {
+    subject: heading,
+    html: layout({
+      preheader: paragraphs[0] ?? heading,
+      heading,
+      body: htmlLines,
+      footer,
+      preferencesUrl: input.preferencesUrl,
+    }),
+    text: textLayout({ heading, body: lines, footer, preferencesUrl: input.preferencesUrl }),
+  };
+}
+
+/** Cuts at a word boundary where one is close enough, so a quote never ends mid-word. */
+function truncate(value: string, max: number): string {
+  const clean = value.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) {
+    return clean;
+  }
+  const cut = clean.slice(0, max);
+  const space = cut.lastIndexOf(' ');
+  return `${space > max * 0.6 ? cut.slice(0, space) : cut}…`;
+}
+
 /**
  * `2026-10-01T…` → `1 October 2026`, in UTC.
  *

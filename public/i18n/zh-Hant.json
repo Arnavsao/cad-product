@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "將於本期結束時取消。",
   "dashboard.settings.planHint.ended": "您的訂閱已結束。",
   "dashboard.settings.planHint.free": "您目前使用免費方案。",
+  "dashboard.settings.planHint.granted": "CADO 團隊贈送的 {{plan}}。",
+  "dashboard.settings.planHint.grantedUntil": "CADO 團隊贈送的 {{plan}}，有效期至 {{date}}。",
   "dashboard.settings.planHint.pastDue": "上次付款失敗。請更新信用卡以維持存取權。",
   "dashboard.settings.planHint.renews": "{{date}} 續訂。",
   "dashboard.settings.planHint.trial": "您目前為試用中。",

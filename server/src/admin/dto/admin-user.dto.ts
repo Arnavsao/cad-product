@@ -38,6 +38,10 @@ export interface AdminUserDetailDto extends AdminUserRowDto {
     status: string | null;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
+    /** Staff grant, if one is active. The reason is staff-only, hence here and not in `/me`. */
+    overridePlan: string | null;
+    overrideUntil: string | null;
+    overrideReason: string | null;
   } | null;
   feedbackCount: number;
 }
@@ -110,6 +114,31 @@ export class NotifyUserDto {
   @IsString()
   @Length(1, 500)
   linkUrl?: string;
+}
+
+/**
+ * `POST /admin/users/:id/plan-override` — grant a plan without a payment.
+ *
+ * The beta's main use: giving a tester Pro so they can exercise the features
+ * we want feedback on. `days` rather than an absolute date because the question
+ * staff actually answer is "how long for", and a date picker invites a timezone
+ * mistake in the one field that decides when something stops working.
+ */
+export class PlanOverrideDto {
+  @IsIn(['free', 'pro', 'team'])
+  plan!: 'free' | 'pro' | 'team';
+
+  /** Omitted means the grant does not expire on its own. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3650)
+  days?: number;
+
+  @IsString()
+  @Length(3, 500)
+  reason!: string;
 }
 
 /** `PUT /admin/staff/:userId` — set somebody's staff tier. */

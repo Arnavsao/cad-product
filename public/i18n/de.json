@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "Endet zum Ende des Abrechnungszeitraums.",
   "dashboard.settings.planHint.ended": "Ihr Abonnement ist beendet.",
   "dashboard.settings.planHint.free": "Sie nutzen den kostenlosen Tarif.",
+  "dashboard.settings.planHint.granted": "Kostenloses {{plan}}, vom CADO-Team bereitgestellt.",
+  "dashboard.settings.planHint.grantedUntil": "Kostenloses {{plan}} bis {{date}}, vom CADO-Team bereitgestellt.",
   "dashboard.settings.planHint.pastDue": "Ihre letzte Zahlung ist fehlgeschlagen. Aktualisieren Sie Ihre Karte, um den Zugriff zu behalten.",
   "dashboard.settings.planHint.renews": "Verlängert sich am {{date}}.",
   "dashboard.settings.planHint.trial": "Sie befinden sich in der Testphase.",

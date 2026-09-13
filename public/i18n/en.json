@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "Cancels at the end of the period.",
   "dashboard.settings.planHint.ended": "Your subscription has ended.",
   "dashboard.settings.planHint.free": "You are on the free plan.",
+  "dashboard.settings.planHint.granted": "Complimentary {{plan}}, given to you by the CADO team.",
+  "dashboard.settings.planHint.grantedUntil": "Complimentary {{plan}} until {{date}}, given to you by the CADO team.",
   "dashboard.settings.planHint.pastDue": "Your last payment failed. Update your card to keep access.",
   "dashboard.settings.planHint.renews": "Renews {{date}}.",
   "dashboard.settings.planHint.trial": "You are on a trial.",

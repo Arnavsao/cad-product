@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { AdminApiService } from '../../../core/api/admin-api.service';
 import { AdminUserDetailDto } from '../../../core/api/admin.models';
@@ -27,6 +28,7 @@ import {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DatePipe,
     RouterLink,
     UiButtonDirective,
     UiBadgeComponent,
@@ -62,6 +64,12 @@ import {
         @if (u.suspendedReason && u.status === 'suspended') {
           <p class="detail__notice">Suspended: {{ u.suspendedReason }}</p>
         }
+        @if (u.billing?.overridePlan; as granted) {
+          <p class="detail__notice">
+            Complimentary {{ granted }}{{ u.billing?.overrideUntil ? ' until ' + (u.billing?.overrideUntil | date) : ', no expiry' }}.
+            {{ u.billing?.overrideReason }}
+          </p>
+        }
 
         <div class="detail__actions">
           @if (u.status === 'active') {
@@ -70,6 +78,13 @@ import {
             <button uiButton variant="secondary" [disabled]="busy()" (click)="unsuspend()">Lift suspension</button>
           }
           <button uiButton variant="secondary" [disabled]="busy()" (click)="message()">Send message</button>
+          @if (canGrant()) {
+            @if (u.billing?.overridePlan) {
+              <button uiButton variant="secondary" [disabled]="busy()" (click)="revokePlan()">Revoke granted plan</button>
+            } @else {
+              <button uiButton variant="secondary" [disabled]="busy()" (click)="grantPlan()">Grant a plan</button>
+            }
+          }
           @if (u.status !== 'deleted') {
             <button uiButton variant="danger" [disabled]="busy()" (click)="remove()">Delete account</button>
           }
@@ -84,7 +99,6 @@ import {
           <div><dt>Onboarded</dt><dd>{{ u.onboarded ? 'yes' : 'no' }}</dd></div>
           <div><dt>Drawings</dt><dd>{{ u.drawingCount }}</dd></div>
           <div><dt>Storage</dt><dd>{{ u.bytesUsed | fileSize }}</dd></div>
-          <div><dt>Feedback</dt><dd>{{ u.feedbackCount }}</dd></div>
           @if (u.preferences; as p) {
             <div><dt>Language</dt><dd>{{ p.locale }}</dd></div>
             <div><dt>Units</dt><dd>{{ p.units }}</dd></div>
@@ -93,6 +107,7 @@ import {
           @if (u.billing; as b) {
             <div><dt>Subscription</dt><dd>{{ b.plan }} · {{ b.status }}</dd></div>
           }
+          <div><dt>Feedback</dt><dd><a [routerLink]="['/admin/feedback']" [queryParams]="{ q: u.email }">{{ u.feedbackCount }} {{ u.feedbackCount === 1 ? 'report' : 'reports' }}</a></dd></div>
         </dl>
 
         @if (u.organizations.length) {
@@ -227,6 +242,12 @@ export class AdminUserDetailPage {
 
   protected readonly isSelf = computed(() => this.user()?.id === this.me.me()?.user.id);
 
+  /** Granting a plan is ADMIN; SUPPORT sees the state but no button. */
+  protected readonly canGrant = computed(() => {
+    const role = this.me.me()?.user.platformRole;
+    return role === 'admin' || role === 'owner';
+  });
+
   protected readonly fullName = computed(() => {
     const u = this.user();
     return [u?.firstName, u?.lastName].filter(Boolean).join(' ') || 'Unnamed account';
@@ -239,13 +260,19 @@ export class AdminUserDetailPage {
   });
 
   constructor() {
-    void this.load();
+    // An effect, NOT a direct call: `id` is a required route input bound by
+    // `withComponentInputBinding()`, which happens AFTER the constructor runs.
+    // Reading it here directly throws NG0950 before the page ever paints.
+    effect(() => {
+      const id = this.id();
+      void this.load(id);
+    });
   }
 
-  private async load(): Promise<void> {
+  private async load(id: string): Promise<void> {
     this.loading.set(true);
     try {
-      this.user.set(await this.api.getUser(this.id()));
+      this.user.set(await this.api.getUser(id));
     } catch (error) {
       this.error.set((error as { message?: string })?.message ?? 'Could not load this account.');
     } finally {
@@ -273,6 +300,42 @@ export class AdminUserDetailPage {
     );
     if (!reason) return;
     await this.run(() => this.api.deleteUser(this.id(), reason), 'Account deleted');
+  }
+
+  /**
+   * Grants a plan without a payment — the beta's main use for this page.
+   *
+   * Collected with native prompts for the same reason the suspend reason is:
+   * a bespoke modal with its own validation would be more code than the action
+   * it guards, and the server validates all three values anyway.
+   */
+  protected async grantPlan(): Promise<void> {
+    const plan = globalThis.prompt('Grant a plan\n\nWhich plan? pro or team')?.trim().toLowerCase();
+    if (plan !== 'pro' && plan !== 'team') {
+      if (plan) this.notify.error('Enter either pro or team.');
+      return;
+    }
+    const daysRaw = globalThis.prompt('For how many days?\n\nLeave blank for no expiry.')?.trim();
+    const days = daysRaw ? Number(daysRaw) : undefined;
+    if (days !== undefined && (!Number.isFinite(days) || days < 1)) {
+      this.notify.error('Enter a whole number of days, or leave it blank.');
+      return;
+    }
+    const reason = this.prompt('Grant a plan', 'Reason (stored in the audit log)');
+    if (!reason) return;
+
+    await this.run(() => this.api.grantPlan(this.id(), { plan, days, reason }), `Granted ${plan}`);
+  }
+
+  protected async revokePlan(): Promise<void> {
+    const ok = await this.dialog.confirm({
+      title: 'Revoke the granted plan',
+      message: 'Any plan they actually bought is unaffected.',
+      confirmLabel: 'Revoke',
+      danger: true,
+    });
+    if (!ok) return;
+    await this.run(() => this.api.revokePlan(this.id()), 'Grant revoked');
   }
 
   protected async message(): Promise<void> {

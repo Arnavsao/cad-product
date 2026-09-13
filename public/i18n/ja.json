@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "期間の終了時に解約されます。",
   "dashboard.settings.planHint.ended": "サブスクリプションは終了しました。",
   "dashboard.settings.planHint.free": "無料プランをご利用中です。",
+  "dashboard.settings.planHint.granted": "CADO チームによる無償の {{plan}} です。",
+  "dashboard.settings.planHint.grantedUntil": "{{date}} まで有効な、CADO チームによる無償の {{plan}} です。",
   "dashboard.settings.planHint.pastDue": "前回のお支払いに失敗しました。引き続きご利用いただくには、カード情報を更新してください。",
   "dashboard.settings.planHint.renews": "{{date}} に更新されます。",
   "dashboard.settings.planHint.trial": "試用期間中です。",

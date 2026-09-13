@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "기간이 끝나면 해지됩니다.",
   "dashboard.settings.planHint.ended": "구독이 종료되었습니다.",
   "dashboard.settings.planHint.free": "무료 요금제를 사용 중입니다.",
+  "dashboard.settings.planHint.granted": "CADO 팀이 제공한 무료 {{plan}}입니다.",
+  "dashboard.settings.planHint.grantedUntil": "{{date}}까지 유효한, CADO 팀이 제공한 무료 {{plan}}입니다.",
   "dashboard.settings.planHint.pastDue": "최근 결제가 실패했습니다. 계속 이용하려면 카드를 업데이트하세요.",
   "dashboard.settings.planHint.renews": "{{date}}에 갱신됩니다.",
   "dashboard.settings.planHint.trial": "체험판을 사용 중입니다.",

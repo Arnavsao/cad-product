@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "Skončí na konci období.",
   "dashboard.settings.planHint.ended": "Vaše předplatné skončilo.",
   "dashboard.settings.planHint.free": "Máte bezplatný tarif.",
+  "dashboard.settings.planHint.granted": "Bezplatné {{plan}} od týmu CADO.",
+  "dashboard.settings.planHint.grantedUntil": "Bezplatné {{plan}} do {{date}} od týmu CADO.",
   "dashboard.settings.planHint.pastDue": "Poslední platba se nezdařila. Aktualizujte kartu, abyste nepřišli o přístup.",
   "dashboard.settings.planHint.renews": "Obnoví se {{date}}.",
   "dashboard.settings.planHint.trial": "Máte zkušební období.",

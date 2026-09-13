@@ -81,6 +81,41 @@ Feature flags → `ai.enabled` → **Turn off**. The editor's panel stops openin
 explains itself. Useful when a provider is down or a prompt bug is doing damage,
 without a deploy.
 
+### Triage the beta's feedback
+
+Feedback → the queue opens on **Open**, which is everything not yet resolved.
+Filter by kind, by build (click a version on any row to see everything else
+broken in that build), or search the message and sender.
+
+On a report: set a status, take it with **Take it**, and leave an internal note.
+Each saves on its own, so two people working the queue cannot overwrite each
+other's field. The note is staff-only — it is never returned by any user-facing
+route and never appears in the CSV export.
+
+**Replying** emails the sender from the address on their account, or the one
+they typed if they were signed out. Replies come back to *you*, not a no-reply
+address, because Reply-To is set to the staff member who wrote. A report sent
+anonymously with no address says so instead of offering a form that cannot send.
+A reply moves a `new` report to `triaged`, and `repliedAt` is only recorded when
+the send actually succeeded — "replied" on the list means a message left the
+building.
+
+The submitter sees only that it was answered and whether it is closed. The
+triage vocabulary stays internal: `wont_fix` is a fine thing for staff to record
+and a poor thing to show the person who reported it.
+
+### Grant someone a plan
+
+Users → open the account → **Grant a plan**. Pick pro or team, a number of days
+(or blank for no expiry), and a reason. The grant is stored in its own columns,
+never by writing the plan Dodo projects, so the next webhook cannot silently
+revoke it — and revoking the grant leaves any real subscription untouched.
+
+`BillingService.effectivePlan()` takes the better of the bought plan and an
+unexpired grant, so a complimentary Pro never downgrades a paying Team customer.
+The user's billing pane says "Complimentary Pro until …"; the reason staff typed
+is internal and is not sent to them.
+
 ### Answer "what happened to this account?"
 
 Audit log → filter by action (`user.suspend`, `staff.setRole`, `flag.set`) and
@@ -112,8 +147,6 @@ case and the user has asked for help.
 
 ## What is not built yet
 
-Feedback triage, announcements, organizations, drawing/storage management, plan
-overrides, the billing console, email campaigns and scheduled jobs are Phases 2
-and 3 of the plan. The feedback triage columns exist in the schema
-(`status`, `assignee_id`, `internal_note`, `replied_at`) but no endpoint writes
-them yet.
+Announcements, organization management, drawing and storage tools, the billing
+console, email campaigns and scheduled jobs. See
+[ADMIN-PORTAL-PLAN.md](ADMIN-PORTAL-PLAN.md) for what each phase covers.

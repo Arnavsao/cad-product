@@ -323,6 +323,150 @@ describeIfDb('Admin portal (e2e)', () => {
     });
   });
 
+  describe('feedback triage', () => {
+    let feedbackId: string;
+
+    beforeAll(async () => {
+      // Submitted through the real public endpoint, so the row looks exactly
+      // like a beta tester's would.
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/feedback')
+        .set(auth('plain'))
+        .send({
+          kind: 'bug',
+          message: 'e2e: the trim tool leaves a stray segment behind',
+          context: { route: '/editor', appVersion: `e2e-${stamp}`, userAgent: 'jest' },
+        });
+      expect(res.status).toBe(201);
+      feedbackId = res.body.data.id;
+    });
+
+    afterAll(async () => {
+      await prisma.feedback.deleteMany({ where: { id: feedbackId } });
+    });
+
+    it('lists a submission for SUPPORT with its diagnostics', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/feedback')
+        .query({ appVersion: `e2e-${stamp}` })
+        .set(auth('support'));
+      expect(res.status).toBe(200);
+      expect(res.body.data.items[0]).toMatchObject({
+        id: feedbackId,
+        kind: 'bug',
+        status: 'new',
+        appVersion: `e2e-${stamp}`,
+      });
+    });
+
+    it('refuses a plain user', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/admin/feedback').set(auth('plain'));
+      expect(res.status).toBe(403);
+    });
+
+    it('assigns, notes and closes in independent calls', async () => {
+      const assigned = await request(app.getHttpServer())
+        .patch(`/api/v1/admin/feedback/${feedbackId}`)
+        .set(auth('support'))
+        .send({ assigneeId: 'me' });
+      expect(assigned.status).toBe(200);
+      expect(assigned.body.data.assigneeEmail).toBe(`support-${stamp}@example.com`);
+
+      const noted = await request(app.getHttpServer())
+        .patch(`/api/v1/admin/feedback/${feedbackId}`)
+        .set(auth('support'))
+        .send({ internalNote: 'reproduced' });
+      // The note must not have cleared the assignee set a moment ago.
+      expect(noted.body.data.assigneeEmail).toBe(`support-${stamp}@example.com`);
+      expect(noted.body.data.internalNote).toBe('reproduced');
+
+      const closed = await request(app.getHttpServer())
+        .patch(`/api/v1/admin/feedback/${feedbackId}`)
+        .set(auth('support'))
+        .send({ status: 'resolved' });
+      expect(closed.body.data.status).toBe('resolved');
+      expect(closed.body.data.resolvedAt).not.toBeNull();
+    });
+
+    it('shows the submitter that it was closed, without the staff vocabulary', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/feedback/mine').set(auth('plain'));
+      const mine = res.body.data.find((f: { id: string }) => f.id === feedbackId);
+      expect(mine.closed).toBe(true);
+      // The internal note and the assignee are staff's business only.
+      expect(mine.internalNote).toBeUndefined();
+      expect(mine.assigneeId).toBeUndefined();
+      expect(mine.status).toBeUndefined();
+    });
+
+    it('exports CSV without the internal note', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/feedback/export.csv')
+        .query({ appVersion: `e2e-${stamp}` })
+        .set(auth('support'));
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.text).toContain('stray segment');
+      expect(res.text).not.toContain('reproduced');
+    });
+
+    it('records the triage in the audit trail', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/audit')
+        .query({ targetType: 'feedback', targetId: feedbackId })
+        .set(auth('owner'));
+      expect(res.body.data.items.length).toBeGreaterThan(0);
+      expect(res.body.data.items[0].action).toBe('feedback.update');
+    });
+  });
+
+  describe('plan grants', () => {
+    afterAll(async () => {
+      await prisma.subscription.deleteMany({ where: { userId: localIds.victim } });
+    });
+
+    it('grants a plan the account never bought, and /me reflects it', async () => {
+      const granted = await request(app.getHttpServer())
+        .post(`/api/v1/admin/users/${localIds.victim}/plan-override`)
+        .set(auth('admin'))
+        .send({ plan: 'pro', days: 30, reason: 'e2e: beta tester' });
+      expect(granted.status).toBe(201);
+      expect(granted.body.data.billing.overridePlan).toBe('pro');
+
+      const me = await request(app.getHttpServer()).get('/api/v1/me').set(auth('victim'));
+      expect(me.body.data.billing.plan).toBe('pro');
+      expect(me.body.data.billing.grantedPlan).toBe('pro');
+      // The reason staff typed is internal and must not reach the user.
+      expect(JSON.stringify(me.body)).not.toContain('beta tester');
+    });
+
+    it('revoking it returns the account to Free', async () => {
+      const revoked = await request(app.getHttpServer())
+        .delete(`/api/v1/admin/users/${localIds.victim}/plan-override`)
+        .set(auth('admin'));
+      expect(revoked.status).toBe(200);
+
+      const me = await request(app.getHttpServer()).get('/api/v1/me').set(auth('victim'));
+      expect(me.body.data.billing.plan).toBe('free');
+      expect(me.body.data.billing.grantedPlan).toBeNull();
+    });
+
+    it('refuses SUPPORT', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/admin/users/${localIds.victim}/plan-override`)
+        .set(auth('support'))
+        .send({ plan: 'pro', reason: 'should be refused' });
+      expect(res.status).toBe(403);
+    });
+
+    it('requires a reason', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/admin/users/${localIds.victim}/plan-override`)
+        .set(auth('admin'))
+        .send({ plan: 'pro' });
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe('user list', () => {
     it('paginates and filters by status', async () => {
       const res = await request(app.getHttpServer())

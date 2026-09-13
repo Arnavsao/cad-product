@@ -521,6 +521,8 @@
   "dashboard.settings.planHint.cancels": "Se cancela al final del periodo.",
   "dashboard.settings.planHint.ended": "Tu suscripción ha finalizado.",
   "dashboard.settings.planHint.free": "Estás en el plan gratuito.",
+  "dashboard.settings.planHint.granted": "{{plan}} de cortesía, ofrecido por el equipo de CADO.",
+  "dashboard.settings.planHint.grantedUntil": "{{plan}} de cortesía hasta el {{date}}, ofrecido por el equipo de CADO.",
   "dashboard.settings.planHint.pastDue": "Tu último pago ha fallado. Actualiza tu tarjeta para mantener el acceso.",
   "dashboard.settings.planHint.renews": "Se renueva el {{date}}.",
   "dashboard.settings.planHint.trial": "Estás en un periodo de prueba.",

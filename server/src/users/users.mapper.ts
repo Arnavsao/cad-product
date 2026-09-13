@@ -119,6 +119,9 @@ export const FREE_BILLING: BillingStateDto = {
   cancelAtPeriodEnd: false,
   trialEndsAt: null,
   manageable: false,
+  // No subscription row means no staff grant either.
+  grantedPlan: null,
+  grantedUntil: null,
 };
 
 // -----------------------------------------------------------------------------

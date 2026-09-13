@@ -275,6 +275,14 @@ export interface BillingStateDto {
   trialEndsAt: string | null;
   /** True when this deployment can produce a customer-portal link. */
   manageable: boolean;
+  /**
+   * Plan granted by staff rather than bought, when one is active — so the
+   * billing pane can explain a plan the user never paid for instead of showing
+   * it with no account of where it came from.
+   */
+  grantedPlan: BillingPlan | null;
+  /** When the grant lapses; null means it does not expire on its own. */
+  grantedUntil: string | null;
 }
 
 export interface CreateCheckoutRequest {

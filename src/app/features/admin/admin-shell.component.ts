@@ -28,6 +28,7 @@ const RANK: Record<PlatformRole, number> = { user: 0, support: 1, admin: 2, owne
 const NAV: readonly AdminNavItem[] = [
   { path: '/admin', label: 'Overview', icon: 'home', minRole: 'support', exact: true },
   { path: '/admin/users', label: 'Users', icon: 'users', minRole: 'support' },
+  { path: '/admin/feedback', label: 'Feedback', icon: 'message', minRole: 'support' },
   { path: '/admin/flags', label: 'Feature flags', icon: 'settings', minRole: 'support' },
   { path: '/admin/staff', label: 'Staff', icon: 'shield', minRole: 'admin' },
   { path: '/admin/audit', label: 'Audit log', icon: 'history', minRole: 'admin' },

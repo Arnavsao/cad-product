@@ -52,12 +52,14 @@ import { formatFileSize } from '../../../shared/ui';
         <section class="page__section">
           <h2 class="page__heading">Needs attention</h2>
           <div class="page__grid">
-            <ui-stat-tile
-              label="Open feedback"
-              [value]="d.feedback.open"
-              [hint]="d.feedback.new7d + ' new this week'"
-              [points]="feedbackSeries()"
-            />
+            <a routerLink="/admin/feedback" class="page__tileLink">
+              <ui-stat-tile
+                label="Open feedback"
+                [value]="d.feedback.open"
+                [hint]="d.feedback.new7d + ' new this week'"
+                [points]="feedbackSeries()"
+              />
+            </a>
             <a routerLink="/admin/users" [queryParams]="{ status: 'suspended' }" class="page__tileLink">
               <ui-stat-tile label="Suspended" [value]="d.users.suspended" />
             </a>

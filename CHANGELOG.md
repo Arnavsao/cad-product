@@ -48,6 +48,39 @@ values, decoded text, per-style fonts and real lineweights.
   Staff cannot read customer drawings: admin drawing views are metadata only, and the one download
   path is behind an owner-only flag that ships off. See [docs/ADMIN.md](docs/ADMIN.md).
 
+* **Feedback triage, and plans staff can grant.** The portal's second half: the part
+  the beta actually runs on.
+
+  **The inbox.** `/admin/feedback` opens on the work queue — everything not yet resolved —
+  rather than an undifferentiated list where a report from last month sits beside this
+  morning's crash. Filter by kind, by search, or by build: every row's version is a
+  button, so "what else broke in the build I just shipped" is one click. Status,
+  assignee and the internal note each save independently, so two people working the
+  queue cannot overwrite each other's field.
+
+  **Replies go to people, from people.** A reply emails the sender at their account
+  address, or the one they typed if they were signed out, with `Reply-To` set to the
+  staff member who wrote it — so the answer comes back to a person rather than a
+  no-reply void. A report sent anonymously says so instead of offering a form that
+  cannot send, and `repliedAt` is written only when the send actually succeeded, so the
+  "replied" marker means a message left the building. Answering a `new` report moves it
+  to `triaged`, because a reply is plainly work. The submitter's own feedback page now
+  shows that it was answered and whether it is closed — and nothing else: the internal
+  note and the triage vocabulary stay internal, since `wont_fix` is a fine thing for
+  staff to record and a poor thing to show the person who reported it. The CSV export
+  omits the note for the same reason, and defuses leading `=`, `+`, `-` and `@` so a bug
+  report cannot execute as a formula in whoever opens it.
+
+  **Plan grants.** Staff can give a beta tester Pro without a payment. It is written to
+  its own columns, never to the `plan` Dodo projects — writing that would let the next
+  webhook silently revoke what a human decided — and `effectivePlan()` now returns the
+  better of the bought plan and an unexpired grant, so a complimentary Pro can never
+  downgrade a paying Team customer and an expired grant never disturbs a real
+  subscription. Expiry is evaluated on read, so a grant that ends at midnight ends at
+  midnight rather than whenever a sweeper next runs. The user's billing pane explains
+  the plan they never bought, in all fourteen languages; the reason staff typed is
+  internal and stays here.
+
 * **The assistant can draw.** Until now the AI panel could only select, recolour, move, hide and
   insert canned components; anything new on the canvas had to come from a template. Three tools
   give it a pencil, all committing as one undo step through the same `validate → compile →
@@ -228,6 +261,16 @@ values, decoded text, per-style fonts and real lineweights.
   certain of, but the first native review is still outstanding. English is the reference.
 
 ### Fixed
+* **Admin detail pages crashed instead of loading.** `/admin/users/:id` and
+  `/admin/feedback/:id` read their required route input from the constructor, which runs
+  *before* `withComponentInputBinding()` has set it — so both threw NG0950 and rendered a
+  blank page with an error toast. They load from an effect now, and a spec drives the real
+  router at both URLs, which is the only thing that reproduces it: setting the input
+  directly in a test passes either way.
+* **The admin user list showed the wrong plan.** It read the `plan` column, which stays
+  "free" for an account whose plan was granted rather than bought, so a working Pro account
+  appeared as Free and sent staff looking for a bug that was not there. It reports what the
+  account is entitled to.
 * **"Unsaved work from a previous session was recovered" fired for work you had just discarded.**
   Closing a dirty tab asks "Save changes before closing?"; answering **No** closed the tab but left
   its autosave snapshot in IndexedDB, because only the *save* path told autosave to forget the tab.

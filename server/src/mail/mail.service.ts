@@ -147,7 +147,11 @@ export class MailService {
    * read hiccuped would be the wrong way to fail.
    */
   private async wants(userId: string, category: EmailCategory): Promise<boolean> {
-    if (category === 'invite') {
+    // Neither of these is a notification the recipient opted into: an invite is
+    // how someone learns they were added at all, and `support` is our reply to
+    // a message they sent us. A preference about shares and org activity is not
+    // consent to be left without an answer.
+    if (category === 'invite' || category === 'support') {
       return true;
     }
     try {
