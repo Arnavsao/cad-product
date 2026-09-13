@@ -186,6 +186,14 @@ values, decoded text, per-style fonts and real lineweights.
   certain of, but the first native review is still outstanding. English is the reference.
 
 ### Fixed
+* **CI had been red — and production two days stale — since the previous commit.** MinIO removed
+  its repositories from Docker Hub; `docker compose up` in the `api` job failed with
+  `pull access denied for minio/minio, repository does not exist`, every CI run failed, and the
+  Deploy workflow (which runs only after a green CI) was *skipped*, so nothing after `266f348`
+  had reached cado.website. Developer machines kept working off the cached image, which hid it.
+  `docker-compose.yml` now pulls the same pinned releases from `quay.io/minio/minio` and
+  `quay.io/minio/mc`.
+
 * **Opening a drawing on cado.website failed with "Unable to reach the server".** Nothing was
   wrong with the server. The editor fetches drawing content straight from the storage bucket over
   a presigned URL (`StorageService.presignGet` → `HttpManagerService.getText`), so the bucket, not

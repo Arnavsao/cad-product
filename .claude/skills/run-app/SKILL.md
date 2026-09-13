@@ -58,6 +58,11 @@ Or the compose variant: `npm run docker:build && npm run docker:run` (web on :80
 ## Common failures
 
 - **API exits at boot with a Zod error**: a required `server/.env` value is missing or malformed. The message names the key. Compare with `server/.env.example`.
+- **`pull access denied for minio/minio, repository does not exist`**: MinIO removed
+  its Docker Hub repositories in September 2026. `docker-compose.yml` pulls
+  `quay.io/minio/minio` and `quay.io/minio/mc` — if you see this, the compose file
+  has been reverted to the Docker Hub names. A machine with the old image cached
+  keeps working, which is why this shows up in CI first.
 - **`P1001` / connection refused**: containers not up (`npm run db:up`) or the port mismatch above.
 - **Presigned upload fails in the browser**: MinIO CORS. Re-run `docker compose run --rm minio-init`.
 - **Sign-in bounces to localhost in prod**: Supabase redirect allow-list, not code.

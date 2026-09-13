@@ -29,7 +29,11 @@ services:
       start_period: 5s
 
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # quay.io, not Docker Hub: MinIO removed its Docker Hub repositories in
+    # September 2026 (the repo itself now 404s), which turned every CI run red
+    # with "pull access denied for minio/minio" while local machines kept
+    # working off the cached image. Same pinned release, same digest family.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: cad-minio
     command: server /data --console-address ':9001'
     environment:
@@ -52,7 +56,7 @@ services:
   # One-shot: creates the `drawings` bucket and a bucket-level CORS rule.
   # Runs only when asked for explicitly (`docker compose run --rm minio-init`).
   minio-init:
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
     container_name: cad-minio-init
     profiles: ['init']
     depends_on:
