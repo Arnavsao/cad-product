@@ -181,6 +181,71 @@ logging, whether billing is off/test/live, whether the webhook key is present,
 storage reachability and database latency. It reports modes and booleans only —
 no secret is ever returned.
 
+### Keep housekeeping running
+
+Scheduled jobs lists the six housekeeping jobs, when each last ran and what it
+did. A job still marked running past its timeout is flagged **stuck** — that is
+the failure mode that otherwise looks exactly like success, because a process
+that dies mid-run produces no error and no completion.
+
+They run from **outside the app**, on a cron that calls:
+
+```
+POST /api/v1/admin/system/jobs/<name>/run
+X-Job-Token: <JOB_RUNNER_TOKEN>
+```
+
+The suggested cron for each is shown on the page. Set `JOB_RUNNER_TOKEN` in the
+API's environment and give the same value to the scheduler; without it, jobs can
+only be run by hand by an owner. Every job is idempotent, so an overlapping or
+retried trigger is safe.
+
+### Read the billing console
+
+Billing shows approximate MRR, who is on what, and which webhook deliveries
+never landed. The revenue figure is **approximate by construction**: it is
+computed from the display prices on the pricing page, and Dodo charges whatever
+its product says. Nothing in this codebase can reconcile the two, so a
+precise-looking number would be a lie.
+
+Unprocessed deliveries are the row to care about — each one may be a customer
+who paid and got nothing. The `webhooks.replayFailed` job retries them every
+half hour; there is deliberately no replay button, because two code paths that
+re-apply billing events are two places to get idempotency wrong.
+
+### Send a campaign
+
+Campaigns → write it, **Preview audience**, **Send me a test**, then **Send to
+everyone** (owner only). The order is the point: the irreversible step is the
+fourth thing you do.
+
+Everyone who has unsubscribed is excluded at resolve time and re-checked during
+the run, because a send of a few thousand messages takes minutes. Every message
+carries a signed unsubscribe link that works with no session. Transactional mail
+— share notifications, support replies — is never suppressed: somebody opting
+out of product email has not opted out of their own account working.
+
+### Enforce the plan limits
+
+Feature flags → `billing.enforceQuotas`. **Off by default**, and deliberately:
+the Free tier's advertised 3 drawings and 50 MB have never been enforced, so
+turning this on changes behaviour for every account already over the line. Look
+at how many that is before you switch it.
+
+When on, a create past the limit answers `402` with the limit, the usage and the
+plan, so the client can offer an upgrade rather than an error. A save that
+shrinks a drawing is never blocked — locking somebody out of work they have
+already done is worse than being a few megabytes over.
+
+### Harden staff access
+
+Two environment switches, both off by default:
+
+| Key | Effect |
+|---|---|
+| `ADMIN_REQUIRE_MFA` | ADMIN and OWNER routes require a Supabase `aal2` session. SUPPORT is exempt. **Enrol a factor before switching this on**, or the people who hold those tiers are locked out with no way back except this variable. |
+| `ADMIN_IP_ALLOWLIST` | Comma-separated IPs or prefixes (`203.0.113.`) allowed to reach `/admin`. Empty means no restriction. Prefix matching, not CIDR. |
+
 ## Privacy
 
 Admin drawing views (Phase 2) are metadata only. Reading a user's drawing needs
@@ -196,8 +261,13 @@ case and the user has asked for help.
 | `ADMIN_RATE_LIMIT_LIMIT` | 120 | Per-IP requests/minute for `/admin`, in its own bucket. |
 | `APP_VERSION` | `dev` | Shown on the System page. CI sets it to the commit SHA. |
 
+## Environment, in full
+
+Alongside the keys listed above: `JOB_RUNNER_TOKEN` (shared secret for the
+scheduler), `ADMIN_REQUIRE_MFA` and `ADMIN_IP_ALLOWLIST`.
+
 ## What is not built yet
 
-The billing console (subscriptions, webhook replay, MRR), email campaigns,
-staff MFA, and scheduled housekeeping jobs — all Phase 3. See
-[ADMIN-PORTAL-PLAN.md](ADMIN-PORTAL-PLAN.md).
+The abuse view (top IPs and users by request volume) still needs a log-analytics
+query or an in-memory ring buffer; the plan describes both options. Everything
+else in [ADMIN-PORTAL-PLAN.md](ADMIN-PORTAL-PLAN.md) is implemented.

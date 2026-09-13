@@ -53,6 +53,8 @@ import { createDodoClient, modeOf, type DodoClient } from './dodo.client';
     BillingCatalog,
     BillingService,
   ],
-  exports: [BillingService],
+  // `BillingCatalog` is exported for the admin billing console, which reports
+  // which tiers this deployment can actually sell. It is read-only there.
+  exports: [BillingService, BillingCatalog],
 })
 export class BillingModule {}

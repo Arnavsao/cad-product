@@ -1,6 +1,8 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { ApiException } from '../common/errors/api-error';
+import type { Env } from '../config/env.schema';
 import { PlatformRole, type User } from '../generated/prisma/client';
 import { AdminGuard } from './admin.guard';
 import { ADMIN_MIN_ROLE_KEY } from './admin.decorators';
@@ -25,7 +27,11 @@ function userWith(role: PlatformRole): User {
 }
 
 /** Minimal ExecutionContext carrying the route's declared minimum and a user. */
-function contextFor(required: PlatformRole | undefined, user: User | undefined): ExecutionContext {
+function contextFor(
+  required: PlatformRole | undefined,
+  user: User | undefined,
+  request: { aal?: string; ip?: string } = {},
+): ExecutionContext {
   const handler = () => undefined;
   if (required) {
     Reflect.defineMetadata(ADMIN_MIN_ROLE_KEY, required, handler);
@@ -33,12 +39,26 @@ function contextFor(required: PlatformRole | undefined, user: User | undefined):
   return {
     getHandler: () => handler,
     getClass: () => class Controller {},
-    switchToHttp: () => ({ getRequest: () => ({ user: user ? { id: user.id, record: user } : undefined }) }),
+    switchToHttp: () => ({
+      getRequest: () => ({
+        user: user ? { id: user.id, record: user, aal: request.aal ?? 'aal1' } : undefined,
+        headers: {},
+        ip: request.ip ?? '203.0.113.7',
+      }),
+    }),
   } as unknown as ExecutionContext;
 }
 
+/** A config stub exposing only the three keys this guard reads. */
+function configWith(overrides: { mfa?: boolean; allowlist?: string[] } = {}): ConfigService<Env, true> {
+  return {
+    get: (key: string) =>
+      key === 'ADMIN_REQUIRE_MFA' ? (overrides.mfa ?? false) : key === 'ADMIN_IP_ALLOWLIST' ? (overrides.allowlist ?? []) : undefined,
+  } as unknown as ConfigService<Env, true>;
+}
+
 describe('AdminGuard', () => {
-  const guard = new AdminGuard(new Reflector());
+  const guard = new AdminGuard(new Reflector(), configWith());
 
   it('admits a role at the required tier', () => {
     expect(guard.canActivate(contextFor(PlatformRole.SUPPORT, userWith(PlatformRole.SUPPORT)))).toBe(true);
@@ -100,5 +120,69 @@ describe('AdminGuard', () => {
 
   it('refuses an unauthenticated request', () => {
     expect(() => guard.canActivate(contextFor(PlatformRole.SUPPORT, undefined))).toThrow(ApiException);
+  });
+
+  describe('second factor', () => {
+    it('is not required when ADMIN_REQUIRE_MFA is off', () => {
+      const g = new AdminGuard(new Reflector(), configWith({ mfa: false }));
+      expect(g.canActivate(contextFor(PlatformRole.ADMIN, userWith(PlatformRole.ADMIN), { aal: 'aal1' }))).toBe(true);
+    });
+
+    it('refuses an ADMIN without aal2 when required', () => {
+      const g = new AdminGuard(new Reflector(), configWith({ mfa: true }));
+      try {
+        g.canActivate(contextFor(PlatformRole.ADMIN, userWith(PlatformRole.ADMIN), { aal: 'aal1' }));
+        fail('expected a refusal');
+      } catch (error) {
+        // A distinct code, so the client can say "enrol a factor" rather than
+        // "you lack permission", which would be untrue.
+        expect((error as ApiException).code).toBe('MFA_REQUIRED');
+      }
+    });
+
+    it('admits an ADMIN with aal2', () => {
+      const g = new AdminGuard(new Reflector(), configWith({ mfa: true }));
+      expect(g.canActivate(contextFor(PlatformRole.ADMIN, userWith(PlatformRole.ADMIN), { aal: 'aal2' }))).toBe(true);
+    });
+
+    it('exempts SUPPORT, which only reads', () => {
+      const g = new AdminGuard(new Reflector(), configWith({ mfa: true }));
+      expect(g.canActivate(contextFor(PlatformRole.SUPPORT, userWith(PlatformRole.SUPPORT), { aal: 'aal1' }))).toBe(
+        true,
+      );
+    });
+
+    it('treats a missing aal claim as aal1, not as already verified', () => {
+      const g = new AdminGuard(new Reflector(), configWith({ mfa: true }));
+      expect(() =>
+        g.canActivate(contextFor(PlatformRole.OWNER, userWith(PlatformRole.OWNER), { aal: undefined })),
+      ).toThrow(ApiException);
+    });
+  });
+
+  describe('network allowlist', () => {
+    it('does not restrict when the list is empty', () => {
+      const g = new AdminGuard(new Reflector(), configWith({ allowlist: [] }));
+      expect(g.canActivate(contextFor(PlatformRole.SUPPORT, userWith(PlatformRole.OWNER), { ip: '198.51.100.9' }))).toBe(
+        true,
+      );
+    });
+
+    it('admits an address inside the allowed prefix', () => {
+      const g = new AdminGuard(new Reflector(), configWith({ allowlist: ['203.0.113.'] }));
+      expect(g.canActivate(contextFor(PlatformRole.SUPPORT, userWith(PlatformRole.OWNER), { ip: '203.0.113.42' }))).toBe(
+        true,
+      );
+    });
+
+    it('refuses an address outside it, whatever the tier', () => {
+      const g = new AdminGuard(new Reflector(), configWith({ allowlist: ['203.0.113.'] }));
+      try {
+        g.canActivate(contextFor(PlatformRole.SUPPORT, userWith(PlatformRole.OWNER), { ip: '198.51.100.9' }));
+        fail('expected a refusal');
+      } catch (error) {
+        expect((error as ApiException).code).toBe('ADMIN_NETWORK_BLOCKED');
+      }
+    });
   });
 });

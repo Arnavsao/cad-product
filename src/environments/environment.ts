@@ -9,8 +9,8 @@ export const environment: AppEnvironment = {
   // Paste your Supabase project URL and anon key here (Dashboard → Settings → API).
   // Leaving EITHER empty keeps auth disabled: the app boots straight into /editor
   // (embedded mode). Both values are public by design.
-  supabaseUrl: 'https://tbeayjdllyfbulkhhrtu.supabase.co',
-  supabaseAnonKey: 'sb_publishable_Wf6Ee_VgfonFAFGxNOc6eg_Az5OREDN',
+  supabaseUrl: '',
+  supabaseAnonKey: '',
   // Leave empty in dev — you don't want local stack traces landing in Sentry.
   sentryDsn: '',
 };

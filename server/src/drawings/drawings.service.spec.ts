@@ -11,6 +11,7 @@ import type { PrismaService } from '../prisma/prisma.service';
 import type { StorageService } from '../storage/storage.service';
 import { DrawingsService } from './drawings.service';
 import { blankDxf, insunitsForUnit } from './templates/blank-dxf';
+import { QuotaService } from '../billing/quota/quota.service';
 
 /**
  * Unit spec for the parts of `DrawingsService` that are hard to observe from
@@ -143,6 +144,7 @@ describe('DrawingsService', () => {
   let folders: DeepMockProxy<FoldersService>;
   let organizations: DeepMockProxy<OrganizationsService>;
   let service: DrawingsService;
+  let quota: DeepMockProxy<QuotaService>;
 
   beforeEach(() => {
     prisma = mockDeep<PrismaService>();
@@ -168,11 +170,18 @@ describe('DrawingsService', () => {
       typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prisma) : Promise.all(arg as Promise<unknown>[]),
     );
 
+    // A quota service that always allows: these specs are about drawing
+    // behaviour, and enforcement has its own suite. `assertCanCreateDrawing`
+    // resolving is exactly what an unenforced deployment does.
+    quota = mockDeep<QuotaService>();
+    quota.assertCanCreateDrawing.mockResolvedValue(undefined);
+
     service = new DrawingsService(
       prisma,
       storage,
       folders as unknown as FoldersService,
       organizations as unknown as OrganizationsService,
+      quota,
       stubConfig({ MAX_VERSIONS_PER_DRAWING: MAX_VERSIONS }),
     );
   });

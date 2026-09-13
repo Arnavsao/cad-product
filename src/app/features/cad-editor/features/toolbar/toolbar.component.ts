@@ -338,6 +338,10 @@ import { ViewModelService } from '../../core/services/view-model.service';
       z-index: 300;
       flex-direction: column;
       padding: 4px 0;
+      /* The hatch picker lists every acadiso.pat pattern (~57 rows); scroll
+         inside the menu rather than running off the bottom of the window. */
+      max-height: min(70vh, 560px);
+      overflow-y: auto;
     }
     .toolbar-section:last-child .tb-dropdown {
       left: auto;

@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import type { HatchEntity, IHatchEdge } from '../models/entity-extended.model';
 import type { ViewModelLike, DocLike } from '../models/entity.model';
-import { HATCH_PATTERNS } from '../registries/hatch-patterns';
+import { HATCH_PATTERNS, resolveHatchPattern } from '../registries/hatch-patterns';
+import { planPatternFamilies, intersectRects, type IFamilyPlan } from './hatch-pattern-geometry';
 import { traceFrozenLoopToPath, frozenLoopToPolygon } from '../models/hatch-boundary.model';
 
 /** Utility polygon type for island detection math */
@@ -76,23 +77,7 @@ export class HatchRendererService {
       ctx.fill(path, 'evenodd');
     } else {
       ctx.clip(path, 'evenodd');
-      if (b && b.w > 0 && b.h > 0) {
-        if (hatch.pattern === 'HEX' || hatch.pattern === 'HONEY') {
-          this.drawHexagonalPattern(ctx, vm, hatch, b);
-        } else if (hatch.pattern === 'GRAVEL') {
-          this.drawGravelPattern(ctx, vm, hatch, b);
-        } else if (hatch.pattern === 'AR-CONC' || hatch.pattern === 'AR-CONC') {
-          // AR-CONC (concrete aggregate): always use the stone renderer.
-          // The DXF’s customPatternLines define the mathematical pattern, but at
-          // typical engineering-drawing zoom those fine lines (0.25" pattern units
-          // at scale 2.5) collapse into an illegible dense mesh — exactly image 1.
-          // AutoCAD compensates with rasterised LOD; we replicate that visual by
-          // rendering deterministic triangular/quad stone shapes instead.
-          this.drawArConcStones(ctx, vm, hatch, b);
-        } else {
-          this.drawPattern(ctx, vm, hatch, b);
-        }
-      }
+      if (b && b.w > 0 && b.h > 0) this.drawPattern(ctx, vm, hatch, b, path);
     }
   }
 
@@ -360,402 +345,93 @@ export class HatchRendererService {
 
   // ---- Pattern Rendering ----
 
-  private static drawPattern(ctx: CanvasRenderingContext2D, vm: ViewModelLike, hatch: HatchEntity, bbox: any): void {
-    // If the hatch carries DXF-embedded custom pattern definition lines,
-    // use those directly instead of the built-in registry.
-    if (hatch.customPatternLines && hatch.customPatternLines.length > 0) {
-      this.drawCustomPatternLines(ctx, vm, hatch, bbox);
-      return;
-    }
-    this.drawPatternPass(ctx, vm, hatch, bbox, hatch.angle || 0);
-    if (hatch.doubleHatch) {
-      this.drawPatternPass(ctx, vm, hatch, bbox, (hatch.angle || 0) + 90);
-    }
-  }
-
-  private static drawPatternPass(ctx: CanvasRenderingContext2D, vm: ViewModelLike, hatch: HatchEntity, bbox: any, currentAngle: number): void {
-    // Support both hyphenated ('AR-SAND') and underscored ('AR_SAND') keys
-    const normalizedKey = hatch.pattern?.replace(/-/g, '_');
-    const pat = HATCH_PATTERNS[hatch.pattern] ?? HATCH_PATTERNS[normalizedKey] ?? HATCH_PATTERNS['ANSI31'];
-    const scale = Math.max(0.01, hatch.scale || 1);
-    const globalAngleRad = (currentAngle * Math.PI) / 180;
-
-    const diag = Math.hypot(bbox.w, bbox.h) * 2 + 4;
-    const cx = bbox.x + bbox.w / 2;
-    const cy = bbox.y + bbox.h / 2;
-    // Budget guard: prevent runaway rendering (reduced to 2000 to fix zoom-out lag)
-    const MAX_LINES = 2000;
-
-    for (const lineDef of pat.lines) {
-      ctx.beginPath();
-      const rad = (lineDef.angle * Math.PI) / 180 + globalAngleRad;
-      const cosA = Math.cos(rad);
-      const sinA = Math.sin(rad);
-
-      let x0 = lineDef.x0 * scale;
-      let y0 = lineDef.y0 * scale;
-      if (globalAngleRad !== 0) {
-        const rx0 = x0 * Math.cos(globalAngleRad) - y0 * Math.sin(globalAngleRad);
-        const ry0 = x0 * Math.sin(globalAngleRad) + y0 * Math.cos(globalAngleRad);
-        x0 = rx0; y0 = ry0;
-      }
-      x0 += (hatch.originX || 0);
-      y0 += (hatch.originY || 0);
-
-      const spacing = lineDef.dy * scale;
-      const shift = lineDef.dx * scale;
-
-      if (spacing < 0.001) {
-        const lx1 = cx - cosA * diag, ly1 = cy - sinA * diag;
-        const lx2 = cx + cosA * diag, ly2 = cy + sinA * diag;
-        const sp1 = vm.w2s(lx1, ly1), sp2 = vm.w2s(lx2, ly2);
-        ctx.moveTo(sp1.x, sp1.y);
-        ctx.lineTo(sp2.x, sp2.y);
-      } else {
-        const centerNormalDist = (cx - x0) * (-sinA) + (cy - y0) * cosA;
-        const halfRange = diag / 2;
-
-        let startI = Math.floor((centerNormalDist - halfRange) / spacing) - 1;
-        let endI = Math.ceil((centerNormalDist + halfRange) / spacing) + 1;
-
-        // Budget guard: if the range exceeds MAX_LINES, skip every Nth line
-        const lineCount = endI - startI + 1;
-        const step = lineCount > MAX_LINES ? Math.ceil(lineCount / MAX_LINES) : 1;
-
-        for (let i = startI; i <= endI; i += step) {
-          const perpDist = i * spacing;
-          const shiftDist = i * shift;
-          const px = x0 - sinA * perpDist + cosA * shiftDist;
-          const py = y0 + cosA * perpDist + sinA * shiftDist;
-
-          const parallelDist = (cx - px) * cosA + (cy - py) * sinA;
-          const lineCx = px + parallelDist * cosA;
-          const lineCy = py + parallelDist * sinA;
-
-          const lx1 = lineCx - cosA * diag, ly1 = lineCy - sinA * diag;
-          const lx2 = lineCx + cosA * diag, ly2 = lineCy + sinA * diag;
-          const sp1 = vm.w2s(lx1, ly1), sp2 = vm.w2s(lx2, ly2);
-          ctx.moveTo(sp1.x, sp1.y);
-          ctx.lineTo(sp2.x, sp2.y);
-          if ((window as any).__hatchLinesRendered !== undefined) (window as any).__hatchLinesRendered++;
-        }
-      }
-
-      if (lineDef.dashArray?.length) {
-        ctx.setLineDash(lineDef.dashArray.map((v: number) => Math.abs(v) * scale * vm.scale));
-        ctx.lineDashOffset = -(diag * vm.scale);
-      } else {
-        ctx.setLineDash([]);
-        ctx.lineDashOffset = 0;
-      }
-
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-    ctx.lineDashOffset = 0;
-  }
-
   /**
-   * Render pattern using DXF-embedded custom pattern definition lines.
-   * The hatch entity carries its own line definitions (angle, origin, offset, dashes)
-   * parsed directly from the DXF file, so this bypasses the built-in registry.
+   * Stroke the pattern families inside the boundary, which the caller has
+   * already set as the clip. Geometry comes from `planPatternFamilies` (shared
+   * with the PDF exporter); this method only maps world segments through
+   * `vm.w2s` and sets canvas dash state.
+   *
+   * `path` is the boundary: a family the planner decides is too dense to draw
+   * as lines is painted as a translucent fill of it instead.
+   *
+   * DXF-embedded definitions (`customPatternLines`, normalised at import to
+   * unscaled / unrotated / along-perpendicular form) take precedence over the
+   * registry, so patterns CADO does not ship still draw as the file defines.
    */
-  private static drawCustomPatternLines(ctx: CanvasRenderingContext2D, vm: ViewModelLike, hatch: HatchEntity, bbox: any): void {
-    const scale = Math.max(0.01, hatch.scale || 1);
-    const globalAngleRad = ((hatch.angle || 0) * Math.PI) / 180;
-    const diag = Math.hypot(bbox.w, bbox.h) * 2 + 4;
-    const cx = bbox.x + bbox.w / 2;
-    const cy = bbox.y + bbox.h / 2;
-    const MAX_LINES = 2000;
+  private static drawPattern(
+    ctx: CanvasRenderingContext2D,
+    vm: ViewModelLike,
+    hatch: HatchEntity,
+    bbox: { x: number; y: number; w: number; h: number },
+    path: Path2D,
+  ): void {
+    const lines = hatch.customPatternLines?.length
+      ? hatch.customPatternLines
+      : (resolveHatchPattern(hatch.pattern) ?? HATCH_PATTERNS['ANSI31']).lines;
+    if (!lines.length) return;
 
-    for (const lineDef of hatch.customPatternLines!) {
-      ctx.beginPath();
-      const rad = (lineDef.angle * Math.PI) / 180 + globalAngleRad;
-      const cosA = Math.cos(rad);
-      const sinA = Math.sin(rad);
+    // Only the visible part of the boundary needs lines. A block's insertVm
+    // has no notion of the screen (its s2w answers in the parent's space), so
+    // it falls back to the boundary bbox.
+    const visible = typeof vm.visibleWorldRect === 'function' ? vm.visibleWorldRect() : null;
+    const clip = intersectRects(bbox, visible);
+    if (!clip) return;
 
-      let x0 = lineDef.x0 * scale;
-      let y0 = lineDef.y0 * scale;
-      if (globalAngleRad !== 0) {
-        const rx0 = x0 * Math.cos(globalAngleRad) - y0 * Math.sin(globalAngleRad);
-        const ry0 = x0 * Math.sin(globalAngleRad) + y0 * Math.cos(globalAngleRad);
-        x0 = rx0; y0 = ry0;
+    const ppu = vm.cumulativeScale ?? vm.scale ?? 1;
+    const xf = {
+      scale: hatch.scale || 1,
+      angleDeg: hatch.angle || 0,
+      originX: hatch.originX || 0,
+      originY: hatch.originY || 0,
+    };
+    let plans = planPatternFamilies(lines, xf, { clip, pixelsPerUnit: ppu });
+    if (hatch.doubleHatch) {
+      plans = plans.concat(planPatternFamilies(lines, { ...xf, angleDeg: xf.angleDeg + 90 }, { clip, pixelsPerUnit: ppu }));
+    }
+    this.strokePlans(ctx, vm, plans, path, ppu);
+  }
+
+  private static strokePlans(
+    ctx: CanvasRenderingContext2D,
+    vm: ViewModelLike,
+    plans: IFamilyPlan[],
+    path: Path2D,
+    ppu: number,
+  ): void {
+    const baseAlpha = ctx.globalAlpha;
+    for (const fam of plans) {
+      if (fam.mode === 'fill') {
+        ctx.globalAlpha = baseAlpha * fam.fillAlpha;
+        ctx.fill(path, 'evenodd');
+        continue;
       }
-      x0 += (hatch.originX || 0);
-      y0 += (hatch.originY || 0);
-
-      const spacing = Math.abs(lineDef.dy) * scale;
-      const shift = lineDef.dx * scale;
-
-      if (spacing < 0.001) {
-        const lx1 = cx - cosA * diag, ly1 = cy - sinA * diag;
-        const lx2 = cx + cosA * diag, ly2 = cy + sinA * diag;
-        const sp1 = vm.w2s(lx1, ly1), sp2 = vm.w2s(lx2, ly2);
-        ctx.moveTo(sp1.x, sp1.y);
-        ctx.lineTo(sp2.x, sp2.y);
-      } else {
-        const centerNormalDist = (cx - x0) * (-sinA) + (cy - y0) * cosA;
-        const halfRange = diag / 2;
-        let startI = Math.floor((centerNormalDist - halfRange) / spacing) - 1;
-        let endI = Math.ceil((centerNormalDist + halfRange) / spacing) + 1;
-        const lineCount = endI - startI + 1;
-        const step = lineCount > MAX_LINES ? Math.ceil(lineCount / MAX_LINES) : 1;
-
-        for (let i = startI; i <= endI; i += step) {
-          const perpDist = i * spacing;
-          const shiftDist = i * shift;
-          const px = x0 - sinA * perpDist + cosA * shiftDist;
-          const py = y0 + cosA * perpDist + sinA * shiftDist;
-
-          const parallelDist = (cx - px) * cosA + (cy - py) * sinA;
-          const lineCx = px + parallelDist * cosA;
-          const lineCy = py + parallelDist * sinA;
-
-          const lx1 = lineCx - cosA * diag, ly1 = lineCy - sinA * diag;
-          const lx2 = lineCx + cosA * diag, ly2 = lineCy + sinA * diag;
-          const sp1 = vm.w2s(lx1, ly1), sp2 = vm.w2s(lx2, ly2);
-          ctx.moveTo(sp1.x, sp1.y);
-          ctx.lineTo(sp2.x, sp2.y);
-          if ((window as any).__hatchLinesRendered !== undefined) (window as any).__hatchLinesRendered++;
-        }
-      }
-
-      if (lineDef.dashArray?.length) {
-        ctx.setLineDash(lineDef.dashArray.map((v: number) => Math.abs(v) * scale * vm.scale));
-        ctx.lineDashOffset = -(diag * vm.scale);
+      // fillAlpha < 1 here means a dashed family collapsed to continuous lines
+      // because its dashes were sub-pixel; the alpha keeps its ink density.
+      ctx.globalAlpha = baseAlpha * fam.fillAlpha;
+      // A zero-length dash only paints with round caps — that is how a .pat
+      // dot becomes a dot on screen.
+      ctx.lineCap = fam.hasDots ? 'round' : 'butt';
+      if (fam.dash) {
+        ctx.setLineDash(fam.dash.map((v) => v * ppu));
+        ctx.lineDashOffset = fam.dashOffset * ppu;
       } else {
         ctx.setLineDash([]);
         ctx.lineDashOffset = 0;
       }
+      // Every segment starts on a period boundary of its own line, so one
+      // subpath per line and one stroke per family gives the right phase.
+      ctx.beginPath();
+      for (const s of fam.segments) {
+        const a = vm.w2s(s.x1, s.y1);
+        const b = vm.w2s(s.x2, s.y2);
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+      }
       ctx.stroke();
     }
+    ctx.globalAlpha = baseAlpha;
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
-  }
-
-  private static drawHexagonalPattern(ctx: CanvasRenderingContext2D, vm: ViewModelLike, hatch: HatchEntity, bbox: any): void {
-    const scale = Math.max(0.01, hatch.scale || 1) * 10;
-    const globalAngleRad = (hatch.angle || 0) * Math.PI / 180;
-    const isHoney = hatch.pattern === 'HONEY';
-    const radius = isHoney ? scale * 0.5 : scale * 1.2;
-    const hexWidth = radius * 2;
-    const hexHeight = Math.sqrt(3) * radius;
-    const hSpacing = hexWidth * 0.75;
-    const vSpacing = hexHeight;
-
-    let uMinX = Infinity, uMaxX = -Infinity, uMinY = Infinity, uMaxY = -Infinity;
-    const corners = [
-      { x: bbox.x, y: bbox.y }, { x: bbox.x + bbox.w, y: bbox.y },
-      { x: bbox.x, y: bbox.y + bbox.h }, { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
-    ];
-    for (const pt of corners) {
-      const urx = pt.x * Math.cos(-globalAngleRad) - pt.y * Math.sin(-globalAngleRad);
-      const ury = pt.x * Math.sin(-globalAngleRad) + pt.y * Math.cos(-globalAngleRad);
-      uMinX = Math.min(uMinX, urx); uMaxX = Math.max(uMaxX, urx);
-      uMinY = Math.min(uMinY, ury); uMaxY = Math.max(uMaxY, ury);
-    }
-
-    const startC = Math.floor(uMinX / hSpacing) - 1;
-    const endC = Math.ceil(uMaxX / hSpacing) + 1;
-    let startR = Math.floor(uMinY / vSpacing) - 1;
-    let endR = Math.ceil(uMaxY / vSpacing) + 1;
-
-    // Budget guard
-    const maxCells = 50000;
-    const numCells = (endC - startC + 1) * (endR - startR + 1);
-    let step = 1;
-    if (numCells > maxCells) {
-      step = Math.ceil(Math.sqrt(numCells / maxCells));
-    }
-
-    ctx.beginPath();
-    for (let c = startC; c <= endC; c += step) {
-      for (let r = startR; r <= endR; r += step) {
-        let cx = c * hSpacing;
-        let cy = r * vSpacing;
-        if (Math.abs(c) % 2 === 1) cy += vSpacing / 2;
-        const drawRadius = isHoney ? radius : radius * 0.8;
-
-        for (let i = 0; i <= 6; i++) {
-          const theta = (i * 60) * Math.PI / 180;
-          const vx = cx + drawRadius * Math.cos(theta);
-          const vy = cy + drawRadius * Math.sin(theta);
-          const rvx = vx * Math.cos(globalAngleRad) - vy * Math.sin(globalAngleRad);
-          const rvy = vx * Math.sin(globalAngleRad) + vy * Math.cos(globalAngleRad);
-          const spt = vm.w2s(rvx, rvy);
-          if (i === 0) ctx.moveTo(spt.x, spt.y);
-          else ctx.lineTo(spt.x, spt.y);
-        }
-      }
-    }
-    ctx.setLineDash([]);
-    ctx.stroke();
-  }
-
-  private static drawArConcStones(ctx: CanvasRenderingContext2D, vm: ViewModelLike, hatch: HatchEntity, bbox: any): void {
-    // Concrete aggregate pattern — scattered triangular / quad stone shapes with
-    // lots of open space between them, matching AutoCAD’s on-screen LOD rendering
-    // of AR-CONC at typical engineering-drawing zoom levels.
-    const scale = Math.max(0.01, hatch.scale || 1) * 10;
-    const globalAngleRad = (hatch.angle || 0) * Math.PI / 180;
-    const stoneBase = scale;          // base stone radius in world units
-    const gridSize = stoneBase * 3.5; // cell size; keeps stones well-separated
-
-    // Iterate over the full bbox in rotated space. The canvas clip (set by the
-    // caller) handles pixel-level culling — we must NOT use vm.s2w() for culling
-    // here because when drawn through an InsertEntity, vm is insertVm whose s2w()
-    // returns parent-world coordinates while bbox is in block-local coordinates.
-    let uMinX = Infinity, uMaxX = -Infinity, uMinY = Infinity, uMaxY = -Infinity;
-    for (const pt of [
-      { x: bbox.x, y: bbox.y }, { x: bbox.x + bbox.w, y: bbox.y },
-      { x: bbox.x, y: bbox.y + bbox.h }, { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
-    ]) {
-      const urx = pt.x * Math.cos(-globalAngleRad) - pt.y * Math.sin(-globalAngleRad);
-      const ury = pt.x * Math.sin(-globalAngleRad) + pt.y * Math.cos(-globalAngleRad);
-      uMinX = Math.min(uMinX, urx); uMaxX = Math.max(uMaxX, urx);
-      uMinY = Math.min(uMinY, ury); uMaxY = Math.max(uMaxY, ury);
-    }
-
-    let startC = Math.floor(uMinX / gridSize) - 1;
-    let endC = Math.ceil(uMaxX / gridSize) + 1;
-    let startR = Math.floor(uMinY / gridSize) - 1;
-    let endR = Math.ceil(uMaxY / gridSize) + 1;
-
-    // Adaptive LOD: cap total cells.
-    const cellCount = (endC - startC) * (endR - startR);
-    if (cellCount > 2000) {
-      const lodFactor = Math.ceil(Math.sqrt(cellCount / 2000));
-      const ag = gridSize * lodFactor;
-      startC = Math.floor(uMinX / ag) - 1; endC = Math.ceil(uMaxX / ag) + 1;
-      startR = Math.floor(uMinY / ag) - 1; endR = Math.ceil(uMaxY / ag) + 1;
-    }
-
-    const mulberry32 = (a: number) => () => {
-      let t = (a += 0x6D2B79F5);
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-
-    ctx.beginPath();
-    for (let c = startC; c <= endC; c++) {
-      for (let r = startR; r <= endR; r++) {
-        const seed = (Math.imul(c, 31337) ^ Math.imul(r, 1103515245)) >>> 0;
-        const rand = mulberry32(seed);
-
-        // ~55 % of cells contain a stone — realistic aggregate packing density.
-        if (rand() > 0.55) continue;
-
-        const pcx = (c + 0.1 + rand() * 0.8) * gridSize;
-        const pcy = (r + 0.1 + rand() * 0.8) * gridSize;
-
-        // Mostly triangles (crushed aggregate), occasionally quads.
-        const numSides = rand() < 0.7 ? 3 : 4;
-        const baseAngle = rand() * Math.PI * 2;          // random orientation
-        const baseRadius = stoneBase * (0.45 + rand() * 0.55);
-
-        const points: { x: number; y: number }[] = [];
-        for (let k = 0; k < numSides; k++) {
-          const theta = baseAngle + (k / numSides) * Math.PI * 2;
-          // Crushed aggregate = angular, irregular edges.
-          const pr = baseRadius * (0.55 + rand() * 0.8);
-          const vx = pcx + pr * Math.cos(theta);
-          const vy = pcy + pr * Math.sin(theta);
-          const rvx = vx * Math.cos(globalAngleRad) - vy * Math.sin(globalAngleRad);
-          const rvy = vx * Math.sin(globalAngleRad) + vy * Math.cos(globalAngleRad);
-          points.push(vm.w2s(rvx, rvy));
-        }
-
-        if (points.length >= 3) {
-          ctx.moveTo(points[0].x, points[0].y);
-          for (let k = 1; k < points.length; k++) ctx.lineTo(points[k].x, points[k].y);
-          ctx.closePath();
-        }
-      }
-    }
-    ctx.setLineDash([]);
-    ctx.stroke();
-  }
-
-  private static drawGravelPattern(ctx: CanvasRenderingContext2D, vm: ViewModelLike, hatch: HatchEntity, bbox: any): void {
-    const scale = Math.max(0.01, hatch.scale || 1) * 10;
-    const globalAngleRad = (hatch.angle || 0) * Math.PI / 180;
-    const gridSize = scale * 2.5;
-
-    // Iterate over the full bbox in rotated space. The canvas clip (set by the
-    // caller) handles pixel-level culling — we must NOT use vm.s2w() for culling
-    // here because when drawn through an InsertEntity, vm is insertVm whose s2w()
-    // returns parent-world coordinates while bbox is in block-local coordinates.
-    let uMinX = Infinity, uMaxX = -Infinity, uMinY = Infinity, uMaxY = -Infinity;
-    for (const pt of [
-      { x: bbox.x, y: bbox.y }, { x: bbox.x + bbox.w, y: bbox.y },
-      { x: bbox.x, y: bbox.y + bbox.h }, { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
-    ]) {
-      const urx = pt.x * Math.cos(-globalAngleRad) - pt.y * Math.sin(-globalAngleRad);
-      const ury = pt.x * Math.sin(-globalAngleRad) + pt.y * Math.cos(-globalAngleRad);
-      uMinX = Math.min(uMinX, urx); uMaxX = Math.max(uMaxX, urx);
-      uMinY = Math.min(uMinY, ury); uMaxY = Math.max(uMaxY, ury);
-    }
-
-    let startC = Math.floor(uMinX / gridSize) - 1;
-    let endC = Math.ceil(uMaxX / gridSize) + 1;
-    let startR = Math.floor(uMinY / gridSize) - 1;
-    let endR = Math.ceil(uMaxY / gridSize) + 1;
-    if ((endC - startC) * (endR - startR) > 2000) {
-      // Adaptive LOD: increase grid size to reduce cell count instead of
-      // silently returning nothing. This keeps gravel visible at zoom-out.
-      const cellCount = (endC - startC) * (endR - startR);
-      const lodFactor = Math.ceil(Math.sqrt(cellCount / 2000));
-      const adjustedGridSize = gridSize * lodFactor;
-      startC = Math.floor(uMinX / adjustedGridSize) - 1;
-      endC = Math.ceil(uMaxX / adjustedGridSize) + 1;
-      startR = Math.floor(uMinY / adjustedGridSize) - 1;
-      endR = Math.ceil(uMaxY / adjustedGridSize) + 1;
-    }
-
-    const mulberry32 = (a: number) => () => {
-      let t = (a += 0x6D2B79F5);
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-
-    ctx.beginPath();
-    for (let c = startC; c <= endC; c++) {
-      for (let r = startR; r <= endR; r++) {
-        const seed = (Math.imul(c, 31337) ^ Math.imul(r, 1103515245)) >>> 0;
-        const rand = mulberry32(seed);
-
-        const cx = (c + 0.1 + rand() * 0.8) * gridSize;
-        const cy = (r + 0.1 + rand() * 0.8) * gridSize;
-        const numPoints = 6 + Math.floor(rand() * 6);
-        const baseRadius = scale * (0.4 + rand() * 0.6);
-        const randomness = 0.5;
-
-        const points: { x: number; y: number }[] = [];
-        for (let i = 0; i < numPoints; i++) {
-          const theta = (i / numPoints) * Math.PI * 2;
-          const radialNoise = 1.0 + (rand() - 0.5) * randomness;
-          const pr = baseRadius * radialNoise;
-          const vx = cx + pr * Math.cos(theta);
-          const vy = cy + pr * Math.sin(theta);
-          const rvx = vx * Math.cos(globalAngleRad) - vy * Math.sin(globalAngleRad);
-          const rvy = vx * Math.sin(globalAngleRad) + vy * Math.cos(globalAngleRad);
-          points.push(vm.w2s(rvx, rvy));
-        }
-        if (points.length > 2) {
-          ctx.moveTo((points[0].x + points[points.length - 1].x) / 2, (points[0].y + points[points.length - 1].y) / 2);
-          for (let i = 0; i < points.length; i++) {
-            const p1 = points[i];
-            const p2 = points[(i + 1) % points.length];
-            const mx = (p1.x + p2.x) / 2;
-            const my = (p1.y + p2.y) / 2;
-            ctx.quadraticCurveTo(p1.x, p1.y, mx, my);
-          }
-        }
-      }
-    }
-    ctx.setLineDash([]);
-    ctx.stroke();
+    ctx.lineCap = 'butt';
   }
 }

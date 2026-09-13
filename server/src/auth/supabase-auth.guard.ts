@@ -112,6 +112,10 @@ export class SupabaseAuthGuard implements CanActivate {
     req.user = {
       id: user.id,
       authId: user.authId,
+      // Carried onto the principal so `AdminGuard` can require a second factor
+      // without re-parsing the token. Missing means `aal1`: a project with MFA
+      // disabled must not read as "already verified".
+      aal: typeof claims.aal === 'string' ? claims.aal : 'aal1',
       // Lowercased once, here: shares are matched by address and every
       // comparison downstream then gets to be a plain equality.
       email: user.email.toLowerCase(),

@@ -19,6 +19,8 @@ export interface AuthUser {
   email: string;
   /** Supabase session id, the JWT `session_id`. Null when the token omits it. */
   sessionId: string | null;
+  /** `aal1` or `aal2`; see `SupabaseSessionClaims.aal`. Never undefined here. */
+  aal: string;
   /**
    * The full local row the guard already read while resolving this request.
    * Handlers that would otherwise re-read the same user (`GET /me`) take it from
@@ -66,6 +68,15 @@ export interface SupabaseSessionClaims {
   email?: string;
   phone?: string;
   session_id?: string;
+  /**
+   * Authenticator Assurance Level, per Supabase's MFA support: `aal1` for a
+   * password or OAuth sign-in, `aal2` once a second factor has been verified.
+   *
+   * Read by `AdminGuard` when `ADMIN_REQUIRE_MFA` is on. Absent on tokens from
+   * a project with MFA disabled, which is why the guard treats "missing" as
+   * `aal1` rather than assuming the best.
+   */
+  aal?: string;
   user_metadata?: SupabaseUserMetadata;
   app_metadata?: Record<string, unknown>;
   [claim: string]: unknown;

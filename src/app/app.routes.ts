@@ -165,6 +165,15 @@ export const routes: Routes = [
     ],
   },
 
+  // The unsubscribe link in every product email. No guard: somebody
+  // unsubscribing is often somebody who has stopped signing in, and the signed
+  // token in the URL is what authorises it.
+  {
+    path: 'unsubscribe',
+    title: 'app.title.signIn',
+    loadComponent: () => import('./features/unsubscribe/unsubscribe.page').then((m) => m.UnsubscribePage),
+  },
+
   // Suspended accounts and closed sign-ups land here from the auth interceptor.
   // No guard: the whole point is that every guarded route would refuse them.
   {
@@ -202,6 +211,12 @@ export const routes: Routes = [
       { path: 'announcements', title: 'Admin · Announcements',
         loadComponent: () =>
           import('./features/admin/pages/announcements.page').then((m) => m.AdminAnnouncementsPage) },
+      { path: 'billing', title: 'Admin · Billing',
+        loadComponent: () => import('./features/admin/pages/billing.page').then((m) => m.AdminBillingPage) },
+      { path: 'campaigns', title: 'Admin · Campaigns',
+        loadComponent: () => import('./features/admin/pages/campaigns.page').then((m) => m.AdminCampaignsPage) },
+      { path: 'jobs', title: 'Admin · Scheduled jobs',
+        loadComponent: () => import('./features/admin/pages/jobs.page').then((m) => m.AdminJobsPage) },
       { path: 'flags', title: 'Admin · Feature flags',
         loadComponent: () => import('./features/admin/pages/flags.page').then((m) => m.AdminFlagsPage) },
       { path: 'staff', title: 'Admin · Staff',

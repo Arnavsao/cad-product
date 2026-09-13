@@ -4,6 +4,7 @@ import { HttpManagerService } from '../services/http-manager.service';
 import { environment } from '../../../environments/environment';
 import {
   AdminAnnouncementDto,
+  AdminCampaignDto,
   AdminDrawingQuery,
   AdminDrawingRowDto,
   AdminFeedbackDetailDto,
@@ -12,6 +13,13 @@ import {
   AdminFlagDto,
   AdminOrgDetailDto,
   AdminOrgRowDto,
+  AdminSubscriptionRowDto,
+  AdminWebhookRowDto,
+  AudiencePreviewDto,
+  BillingSummaryDto,
+  JobRunDto,
+  JobStatusDto,
+  SuppressionDto,
   AdminOverviewDto,
   AdminUserDetailDto,
   AdminUserQuery,
@@ -242,6 +250,75 @@ export class AdminApiService {
   /** `GET /admin/users/:id/export` — ADMIN, and audited despite being a read. */
   exportUserData(id: string): Promise<Record<string, unknown>> {
     return firstValueFrom(this.api.get<Record<string, unknown>>(`admin/users/${enc(id)}/export`));
+  }
+
+  // --- Billing console -----------------------------------------------------
+
+  billingSummary(): Promise<BillingSummaryDto> {
+    return firstValueFrom(this.api.get<BillingSummaryDto>('admin/billing'));
+  }
+
+  subscriptions(query: { plan?: string; status?: string; page?: number } = {}): Promise<Page<AdminSubscriptionRowDto>> {
+    return firstValueFrom(
+      this.api.get<Page<AdminSubscriptionRowDto>>('admin/billing/subscriptions', { params: { ...query } }),
+    );
+  }
+
+  /** ADMIN and up: a delivery's error text can name a customer. */
+  webhooks(query: { status?: string; page?: number } = {}): Promise<Page<AdminWebhookRowDto>> {
+    return firstValueFrom(this.api.get<Page<AdminWebhookRowDto>>('admin/billing/webhooks', { params: { ...query } }));
+  }
+
+  // --- Campaigns -----------------------------------------------------------
+
+  listCampaigns(): Promise<AdminCampaignDto[]> {
+    return firstValueFrom(this.api.get<AdminCampaignDto[]>('admin/campaigns'));
+  }
+
+  createCampaign(input: {
+    subject: string;
+    bodyText: string;
+    plans?: string[];
+    onlyActive?: boolean;
+  }): Promise<AdminCampaignDto> {
+    return firstValueFrom(this.api.post<AdminCampaignDto>('admin/campaigns', input));
+  }
+
+  /** How many people it would reach, before anything is sent. */
+  previewCampaign(id: string): Promise<AudiencePreviewDto> {
+    return firstValueFrom(this.api.get<AudiencePreviewDto>(`admin/campaigns/${enc(id)}/preview`));
+  }
+
+  testSendCampaign(id: string, to: string): Promise<{ sent: boolean }> {
+    return firstValueFrom(this.api.post<{ sent: boolean }>(`admin/campaigns/${enc(id)}/test`, { to }));
+  }
+
+  /** OWNER only, and irreversible: the send starts in the background. */
+  sendCampaign(id: string): Promise<AdminCampaignDto> {
+    return firstValueFrom(this.api.post<AdminCampaignDto>(`admin/campaigns/${enc(id)}/send`, {}));
+  }
+
+  suppressions(): Promise<SuppressionDto[]> {
+    return firstValueFrom(this.api.get<SuppressionDto[]>('admin/campaigns/suppressions'));
+  }
+
+  unsuppress(email: string): Promise<{ email: string }> {
+    return firstValueFrom(this.api.delete<{ email: string }>(`admin/campaigns/suppressions/${enc(email)}`));
+  }
+
+  // --- Scheduled jobs ------------------------------------------------------
+
+  jobs(): Promise<JobStatusDto[]> {
+    return firstValueFrom(this.api.get<JobStatusDto[]>('admin/system/jobs'));
+  }
+
+  jobHistory(name?: string): Promise<JobRunDto[]> {
+    return firstValueFrom(this.api.get<JobRunDto[]>('admin/system/jobs/history', { params: { name } }));
+  }
+
+  /** OWNER only from the portal; the scheduler uses a token instead. */
+  runJob(name: string): Promise<JobRunDto> {
+    return firstValueFrom(this.api.post<JobRunDto>(`admin/system/jobs/${enc(name)}/run`, {}));
   }
 
   // --- Flags ---------------------------------------------------------------

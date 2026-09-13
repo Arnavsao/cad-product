@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BillingModule } from '../billing/billing.module';
 import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
@@ -6,6 +7,13 @@ import { AdminGuard } from './admin.guard';
 import { AuditController } from './audit/audit.controller';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuditService } from './audit/audit.service';
+import { AdminBillingController } from './billing/admin-billing.controller';
+import { AdminBillingService } from './billing/admin-billing.service';
+import { CampaignsController } from './campaigns/campaigns.controller';
+import { CampaignsService } from './campaigns/campaigns.service';
+import { UnsubscribeController } from './campaigns/unsubscribe.controller';
+import { JobsController } from './jobs/jobs.controller';
+import { JobsService } from './jobs/jobs.service';
 import { AdminAnnouncementsController } from './announcements/announcements.controller';
 import { AnnouncementsService } from './announcements/announcements.service';
 import { PublicAnnouncementsController } from './announcements/public-announcements.controller';
@@ -40,7 +48,7 @@ import { AdminUsersService } from './users/admin-users.service';
  * here read flags too.
  */
 @Module({
-  imports: [NotificationsModule, StorageModule, MailModule],
+  imports: [NotificationsModule, StorageModule, MailModule, BillingModule],
   controllers: [
     OverviewController,
     AdminUsersController,
@@ -50,6 +58,10 @@ import { AdminUsersService } from './users/admin-users.service';
     AdminDrawingsController,
     AdminAnnouncementsController,
     PublicAnnouncementsController,
+    AdminBillingController,
+    CampaignsController,
+    UnsubscribeController,
+    JobsController,
     AuditController,
     SystemController,
   ],
@@ -59,6 +71,9 @@ import { AdminUsersService } from './users/admin-users.service';
     AdminOrgsService,
     AdminDrawingsService,
     AnnouncementsService,
+    AdminBillingService,
+    CampaignsService,
+    JobsService,
     OverviewService,
     AuditService,
     AuditInterceptor,

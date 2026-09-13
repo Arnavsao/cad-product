@@ -7,6 +7,7 @@ import request from 'supertest';
 import { configureApp } from '../src/app.setup';
 import { PlatformRole } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { signUnsubscribeToken } from '../src/admin/campaigns/unsubscribe-token';
 import { mintSessionToken, TEST_JWT_SECRET, TEST_SUPABASE_URL, testAuthId } from './support/jwt';
 
 /**
@@ -635,6 +636,140 @@ describeIfDb('Admin portal (e2e)', () => {
         .get(`/api/v1/admin/users/${localIds.plain}/export`)
         .set(auth('support'));
       expect(res.status).toBe(403);
+    });
+  });
+
+  describe('billing console', () => {
+    it('summarises plans, grants and unprocessed webhooks', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/admin/billing').set(auth('support'));
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject({
+        currency: 'USD',
+        catalog: { mode: expect.any(String), webhookConfigured: expect.any(Boolean) },
+      });
+      expect(typeof res.body.data.approximateMrr).toBe('number');
+    });
+
+    it('keeps webhook deliveries above the read tier', async () => {
+      // A delivery's error text can name a customer, so it is ADMIN not SUPPORT.
+      expect((await request(app.getHttpServer()).get('/api/v1/admin/billing/webhooks').set(auth('support'))).status)
+        .toBe(403);
+      expect((await request(app.getHttpServer()).get('/api/v1/admin/billing/webhooks').set(auth('admin'))).status)
+        .toBe(200);
+    });
+
+    it('never returns a webhook payload in the list', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/admin/billing/webhooks').set(auth('admin'));
+      for (const row of res.body.data.items) {
+        expect(row.payload).toBeUndefined();
+      }
+    });
+  });
+
+  describe('scheduled jobs', () => {
+    afterAll(async () => {
+      await prisma.jobRun.deleteMany({ where: { name: 'alerts.check' } });
+    });
+
+    it('lists the registry with the last run of each job', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/admin/system/jobs').set(auth('support'));
+      expect(res.status).toBe(200);
+      expect(res.body.data.map((j: { name: string }) => j.name)).toContain('trash.purge');
+    });
+
+    it('refuses an unknown job name rather than inventing one', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/admin/system/jobs/not.a.job/run')
+        .set(auth('owner'));
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('UNKNOWN_JOB');
+    });
+
+    it('refuses an unauthenticated run with 401, not 403', async () => {
+      const res = await request(app.getHttpServer()).post('/api/v1/admin/system/jobs/alerts.check/run');
+      // Nothing identified itself, which is an authentication answer.
+      expect(res.status).toBe(401);
+    });
+
+    it('refuses a signed-in ADMIN: running a job is owner-or-token', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/admin/system/jobs/alerts.check/run')
+        .set(auth('admin'));
+      expect(res.status).toBe(403);
+    });
+
+    it('runs for an OWNER and records the attempt', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/admin/system/jobs/alerts.check/run')
+        .set(auth('owner'));
+      expect(res.status).toBe(201);
+      expect(res.body.data.status).toBe('succeeded');
+      expect(res.body.data.triggeredById).toBe(localIds.owner);
+    });
+  });
+
+  describe('campaigns and unsubscribe', () => {
+    let campaignId: string;
+
+    afterAll(async () => {
+      await prisma.emailCampaign.deleteMany({ where: { id: campaignId } });
+      await prisma.emailSuppression.deleteMany({ where: { email: `plain-${stamp}@example.com` } });
+    });
+
+    it('creates a draft and previews its audience without sending', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/admin/campaigns')
+        .set(auth('admin'))
+        .send({
+          subject: `E2E campaign ${stamp}`,
+          bodyText: 'We have opened the beta to everyone. Tell us what breaks.',
+        });
+      expect(created.status).toBe(201);
+      campaignId = created.body.data.id;
+      expect(created.body.data.status).toBe('draft');
+
+      const preview = await request(app.getHttpServer())
+        .get(`/api/v1/admin/campaigns/${campaignId}/preview`)
+        .set(auth('admin'));
+      expect(preview.status).toBe(200);
+      expect(preview.body.data.recipients).toBeGreaterThan(0);
+    });
+
+    it('keeps the irreversible send above the write tier', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/admin/campaigns/${campaignId}/send`)
+        .set(auth('admin'));
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({ required: 'owner', actual: 'admin' });
+    });
+
+    it('unsubscribes from a signed token, with no session', async () => {
+      const token = signUnsubscribeToken(`plain-${stamp}@example.com`, TEST_JWT_SECRET);
+      const res = await request(app.getHttpServer()).post('/api/v1/unsubscribe').send({ token });
+      expect(res.status).toBe(200);
+      expect(res.body.data.email).toBe(`plain-${stamp}@example.com`);
+
+      const listed = await request(app.getHttpServer())
+        .get('/api/v1/admin/campaigns/suppressions')
+        .set(auth('admin'));
+      expect(listed.body.data.some((s: { email: string }) => s.email === `plain-${stamp}@example.com`)).toBe(true);
+    });
+
+    it('drops a suppressed address from the audience', async () => {
+      const preview = await request(app.getHttpServer())
+        .get(`/api/v1/admin/campaigns/${campaignId}/preview`)
+        .set(auth('admin'));
+      expect(preview.body.data.suppressed).toBeGreaterThan(0);
+      expect(preview.body.data.sample).not.toContain(`plain-${stamp}@example.com`);
+    });
+
+    it('refuses a forged unsubscribe token', async () => {
+      const real = signUnsubscribeToken(`plain-${stamp}@example.com`, TEST_JWT_SECRET);
+      const [, signature] = real.split('.');
+      const forged = `${Buffer.from(`victim-${stamp}@example.com`).toString('base64url')}.${signature}`;
+      const res = await request(app.getHttpServer()).post('/api/v1/unsubscribe').send({ token: forged });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('INVALID_UNSUBSCRIBE_TOKEN');
     });
   });
 

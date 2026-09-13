@@ -77,6 +77,7 @@ import {
   type DrawingRow,
 } from './drawings.mapper';
 import { blankDxf, insunitsForUnit } from './templates/blank-dxf';
+import { QuotaService } from '../billing/quota/quota.service';
 
 /** Content type every DXF payload is stored and served with. */
 const DXF_CONTENT_TYPE = 'text/plain; charset=utf-8';
@@ -191,6 +192,7 @@ export class DrawingsService {
     private readonly storage: StorageService,
     private readonly folders: FoldersService,
     private readonly organizations: OrganizationsService,
+    private readonly quota: QuotaService,
     config: ConfigService<Env, true>,
   ) {
     this.maxInlineBytes = config.get('MAX_INLINE_CONTENT_BYTES', { infer: true });
@@ -1174,6 +1176,12 @@ export class DrawingsService {
     write: (key: string) => Promise<void>;
   }): Promise<DrawingRow> {
     const { userId, workspace, name, folderId, format, byteSize } = params;
+
+    // Every path that creates a drawing funnels through here — new, import,
+    // copy, duplicate — so the plan limit is checked once rather than at four
+    // call sites that can drift apart. It is a no-op unless an owner has turned
+    // `billing.enforceQuotas` on.
+    await this.quota.assertCanCreateDrawing(userId, byteSize);
 
     let row: DrawingRow;
     try {

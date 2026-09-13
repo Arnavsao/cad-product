@@ -48,6 +48,50 @@ values, decoded text, per-style fonts and real lineweights.
   Staff cannot read customer drawings: admin drawing views are metadata only, and the one download
   path is behind an owner-only flag that ships off. See [docs/ADMIN.md](docs/ADMIN.md).
 
+* **Launch operations: scheduled housekeeping, a billing console, campaigns and staff
+  hardening.** What the portal needs once there are paying customers rather than beta testers.
+
+  **Six housekeeping jobs** now run from a cron outside the app: purging 30-day-old trash,
+  sweeping staged uploads that never became a drawing, trimming version history past the
+  cap, sweeping orphaned objects, replaying webhook deliveries that never landed, and
+  checking alert thresholds. Every one is idempotent and bounded, because the runner is an
+  HTTP endpoint a scheduler can call twice. Runs are recorded when they *start*, so a job
+  that dies without finishing shows as stuck — otherwise it looks exactly like success:
+  no error, no completion, nothing. The endpoint takes either an owner session or a shared
+  `JOB_RUNNER_TOKEN`, which is how an unattended cron runs a job without holding a staff
+  tier.
+
+  **The billing console** answers the two questions Dodo cannot: which of our accounts is
+  on what, and which deliveries were recorded but never applied — each of those potentially
+  a customer who paid and received nothing. Revenue is labelled approximate and means it:
+  it is computed from the pricing page's display prices, and nothing in this codebase can
+  reconcile those with what Dodo actually charged. Read-only throughout, because a second
+  place that can change what somebody pays is a second place that can disagree with their
+  bank statement.
+
+  **Plan limits are enforceable at last.** The Free tier's advertised 3 drawings and 50 MB
+  have been published and unenforced since launch; `billing.enforceQuotas` turns them on.
+  Off by default, and deliberately — switching it on changes behaviour for every account
+  already over the line, so it should be a decision somebody makes having looked at how
+  many that is. A refusal is `402` with the limit, the usage and the plan, so the client
+  can offer an upgrade rather than an error, and a save that *shrinks* a drawing is never
+  blocked: locking somebody out of work they have already done is the worse outcome.
+
+  **Campaigns** go write → preview the audience → test-send → send, with the irreversible
+  step deliberately fourth. Unsubscribed addresses are excluded when the audience is
+  resolved and re-checked during the run, since a send of a few thousand messages takes
+  minutes and somebody who unsubscribes from the first must not receive the hundredth.
+  Every message carries a signed unsubscribe link that works with no session — the
+  signature is what stops the address in the URL being edited to unsubscribe somebody else.
+  Transactional mail is never suppressed: opting out of product email is not opting out of
+  your own account working.
+
+  **Staff hardening**, both off by default: `ADMIN_REQUIRE_MFA` requires a verified second
+  factor for ADMIN and OWNER (SUPPORT is exempt, since it only reads), and
+  `ADMIN_IP_ALLOWLIST` restricts `/admin` by address prefix. The MFA switch has a real
+  footgun — enrolling comes first, or the people holding those tiers are locked out with no
+  way back except the variable — and the docs say so.
+
 * **Organizations, drawings, storage and announcements in the portal.** The rest of what
   running a beta actually asks for.
 
@@ -296,6 +340,48 @@ values, decoded text, per-style fonts and real lineweights.
   certain of, but the first native review is still outstanding. English is the reference.
 
 ### Fixed
+* **Hatch patterns now match AutoCAD, and adding one no longer freezes the page.** Two
+  faults, one root. The pattern registry was hand-written and wrong in places — ANSI32 had two
+  identical families (so it drew as ANSI31 at triple spacing), ANSI37 was a single-direction
+  hatch instead of the 45°/135° crosshatch, ANGLE/BRICK/HEX/HONEY were invented, and AR-CONC
+  and GRAVEL were faked with bespoke "stone" renderers. It is now `acadiso.pat` verbatim: 53
+  patterns (ANSI31–38, the AR-* architectural set, BOX, BRASS, BRICK, BRSTONE, CLAY, CORK,
+  CROSS, DASH, DOLMIT, DOTS, EARTH, ESCHER, FLEX, GRASS, GRATE, GRAVEL, HEX, HONEY, HOUND, INSUL,
+  LINE, MUDST, NET, NET3, PLAST, PLASTI, SACNCR, SQUARE, STARS, STEEL, SWAMP, TRANS, TRIANG,
+  ZIGZAG), in millimetres, with a spec pinning the values. `ANSI30` and `SAND` stay as aliases
+  of ANSI37 and AR-SAND so old drawings render as the canonical name would; `ISO` and `PCC`
+  remain as CADO extras.
+
+  The renderer anchored every family's dash phase at the boundary centre instead of at each
+  line's own base point, and ignored the along-line shift (`dx`) entirely, so BRICK's staggered
+  joints and AR-SAND's scattered dots collapsed into grids. Dashes are now anchored per line as
+  the `.pat` format specifies, sequences that begin with a gap are rotated with a compensating
+  phase, and zero-length dashes draw as dots (round caps). The same planner
+  (`hatch-pattern-geometry.ts`) feeds the canvas and the PDF export, which had its own copy of
+  every bug.
+
+  The freeze: each pattern line was stroked across twice the boundary's diagonal and the
+  browser dashed the whole length — a 0.5 mm SAND dash across a 10 m room is ~28 000 dashes per
+  line, times thousands of lines, times three families, on every frame and on every hover of
+  the pattern picker. Lines are now clipped to the visible part of the boundary
+  (`ViewModelService.visibleWorldRect`), a family spaced closer than a pixel becomes a
+  translucent fill and sub-pixel dashes a lightened continuous line (what they rasterise to
+  anyway, and what AutoCAD's HPMAXLINES fallback does), and the total is budgeted, densest
+  family first. A 10 × 8 m room in AR-SAND, EARTH, GRAVEL or AR-CONC draws in a few
+  milliseconds; the spec asserts under 250 ms for each.
+
+  Import and export were converting wrongly in both directions. DXF stores a pattern line's
+  offset (groups 45/46) as a *vector* rotated to the line angle, with the hatch scale and angle
+  already applied; the registry stores along/perpendicular, unscaled. Import copied the raw
+  values (the un-scaling code that existed was overwritten one line later), so an imported
+  ANSI31 rendered at 2.245 mm instead of 3.175 mm and dense patterns became the "illegible mesh"
+  the old AR-CONC renderer was papering over. Export wrote registry values raw, so a CADO hatch
+  opened skewed in AutoCAD. `patternLinesFromDxf` / `patternLinesToDxf` now convert at the
+  boundary, and the DXF handler spec still checks the raw payload survives untouched. Drawings
+  saved as JSON keep their raw `dxfHatch` payload, so they heal on load; JSON saved without one
+  keeps whatever it had.
+
+  The pattern picker lists every pattern and scrolls inside the menu.
 * **Admin detail pages crashed instead of loading.** `/admin/users/:id` and
   `/admin/feedback/:id` read their required route input from the constructor, which runs
   *before* `withComponentInputBinding()` has set it — so both threw NG0950 and rendered a

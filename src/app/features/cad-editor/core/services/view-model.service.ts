@@ -224,6 +224,20 @@ export class ViewModelService {
     return { x: (sx - this.panX - this.vpCenterX) / this.scale, y: -(sy - this.panY - this.vpCenterY) / this.scale };
   }
 
+  /**
+   * World-space rectangle the canvas currently shows, or null before it has a
+   * size. Hatch rendering clips its pattern lines to this so a room-sized
+   * hatch costs what is on screen, not what exists: the dash count of a fine
+   * pattern over a whole drawing is what used to freeze the page.
+   */
+  visibleWorldRect(): { x: number; y: number; w: number; h: number } | null {
+    const w = this.canvasWidth, h = this.canvasHeight;
+    if (!w || !h) return null;
+    const a = this.s2w(0, 0);
+    const b = this.s2w(w, h);
+    return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
+  }
+
   zoomAt(factor: number, sx: number, sy: number): void {
     const before = this.s2w(sx, sy);
     this.scale = Math.max(1e-7, Math.min(1e6, this.scale * factor));

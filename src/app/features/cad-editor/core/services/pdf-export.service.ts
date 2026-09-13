@@ -13,7 +13,8 @@ import { catmullRomChain } from '../models/entity-extended.model';
 import { TextLayoutEngine } from '../utils/text-layout-engine';
 import { decodeTextCodes, splitDimensionText } from '../utils/text-control-codes';
 import { DEFAULT_DIM_STYLE } from '../models/dimension-style.model';
-import { HATCH_PATTERNS } from '../registries/hatch-patterns';
+import { HATCH_PATTERNS, resolveHatchPattern } from '../registries/hatch-patterns';
+import { planPatternFamilies } from './hatch-pattern-geometry';
 import { frozenLoopToPolygon } from '../models/hatch-boundary.model';
 
 /**
@@ -455,20 +456,7 @@ export class PdfExportService {
     pdf.setLineWidth(0.08);
     pdf.setLineDashPattern([], 0);
 
-    this.clipToHatchLoops(pdf, loops, () => {
-      if (e.pattern === 'HEX' || e.pattern === 'HONEY') {
-        this.drawHatchHex(pdf, e, w2mm, scaleMm, b);
-      } else if (e.pattern === 'GRAVEL') {
-        this.drawHatchGravel(pdf, e, w2mm, scaleMm, b);
-      } else if (e.customPatternLines?.length) {
-        this.drawHatchCustomLines(pdf, e, w2mm, scaleMm, b);
-      } else {
-        this.drawHatchPatternPass(pdf, e, w2mm, scaleMm, b, e.angle || 0);
-        if (e.doubleHatch) {
-          this.drawHatchPatternPass(pdf, e, w2mm, scaleMm, b, (e.angle || 0) + 90);
-        }
-      }
-    });
+    this.clipToHatchLoops(pdf, loops, () => this.drawHatchPatternLines(pdf, e, w2mm, scaleMm, b, loops));
 
     // Reset dash so subsequent entity drawing starts clean.
     pdf.setLineDashPattern([], 0);
@@ -495,296 +483,83 @@ export class PdfExportService {
   }
 
   /**
-   * Generate one pass of parallel pattern lines from the HATCH_PATTERNS registry
-   * in paper-mm space. Mirrors HatchRendererService.drawPatternPass().
+   * Stroke the pattern families inside the clipped hatch loops.
+   *
+   * Geometry comes from `planPatternFamilies`, the same planner the canvas
+   * renderer uses, so screen and paper agree on spacing, dash phase and the
+   * row stagger that `dx` produces. Paper has no pixels: a printed hairline
+   * resolves to about 0.1 mm, so that is the "pixel" the density fallbacks
+   * work in — a family spaced closer than 0.1 mm on paper is painted as a
+   * translucent fill of the boundary, sub-0.2 mm dashes as a lightened
+   * continuous line. HEX, HONEY, GRAVEL and AR-CONC are ordinary line
+   * definitions again, exactly as acadiso.pat states them.
    */
-  private drawHatchPatternPass(
+  private drawHatchPatternLines(
     pdf: jsPDF,
     e: any,
     w2mm: W2mm,
     scaleMm: number,
     bbox: { x: number; y: number; w: number; h: number },
-    currentAngle: number,
+    loops: Pt[][],
   ): void {
-    const pat = HATCH_PATTERNS[e.pattern] ?? HATCH_PATTERNS['ANSI31'];
-    const scale = Math.max(0.01, e.scale || 1);
-    const globalAngleRad = (currentAngle * Math.PI) / 180;
-    const diag = Math.hypot(bbox.w, bbox.h) * 2 + 4;
-    const cx = bbox.x + bbox.w / 2;
-    const cy = bbox.y + bbox.h / 2;
-    const MAX_LINES = 2000;
+    const lines = e.customPatternLines?.length
+      ? e.customPatternLines
+      : (resolveHatchPattern(e.pattern) ?? HATCH_PATTERNS['ANSI31']).lines;
+    if (!lines.length) return;
 
-    for (const lineDef of pat.lines) {
-      const rad = (lineDef.angle * Math.PI) / 180 + globalAngleRad;
-      const cosA = Math.cos(rad);
-      const sinA = Math.sin(rad);
-
-      let x0 = lineDef.x0 * scale;
-      let y0 = lineDef.y0 * scale;
-      if (globalAngleRad !== 0) {
-        const rx0 = x0 * Math.cos(globalAngleRad) - y0 * Math.sin(globalAngleRad);
-        const ry0 = x0 * Math.sin(globalAngleRad) + y0 * Math.cos(globalAngleRad);
-        x0 = rx0; y0 = ry0;
-      }
-      x0 += (e.originX || 0);
-      y0 += (e.originY || 0);
-
-      const spacing = lineDef.dy * scale;
-      const shift   = lineDef.dx * scale;
-
-      // Dash lengths: pattern units × hatch-scale × world-to-mm factor.
-      if (lineDef.dashArray?.length) {
-        pdf.setLineDashPattern(
-          lineDef.dashArray.map((v: number) => Math.abs(v) * scale * scaleMm),
-          0,
-        );
-      } else {
-        pdf.setLineDashPattern([], 0);
-      }
-
-      if (spacing < 0.001) {
-        const lx1 = cx - cosA * diag, ly1 = cy - sinA * diag;
-        const lx2 = cx + cosA * diag, ly2 = cy + sinA * diag;
-        const p1 = w2mm(lx1, ly1), p2 = w2mm(lx2, ly2);
-        pdf.moveTo(p1.x, p1.y);
-        pdf.lineTo(p2.x, p2.y);
-      } else {
-        const centerNormalDist = (cx - x0) * (-sinA) + (cy - y0) * cosA;
-        const halfRange = diag / 2;
-        const startI = Math.floor((centerNormalDist - halfRange) / spacing) - 1;
-        const endI   = Math.ceil((centerNormalDist + halfRange) / spacing) + 1;
-        const lineCount = endI - startI + 1;
-        const step = lineCount > MAX_LINES ? Math.ceil(lineCount / MAX_LINES) : 1;
-
-        for (let i = startI; i <= endI; i += step) {
-          const perpDist  = i * spacing;
-          const shiftDist = i * shift;
-          const px = x0 - sinA * perpDist + cosA * shiftDist;
-          const py = y0 + cosA * perpDist + sinA * shiftDist;
-          const lx1 = px - cosA * diag, ly1 = py - sinA * diag;
-          const lx2 = px + cosA * diag, ly2 = py + sinA * diag;
-          const p1 = w2mm(lx1, ly1), p2 = w2mm(lx2, ly2);
-          pdf.moveTo(p1.x, p1.y);
-          pdf.lineTo(p2.x, p2.y);
-        }
-      }
-      pdf.stroke();
-    }
-    pdf.setLineDashPattern([], 0);
-  }
-
-  /**
-   * Draw DXF-embedded custom pattern definition lines.
-   * Mirrors HatchRendererService.drawCustomPatternLines().
-   */
-  private drawHatchCustomLines(
-    pdf: jsPDF,
-    e: any,
-    w2mm: W2mm,
-    scaleMm: number,
-    bbox: { x: number; y: number; w: number; h: number },
-  ): void {
-    const scale = Math.max(0.01, e.scale || 1);
-    const globalAngleRad = ((e.angle || 0) * Math.PI) / 180;
-    const diag = Math.hypot(bbox.w, bbox.h) * 2 + 4;
-    const cx = bbox.x + bbox.w / 2;
-    const cy = bbox.y + bbox.h / 2;
-    const MAX_LINES = 2000;
-
-    for (const lineDef of e.customPatternLines as Array<{ angle: number; x0: number; y0: number; dx: number; dy: number; dashArray: number[] }>) {
-      const rad = (lineDef.angle * Math.PI) / 180 + globalAngleRad;
-      const cosA = Math.cos(rad);
-      const sinA = Math.sin(rad);
-
-      let x0 = lineDef.x0 * scale;
-      let y0 = lineDef.y0 * scale;
-      if (globalAngleRad !== 0) {
-        const rx0 = x0 * Math.cos(globalAngleRad) - y0 * Math.sin(globalAngleRad);
-        const ry0 = x0 * Math.sin(globalAngleRad) + y0 * Math.cos(globalAngleRad);
-        x0 = rx0; y0 = ry0;
-      }
-      x0 += (e.originX || 0);
-      y0 += (e.originY || 0);
-
-      const spacing = Math.abs(lineDef.dy) * scale;
-      const shift   = lineDef.dx * scale;
-
-      if (lineDef.dashArray?.length) {
-        pdf.setLineDashPattern(
-          lineDef.dashArray.map((v: number) => Math.abs(v) * scale * scaleMm),
-          0,
-        );
-      } else {
-        pdf.setLineDashPattern([], 0);
-      }
-
-      if (spacing < 0.001) {
-        const lx1 = cx - cosA * diag, ly1 = cy - sinA * diag;
-        const lx2 = cx + cosA * diag, ly2 = cy + sinA * diag;
-        const p1 = w2mm(lx1, ly1), p2 = w2mm(lx2, ly2);
-        pdf.moveTo(p1.x, p1.y);
-        pdf.lineTo(p2.x, p2.y);
-      } else {
-        const centerNormalDist = (cx - x0) * (-sinA) + (cy - y0) * cosA;
-        const halfRange = diag / 2;
-        const startI = Math.floor((centerNormalDist - halfRange) / spacing) - 1;
-        const endI   = Math.ceil((centerNormalDist + halfRange) / spacing) + 1;
-        const lineCount = endI - startI + 1;
-        const step = lineCount > MAX_LINES ? Math.ceil(lineCount / MAX_LINES) : 1;
-
-        for (let i = startI; i <= endI; i += step) {
-          const perpDist  = i * spacing;
-          const shiftDist = i * shift;
-          const px = x0 - sinA * perpDist + cosA * shiftDist;
-          const py = y0 + cosA * perpDist + sinA * shiftDist;
-          const lx1 = px - cosA * diag, ly1 = py - sinA * diag;
-          const lx2 = px + cosA * diag, ly2 = py + sinA * diag;
-          const p1 = w2mm(lx1, ly1), p2 = w2mm(lx2, ly2);
-          pdf.moveTo(p1.x, p1.y);
-          pdf.lineTo(p2.x, p2.y);
-        }
-      }
-      pdf.stroke();
-    }
-    pdf.setLineDashPattern([], 0);
-  }
-
-  /**
-   * Draw a hexagonal / honeycomb pattern in paper-mm space.
-   * The clip region is already active when this is called.
-   * Mirrors HatchRendererService.drawHexagonalPattern().
-   */
-  private drawHatchHex(
-    pdf: jsPDF,
-    e: any,
-    w2mm: W2mm,
-    _scaleMm: number,
-    bbox: { x: number; y: number; w: number; h: number },
-  ): void {
-    const scale = Math.max(0.01, e.scale || 1) * 10;
-    const globalAngleRad = (e.angle || 0) * Math.PI / 180;
-    const isHoney = e.pattern === 'HONEY';
-    const radius   = isHoney ? scale * 0.5 : scale * 1.2;
-    const hSpacing = radius * 2 * 0.75;
-    const vSpacing = Math.sqrt(3) * radius;
-
-    let uMinX = Infinity, uMaxX = -Infinity, uMinY = Infinity, uMaxY = -Infinity;
-    for (const pt of [
-      { x: bbox.x,          y: bbox.y          },
-      { x: bbox.x + bbox.w, y: bbox.y          },
-      { x: bbox.x,          y: bbox.y + bbox.h },
-      { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
-    ]) {
-      const urx = pt.x * Math.cos(-globalAngleRad) - pt.y * Math.sin(-globalAngleRad);
-      const ury = pt.x * Math.sin(-globalAngleRad) + pt.y * Math.cos(-globalAngleRad);
-      uMinX = Math.min(uMinX, urx); uMaxX = Math.max(uMaxX, urx);
-      uMinY = Math.min(uMinY, ury); uMaxY = Math.max(uMaxY, ury);
-    }
-
-    const startC = Math.floor(uMinX / hSpacing) - 1;
-    const endC   = Math.ceil(uMaxX  / hSpacing) + 1;
-    const startR = Math.floor(uMinY / vSpacing) - 1;
-    const endR   = Math.ceil(uMaxY  / vSpacing) + 1;
-    const drawRadius = isHoney ? radius : radius * 0.8;
-
-    for (let c = startC; c <= endC; c++) {
-      for (let r = startR; r <= endR; r++) {
-        let hcx = c * hSpacing;
-        let hcy = r * vSpacing;
-        if (Math.abs(c) % 2 === 1) hcy += vSpacing / 2;
-        for (let i = 0; i <= 6; i++) {
-          const theta = (i * 60) * Math.PI / 180;
-          const vx  = hcx + drawRadius * Math.cos(theta);
-          const vy  = hcy + drawRadius * Math.sin(theta);
-          const rvx = vx * Math.cos(globalAngleRad) - vy * Math.sin(globalAngleRad);
-          const rvy = vx * Math.sin(globalAngleRad) + vy * Math.cos(globalAngleRad);
-          const spt = w2mm(rvx, rvy);
-          if (i === 0) pdf.moveTo(spt.x, spt.y);
-          else         pdf.lineTo(spt.x, spt.y);
-        }
-      }
-    }
-    pdf.stroke();
-  }
-
-  /**
-   * Draw a gravel / random-polygon pattern in paper-mm space.
-   * The clip region is already active when this is called.
-   * Mirrors HatchRendererService.drawGravelPattern() using polylines
-   * (straight edges) since jsPDF does not expose quadraticCurveTo.
-   */
-  private drawHatchGravel(
-    pdf: jsPDF,
-    e: any,
-    w2mm: W2mm,
-    _scaleMm: number,
-    bbox: { x: number; y: number; w: number; h: number },
-  ): void {
-    const scale = Math.max(0.01, e.scale || 1) * 10;
-    const globalAngleRad = (e.angle || 0) * Math.PI / 180;
-    const gridSize = scale * 2.5;
-
-    let uMinX = Infinity, uMaxX = -Infinity, uMinY = Infinity, uMaxY = -Infinity;
-    for (const pt of [
-      { x: bbox.x,          y: bbox.y          },
-      { x: bbox.x + bbox.w, y: bbox.y          },
-      { x: bbox.x,          y: bbox.y + bbox.h },
-      { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
-    ]) {
-      const urx = pt.x * Math.cos(-globalAngleRad) - pt.y * Math.sin(-globalAngleRad);
-      const ury = pt.x * Math.sin(-globalAngleRad) + pt.y * Math.cos(-globalAngleRad);
-      uMinX = Math.min(uMinX, urx); uMaxX = Math.max(uMaxX, urx);
-      uMinY = Math.min(uMinY, ury); uMaxY = Math.max(uMaxY, ury);
-    }
-
-    let startC = Math.floor(uMinX / gridSize) - 1;
-    let endC   = Math.ceil(uMaxX  / gridSize) + 1;
-    let startR = Math.floor(uMinY / gridSize) - 1;
-    let endR   = Math.ceil(uMaxY  / gridSize) + 1;
-
-    // Adaptive LOD: cap total cells to avoid generating huge PDFs.
-    const cellCount = (endC - startC) * (endR - startR);
-    if (cellCount > 2000) {
-      const lodFactor = Math.ceil(Math.sqrt(cellCount / 2000));
-      const ag = gridSize * lodFactor;
-      startC = Math.floor(uMinX / ag) - 1; endC = Math.ceil(uMaxX / ag) + 1;
-      startR = Math.floor(uMinY / ag) - 1; endR = Math.ceil(uMaxY / ag) + 1;
-    }
-
-    const mulberry32 = (a: number) => () => {
-      let t = (a += 0x6D2B79F5);
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    const xf = {
+      scale: e.scale || 1,
+      angleDeg: e.angle || 0,
+      originX: e.originX || 0,
+      originY: e.originY || 0,
     };
+    const PAPER_PIXEL_MM = 0.1;
+    const opts = { clip: bbox, pixelsPerUnit: scaleMm / PAPER_PIXEL_MM, segmentBudget: 400_000 };
+    let plans = planPatternFamilies(lines, xf, opts);
+    if (e.doubleHatch) {
+      plans = plans.concat(planPatternFamilies(lines, { ...xf, angleDeg: xf.angleDeg + 90 }, opts));
+    }
 
-    for (let c = startC; c <= endC; c++) {
-      for (let r = startR; r <= endR; r++) {
-        const seed = (Math.imul(c, 31337) ^ Math.imul(r, 1103515245)) >>> 0;
-        const rand = mulberry32(seed);
-        const pcx = (c + 0.1 + rand() * 0.8) * gridSize;
-        const pcy = (r + 0.1 + rand() * 0.8) * gridSize;
-        const numPoints  = 6 + Math.floor(rand() * 6);
-        const baseRadius = scale * (0.4 + rand() * 0.6);
-        const randomness = 0.5;
-
-        const points: Pt[] = [];
-        for (let i = 0; i < numPoints; i++) {
-          const theta = (i / numPoints) * Math.PI * 2;
-          const pr  = baseRadius * (1.0 + (rand() - 0.5) * randomness);
-          const vx  = pcx + pr * Math.cos(theta);
-          const vy  = pcy + pr * Math.sin(theta);
-          const rvx = vx * Math.cos(globalAngleRad) - vy * Math.sin(globalAngleRad);
-          const rvy = vx * Math.sin(globalAngleRad) + vy * Math.cos(globalAngleRad);
-          points.push(w2mm(rvx, rvy));
-        }
-        if (points.length > 2) {
-          pdf.moveTo(points[0].x, points[0].y);
-          for (let i = 1; i < points.length; i++) pdf.lineTo(points[i].x, points[i].y);
-          pdf.close();
-          pdf.stroke();
-        }
+    for (const fam of plans) {
+      if (fam.mode === 'fill') {
+        this.withOpacity(pdf, fam.fillAlpha, () => fillHatchLoops(pdf, loops));
+        continue;
       }
+      const strokeFamily = () => {
+        // A zero-length dash only prints with round caps — that is a .pat dot.
+        pdf.setLineCap(fam.hasDots ? 'round' : 'butt');
+        if (fam.dash) {
+          pdf.setLineDashPattern(fam.dash.map((v) => v * scaleMm), fam.dashOffset * scaleMm);
+        } else {
+          pdf.setLineDashPattern([], 0);
+        }
+        // Each segment starts on a dash-period boundary of its own line, so
+        // one phase serves the whole family and it strokes as a single path.
+        for (const s of fam.segments) {
+          const a = w2mm(s.x1, s.y1);
+          const b = w2mm(s.x2, s.y2);
+          pdf.moveTo(a.x, a.y);
+          pdf.lineTo(b.x, b.y);
+        }
+        pdf.stroke();
+      };
+      if (fam.fillAlpha < 1) this.withOpacity(pdf, fam.fillAlpha, strokeFamily);
+      else strokeFamily();
+    }
+    pdf.setLineDashPattern([], 0);
+    pdf.setLineCap('butt');
+  }
+
+  /** Run `fn` at the given constant alpha when this jsPDF build exposes GState. */
+  private withOpacity(pdf: jsPDF, alpha: number, fn: () => void): void {
+    const P = pdf as any;
+    if (alpha < 1 && P.GState && P.setGState) {
+      pdf.saveGraphicsState();
+      P.setGState(new P.GState({ opacity: alpha, 'stroke-opacity': alpha }));
+      fn();
+      pdf.restoreGraphicsState();
+    } else {
+      fn();
     }
   }
 

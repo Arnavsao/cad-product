@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import type { Entity, IPoint } from '../models/entity.model';
 import type { DxfFile } from '../models/layer.model';
 import { HatchEntity, InsertEntity } from '../models/entity-extended.model';
-import { HATCH_PATTERNS } from '../registries/hatch-patterns';
+import { resolveHatchPattern, patternLinesToDxf } from '../registries/hatch-patterns';
 import { DocumentService } from './document.service';
 import { translateEntitiesInPlace } from '../../tools/geometry-utils';
 import { attDefToDxf, attribToDxf } from '../models/block-attribute.model';
@@ -563,14 +563,22 @@ export class ExportService {
     s += `41\n${hatch.scale || 1}\n`;     // pattern scale
     s += `77\n${hatch.doubleHatch ? 1 : 0}\n`;
 
-    // Pattern definition lines (group 78 = count; then per-line data)
-    const patDef = !solid ? HATCH_PATTERNS[hatch.pattern] : null;
+    // Pattern definition lines (group 78 = count; then per-line data).
+    // Preserved lines are the file's own, already in DXF form. Anything from
+    // the registry or a normalised custom definition is in .pat form —
+    // unscaled, unrotated, along/perpendicular offsets — and AutoCAD expects
+    // the stored lines scaled and rotated with the offset as a vector, so
+    // convert here; writing .pat values raw made every exported hatch open
+    // in AutoCAD at the wrong spacing and skewed.
     const patLines = !solid
       ? (preserved?.pattern.definitionLines?.length
           ? preserved.pattern.definitionLines
-          : hatch.customPatternLines?.length
-            ? hatch.customPatternLines
-            : patDef?.lines ?? [])
+          : patternLinesToDxf(
+              hatch.customPatternLines?.length
+                ? hatch.customPatternLines
+                : resolveHatchPattern(hatch.pattern)?.lines ?? [],
+              hatch.scale || 1, hatch.angle || 0, hatch.originX || 0, hatch.originY || 0,
+            ))
       : [];
     s += `78\n${patLines.length}\n`;
     for (const line of patLines) {

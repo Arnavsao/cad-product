@@ -167,6 +167,34 @@ export const envSchema = z.object({
    * or commit SHA at build time. Optional: a local run reports "dev".
    */
   APP_VERSION: optionalString,
+  /**
+   * Require a verified second factor (`aal2`) for ADMIN and OWNER routes.
+   *
+   * Off by default, and deliberately so: switching it on before the staff who
+   * hold those tiers have actually enrolled a factor locks them out of the
+   * portal, with no way back in except this variable. Enrol first, then set it.
+   */
+  ADMIN_REQUIRE_MFA: boolFromString.default(false),
+  /**
+   * Optional comma-separated list of IPs or CIDR-less prefixes allowed to reach
+   * `/admin`. Empty means no restriction, which is the right default for a team
+   * that works from anywhere.
+   *
+   * A prefix match, not a CIDR parser: `203.0.113.` covers a /24 clearly enough
+   * for an allowlist, and a half-correct CIDR implementation in an access
+   * control is worse than none.
+   */
+  ADMIN_IP_ALLOWLIST: z.preprocess(blankToUndefined, z.string().trim().optional()).transform((value) =>
+    value ? splitCsv(value) : [],
+  ),
+  /**
+   * Shared secret the scheduler presents when triggering a job over HTTP.
+   *
+   * The cron has no staff account, so it cannot hold a tier; this is what lets
+   * `POST /admin/system/jobs/:name/run` accept an unattended call. Unset means
+   * only a signed-in OWNER can run a job by hand.
+   */
+  JOB_RUNNER_TOKEN: optionalString,
 
   // --- Limits -------------------------------------------------------------
   /**

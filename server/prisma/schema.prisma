@@ -199,6 +199,8 @@ model User {
   auditEntries     AuditLog[]       @relation("AuditActor")
   flagsUpdated     FeatureFlag[]    @relation("FlagEditor")
   announcements    Announcement[]   @relation("AnnouncementAuthor")
+  campaigns        EmailCampaign[]  @relation("CampaignAuthor")
+  jobRuns          JobRun[]         @relation("JobTrigger")
 
   @@index([email])
   @@index([platformRole])
@@ -729,4 +731,106 @@ model Announcement {
 
   @@index([publishedAt, startsAt, endsAt])
   @@map("announcements")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — launch operations: campaigns, suppression and scheduled jobs.
+// ---------------------------------------------------------------------------
+
+/// Lifecycle of one bulk email send.
+enum CampaignStatus {
+  DRAFT   @map("draft")
+  SENDING @map("sending")
+  SENT    @map("sent")
+  FAILED  @map("failed")
+
+  @@map("campaign_status")
+}
+
+/// Outcome of one scheduled job run.
+enum JobStatus {
+  RUNNING   @map("running")
+  SUCCEEDED @map("succeeded")
+  FAILED    @map("failed")
+
+  @@map("job_status")
+}
+
+/// One bulk email to a chosen audience.
+///
+/// Progress lives on the row (`total`, `sent`, `failed`) rather than being
+/// derived, because a send is a long-running side effect with no transaction to
+/// roll back: if the process dies halfway, the row is the only record of how far
+/// it got and who has already been written to.
+model EmailCampaign {
+  id String @id @default(cuid())
+
+  subject  String
+  /// Plain-text body. Paragraphs split on blank lines when rendered.
+  bodyText String @map("body_text")
+
+  /// `{ plans?: BillingPlan[], onlyActive?: boolean }`; null means everybody.
+  audience Json?
+
+  status CampaignStatus @default(DRAFT)
+  /// Recipients resolved when the send started. Fixed at that moment on
+  /// purpose: an audience that grows mid-send must not extend the run.
+  total  Int            @default(0)
+  sent   Int            @default(0)
+  failed Int            @default(0)
+
+  createdById String    @map("created_by_id")
+  createdBy   User      @relation("CampaignAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@map("email_campaigns")
+}
+
+/// Addresses that must never receive bulk email again.
+///
+/// Keyed by address rather than by user: somebody who unsubscribes before they
+/// have an account, or after deleting one, still must not be written to. This
+/// is checked on every campaign recipient and is deliberately NOT checked for
+/// transactional mail — a share notification or a support reply is not
+/// marketing, and suppressing those would break the product.
+model EmailSuppression {
+  email     String   @id
+  /// `unsubscribed` | `bounced` | `complained` | `manual`.
+  reason    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("email_suppressions")
+}
+
+/// History of one scheduled housekeeping run.
+///
+/// Exists so "did the trash purge run last night" has an answer that is not a
+/// log search. A row is written when the run STARTS, so a job that dies without
+/// finishing leaves a `RUNNING` row older than its timeout — which is how a
+/// stuck job is detected at all.
+model JobRun {
+  id String @id @default(cuid())
+
+  /// Registry key, e.g. `trash.purge`. Not an enum: the registry is code.
+  name   String
+  status JobStatus @default(RUNNING)
+
+  /// What the run did, shaped by the job: `{ deleted: 12, bytesFreed: 4096 }`.
+  summary Json?
+  error   String?
+
+  /// Null when the scheduler triggered it; set when a person pressed Run.
+  triggeredById String? @map("triggered_by_id")
+  triggeredBy   User?   @relation("JobTrigger", fields: [triggeredById], references: [id], onDelete: SetNull)
+
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+
+  @@index([name, startedAt])
+  @@index([status, startedAt])
+  @@map("job_runs")
 }

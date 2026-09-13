@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { QuotaModule } from '../billing/quota/quota.module';
 import { FoldersModule } from '../folders/folders.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { StorageModule } from '../storage/storage.module';
@@ -15,12 +16,16 @@ import { UploadsController } from './uploads.controller';
  * only point this way — folders and organizations know nothing about drawings —
  * so there is no module cycle.
  *
+ * `QuotaModule` enforces the published plan limits on every create path. It is
+ * a no-op unless an owner has switched `billing.enforceQuotas` on, so importing
+ * it changes nothing about how this module behaves today.
+ *
  * `UploadsController` is registered first purely for readability; both of its
  * routes are absolute (`uploads/presign`, `drawings/import`) and neither
  * collides with `DrawingsController`'s `:id` patterns.
  */
 @Module({
-  imports: [StorageModule, FoldersModule, OrganizationsModule],
+  imports: [StorageModule, FoldersModule, OrganizationsModule, QuotaModule],
   controllers: [UploadsController, DrawingsController],
   providers: [DrawingsService],
   exports: [DrawingsService],

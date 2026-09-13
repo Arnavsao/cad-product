@@ -11,7 +11,9 @@ export function isBackendRequest(url: string): boolean {
   return !!base && url.startsWith(base);
 }
 
-const PUBLIC_SITE_PATHS = ['/product', '/features', '/use-cases', '/pricing', '/docs', '/about', '/contact', '/whats-new', '/terms', '/privacy'];
+// `/unsubscribe` is here because the link is clicked by people who have often
+// stopped signing in; bouncing them to a sign-in form would defeat the point.
+const PUBLIC_SITE_PATHS = ['/product', '/features', '/use-cases', '/pricing', '/docs', '/about', '/contact', '/whats-new', '/terms', '/privacy', '/unsubscribe'];
 
 /**
  * 403 codes that describe the ACCOUNT rather than the request.

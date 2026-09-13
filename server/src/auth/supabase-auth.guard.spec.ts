@@ -103,6 +103,15 @@ describe('SupabaseAuthGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toMatchObject({ code: 'INVALID_TOKEN' });
   });
 
+  it('carries an aal2 claim onto the principal, for AdminGuard to read', async () => {
+    verify.mockResolvedValue({ sub: AUTH_ID, session_id: 'sess-1', aal: 'aal2' });
+    users.ensureLocalUser.mockResolvedValue(LOCAL_USER);
+    const { ctx, req } = contextFor({ headers: { authorization: 'Bearer good' } });
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(req.user?.aal).toBe('aal2');
+  });
+
   it('valid token → lazily ensures the local user and attaches req.user', async () => {
     verify.mockResolvedValue({ sub: AUTH_ID, session_id: 'sess-1' });
     users.ensureLocalUser.mockResolvedValue(LOCAL_USER);
@@ -110,7 +119,16 @@ describe('SupabaseAuthGuard', () => {
 
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(users.ensureLocalUser).toHaveBeenCalledWith(AUTH_ID, { sub: AUTH_ID, session_id: 'sess-1' });
-    expect(req.user).toEqual({ id: LOCAL_USER.id, authId: AUTH_ID, email: 'dev@example.com', sessionId: 'sess-1', record: LOCAL_USER });
+    expect(req.user).toEqual({
+      id: LOCAL_USER.id,
+      authId: AUTH_ID,
+      email: 'dev@example.com',
+      sessionId: 'sess-1',
+      // A token from a project without MFA carries no `aal` claim, and the
+      // guard must record that as aal1 rather than leaving it undefined.
+      aal: 'aal1',
+      record: LOCAL_USER,
+    });
   });
 
   it('accepts the { data } result style too', async () => {
@@ -162,7 +180,16 @@ describe('SupabaseAuthGuard', () => {
       const { ctx, req } = optionalContext({ headers: { authorization: 'Bearer good' } });
 
       await expect(guard.canActivate(ctx)).resolves.toBe(true);
-      expect(req.user).toEqual({ id: LOCAL_USER.id, authId: AUTH_ID, email: 'dev@example.com', sessionId: 'sess-1', record: LOCAL_USER });
+      expect(req.user).toEqual({
+      id: LOCAL_USER.id,
+      authId: AUTH_ID,
+      email: 'dev@example.com',
+      sessionId: 'sess-1',
+      // A token from a project without MFA carries no `aal` claim, and the
+      // guard must record that as aal1 rather than leaving it undefined.
+      aal: 'aal1',
+      record: LOCAL_USER,
+    });
     });
 
     it('treats an invalid or expired token as anonymous rather than 401', async () => {

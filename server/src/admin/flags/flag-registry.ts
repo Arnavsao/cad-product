@@ -59,6 +59,13 @@ export const FLAG_REGISTRY = {
     payload: { text: '', level: 'info' },
     group: 'messaging',
   },
+  'billing.enforceQuotas': {
+    description:
+      'Enforce the published plan limits (Free: 3 drawings, 50 MB). OFF by default — turning it on ' +
+      'changes behaviour for accounts already over the limit, so decide deliberately.',
+    enabled: false,
+    group: 'billing',
+  },
   'billing.checkout.enabled': {
     description: 'Offer paid checkout on the pricing page.',
     enabled: true,

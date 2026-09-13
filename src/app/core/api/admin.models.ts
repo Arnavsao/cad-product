@@ -185,6 +185,99 @@ export interface PublicAnnouncementDto {
   linkUrl: string | null;
 }
 
+// --- Phase 3: billing console, campaigns, scheduled jobs ---------------------
+
+export interface BillingSummaryDto {
+  /** Approximate: computed from display prices, not from what Dodo charged. */
+  approximateMrr: number;
+  currency: string;
+  byPlan: Record<string, number>;
+  paying: number;
+  trialing: number;
+  pastDue: number;
+  cancelled: number;
+  grants: number;
+  unprocessedWebhooks: number;
+  catalog: { mode: 'off' | 'test' | 'live'; sellable: string[]; webhookConfigured: boolean };
+}
+
+export interface AdminSubscriptionRowDto {
+  userId: string;
+  email: string;
+  plan: string;
+  status: string;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  overridePlan: string | null;
+  dodoSubscriptionId: string | null;
+  createdAt: string;
+}
+
+export interface AdminWebhookRowDto {
+  id: string;
+  type: string;
+  processedAt: string | null;
+  error: string | null;
+  receivedAt: string;
+}
+
+export type CampaignStatus = 'draft' | 'sending' | 'sent' | 'failed';
+
+export interface AdminCampaignDto {
+  id: string;
+  subject: string;
+  bodyText: string;
+  audience: { plans?: string[]; onlyActive?: boolean } | null;
+  status: CampaignStatus;
+  total: number;
+  sent: number;
+  failed: number;
+  createdByEmail: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+export interface AudiencePreviewDto {
+  recipients: number;
+  suppressed: number;
+  sample: string[];
+}
+
+export interface SuppressionDto {
+  email: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface JobStatusDto {
+  name: string;
+  description: string;
+  suggestedCron: string;
+  destructive: boolean;
+  lastRun: {
+    id: string;
+    status: string;
+    summary: unknown;
+    error: string | null;
+    startedAt: string;
+    finishedAt: string | null;
+    /** Still running past its timeout: the job died without finishing. */
+    stuck: boolean;
+  } | null;
+}
+
+export interface JobRunDto {
+  id: string;
+  name: string;
+  status: string;
+  summary: unknown;
+  error: string | null;
+  triggeredById: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
 /** A flag as the public `GET /flags` reports it. */
 export interface FlagDto {
   key: string;

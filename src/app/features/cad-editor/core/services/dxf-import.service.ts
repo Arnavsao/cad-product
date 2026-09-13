@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { patternLinesFromDxf } from '../registries/hatch-patterns';
 import DxfParser from 'dxf-parser';
 import { DxfFile, Layer } from '../models/layer.model';
 import {
@@ -469,6 +470,10 @@ export class DxfImportService {
             if (ent.gradientColor1) h.gradientColor1 = ent.gradientColor1;
             if (ent.gradientColor2) h.gradientColor2 = ent.gradientColor2;
             if (ent.gradientAngle != null) h.gradientAngle = ent.gradientAngle;
+            // JSON carries `customPatternLines` in registry form (unscaled,
+            // along/perpendicular). When the raw DXF payload is present too,
+            // `applyDxfHatchData` below re-derives them from it, which also
+            // heals files saved while the import stored raw DXF values here.
             if (Array.isArray(ent.patternDefinitionLines) && ent.patternDefinitionLines.length) {
               h.customPatternLines = ent.patternDefinitionLines.map((line: any) => ({
                 angle: line.angle ?? 0,
@@ -969,10 +974,14 @@ export class DxfImportService {
             if (ent.gradientColor2) e.gradientColor2 = ent.gradientColor2;
             else if (ent.gradientColor2Idx !== undefined) e.gradientColor2 = DXF_ACI_COLORS[ent.gradientColor2Idx];
 
-            // Store DXF-embedded custom pattern definition lines so the renderer
-            // can draw patterns not in the built-in registry.
-            if (Array.isArray(ent.patternDefinitionLines) && ent.patternDefinitionLines.length > 0) {
-              e.customPatternLines = ent.patternDefinitionLines;
+            // DXF-embedded pattern definition lines let the renderer draw
+            // patterns the registry lacks. `applyDxfHatchData` already set them
+            // from the typed payload; this is the fallback for the bare parser
+            // shape, and the raw values need the same normalisation (AutoCAD
+            // writes them scaled, rotated, with vector offsets).
+            if (!e.customPatternLines?.length
+                && Array.isArray(ent.patternDefinitionLines) && ent.patternDefinitionLines.length > 0) {
+              e.customPatternLines = patternLinesFromDxf(ent.patternDefinitionLines, e.scale, e.angle);
             }
 
             // Hatch style (Normal=0, Outer=1, Ignore=2)
@@ -1706,17 +1715,7 @@ function applyDxfHatchData(hatch: HatchEntity, source: IDxfHatchData): void {
   // a few lines below this, not before it.
   const srcScale = source.pattern?.scale, srcAngle = source.pattern?.angle ?? 0;
   if (!source.pattern?.solidFill && !hatch.isSolid && Array.isArray(defs) && defs.length) {
-    const scale = srcScale && srcScale > 0 ? srcScale : 1;
-    const angRad = (srcAngle * Math.PI) / 180;
-    const cos = Math.cos(-angRad), sin = Math.sin(-angRad);
-    hatch.customPatternLines = defs.map((l) => ({
-      angle: l.angle - srcAngle,
-      x0: (l.x0 * cos - l.y0 * sin) / scale,
-      y0: (l.x0 * sin + l.y0 * cos) / scale,
-      dx: l.dx / scale,
-      dy: l.dy / scale,
-      dashArray: l.dashArray.map((d) => d / scale),
-    }));
+    hatch.customPatternLines = patternLinesFromDxf(defs, srcScale && srcScale > 0 ? srcScale : 1, srcAngle);
   }
   hatch.pattern = source.pattern.name;
   hatch.scale = source.pattern.scale;
@@ -1724,7 +1723,6 @@ function applyDxfHatchData(hatch: HatchEntity, source: IDxfHatchData): void {
   hatch.solid = source.pattern.solidFill;
   hatch.associative = source.pattern.associative;
   hatch.doubleHatch = source.pattern.double;
-  hatch.customPatternLines = source.pattern.definitionLines.map((line) => ({ ...line, dashArray: [...line.dashArray] }));
   hatch.hatchStyle = source.pattern.style === 1 ? 'Outer' : source.pattern.style === 2 ? 'Ignore' : 'Normal';
   hatch.patternType = source.pattern.type === 0 ? 'User-defined' : source.pattern.type === 2 ? 'Custom' : 'Predefined';
 
