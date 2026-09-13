@@ -3,6 +3,7 @@ import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -101,6 +102,25 @@ export class StorageService {
     this.client = new S3Client(base);
     this.presignClient =
       this.publicEndpoint === this.endpoint ? this.client : new S3Client({ ...base, endpoint: this.publicEndpoint });
+  }
+
+  /**
+   * True when the bucket answers a HEAD.
+   *
+   * Used by the admin System page, which has to tell "storage is down" apart
+   * from "this one object is missing". A HEAD on the bucket is the cheapest
+   * call that proves credentials, endpoint and bucket name are all right;
+   * failures are returned as `false`, never thrown, because the caller is a
+   * status display.
+   */
+  async healthy(): Promise<boolean> {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      return true;
+    } catch (error) {
+      this.logger.warn(`Storage health check failed: ${(error as Error).message}`);
+      return false;
+    }
   }
 
   // ---------------------------------------------------------------------------

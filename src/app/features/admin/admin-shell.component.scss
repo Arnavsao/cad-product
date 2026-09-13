@@ -1,0 +1,186 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.adm {
+  display: grid;
+  /* Narrower rail than the dashboard's 290px: this one carries six links and no
+     workspace switcher, so the extra width would be dead space. */
+  grid-template-columns: 232px minmax(0, 1fr);
+  /* 48px, the same header height as the dashboard and the editor, so moving
+     between them does not shift the page. */
+  grid-template-rows: 48px minmax(0, 1fr);
+  height: 100vh;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+
+  &__brand {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--ui-space-4);
+    border-right: 1px solid var(--ui-border);
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface);
+  }
+
+  &__brandLink {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-2);
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+  }
+
+  &__brandName {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* The one piece of chrome that differs from the dashboard, on purpose: a
+     screenshot of this portal must never be mistaken for the product. */
+  &__badge {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-accent);
+    color: var(--ui-accent-contrast, #fff);
+    font-weight: 600;
+  }
+
+  &__top {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-4);
+    padding: 0 var(--ui-space-5);
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface);
+  }
+
+  &__section {
+    font-weight: 600;
+    font-size: var(--ui-text-sm);
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  &__role {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ui-text-dim);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    padding: 2px 8px;
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ui-space-1);
+    font-size: var(--ui-text-sm);
+    color: var(--ui-text-dim);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: var(--ui-radius-sm);
+
+    &:hover {
+      color: var(--ui-text);
+      background: var(--ui-surface-2);
+    }
+  }
+
+  &__nav {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--ui-space-3);
+    border-right: 1px solid var(--ui-border);
+    background: var(--ui-surface);
+    overflow-y: auto;
+  }
+
+  &__navItem {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+    padding: 8px 10px;
+    border-radius: var(--ui-radius-sm);
+    color: var(--ui-text-dim);
+    text-decoration: none;
+    font-size: var(--ui-text-sm);
+
+    &:hover {
+      background: var(--ui-surface-2);
+      color: var(--ui-text);
+    }
+
+    &--active {
+      background: var(--ui-surface-2);
+      color: var(--ui-text);
+      font-weight: 600;
+      /* The rail's only strong accent: it marks where you are, and nothing
+         else in the nav competes with it. */
+      box-shadow: inset 2px 0 0 var(--ui-accent);
+    }
+  }
+
+  &__content {
+    grid-column: 2;
+    grid-row: 2;
+    overflow-y: auto;
+    padding: var(--ui-space-5);
+  }
+}
+
+/* Phone: the rail becomes a scrolling strip above the content. */
+@media (max-width: 720px) {
+  .adm {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 48px auto minmax(0, 1fr);
+
+    &__brand {
+      display: none;
+    }
+
+    &__top {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    &__nav {
+      grid-column: 1;
+      grid-row: 2;
+      flex-direction: row;
+      overflow-x: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--ui-border);
+    }
+
+    &__navItem span {
+      white-space: nowrap;
+    }
+
+    &__content {
+      grid-column: 1;
+      grid-row: 3;
+      padding: var(--ui-space-4);
+    }
+  }
+}

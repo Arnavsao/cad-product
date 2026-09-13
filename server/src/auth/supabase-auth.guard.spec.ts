@@ -5,7 +5,7 @@ import { mintSessionToken, TEST_JWT_SECRET, TEST_SUPABASE_URL, testAuthId } from
 import { OPTIONAL_AUTH_KEY } from '../common/decorators/optional-auth.decorator';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 import { ApiException } from '../common/errors/api-error';
-import type { User } from '../generated/prisma/client';
+import { PlatformRole, type User } from '../generated/prisma/client';
 import { UsersService } from '../users/users.service';
 import type { AuthenticatedRequest } from './auth.types';
 import { extractBearer, SupabaseAuthGuard, type TokenVerifier } from './supabase-auth.guard';
@@ -24,6 +24,10 @@ const LOCAL_USER: User = {
   deletedAt: null,
   createdAt: new Date('2026-01-01T00:00:00Z'),
   updatedAt: new Date('2026-01-01T00:00:00Z'),
+  platformRole: PlatformRole.USER,
+  suspendedAt: null,
+  suspendedReason: null,
+  lastSeenAt: null,
 };
 
 /** Fabricates an ExecutionContext, stamping metadata keys onto the fake handler. */

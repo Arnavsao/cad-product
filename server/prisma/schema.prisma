@@ -88,6 +88,37 @@ enum OrgRole {
   @@map("org_role")
 }
 
+/// Platform-wide staff tier. Deliberately NOT `OrgRole`: that one says what
+/// somebody may do inside one organization, this one says whether they operate
+/// CADO itself. Ordered least- to most-privileged; `admin/admin.guard.ts`
+/// compares by the `PLATFORM_RANK` table there, so a new tier must be inserted
+/// at the right position *and* given a rank.
+///
+/// - `USER`    — everybody. No admin surface at all.
+/// - `SUPPORT` — reads the portal and triages feedback. Changes no accounts.
+/// - `ADMIN`   — suspends and deletes accounts, flips flags, grants plans.
+/// - `OWNER`   — the above plus staff management and billing configuration.
+enum PlatformRole {
+  USER    @map("user")
+  SUPPORT @map("support")
+  ADMIN   @map("admin")
+  OWNER   @map("owner")
+
+  @@map("platform_role")
+}
+
+/// Triage state of one feedback submission. `NEW` is where every submission
+/// lands; the rest are set by staff in the admin portal.
+enum FeedbackStatus {
+  NEW         @map("new")
+  TRIAGED     @map("triaged")
+  IN_PROGRESS @map("in_progress")
+  RESOLVED    @map("resolved")
+  WONT_FIX    @map("wont_fix")
+
+  @@map("feedback_status")
+}
+
 /// Plan a user is entitled to. Mirrors the tiers on the pricing page.
 /// FREE is the implicit default, so an account with no subscription row still
 /// has a plan without any backfill.
@@ -107,14 +138,14 @@ enum BillingPlan {
 /// `INCOMPLETE`, which is the safe direction — no access granted.
 enum SubscriptionStatus {
   /// Paid and current. The only status that grants a paid plan.
-  ACTIVE    @map("active")
+  ACTIVE     @map("active")
   /// In a trial that has not converted yet. Grants the paid plan.
-  TRIALING  @map("trialing")
+  TRIALING   @map("trialing")
   /// Payment failed and Dodo is retrying (dunning). Access is retained on
   /// purpose: revoking mid-retry punishes someone whose card merely expired.
-  PAST_DUE  @map("past_due")
+  PAST_DUE   @map("past_due")
   /// Ended, either by the customer or by exhausted retries. No paid access.
-  CANCELLED @map("cancelled")
+  CANCELLED  @map("cancelled")
   /// Created but never paid, or an unrecognised upstream status.
   INCOMPLETE @map("incomplete")
 
@@ -137,19 +168,41 @@ model User {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  preferences   UserPreferences?
-  folders       Folder[]
-  drawings      Drawing[]
-  shareLinks    ShareLink[]
-  sharesCreated Share[]         @relation("ShareCreator")
-  feedback      Feedback[]
-  notifications Notification[]
-  memberships   OrgMembership[]
-  orgsCreated   Organization[]  @relation("OrgCreator")
-  invitesSent   OrgInvite[]     @relation("OrgInviteCreator")
-  subscription  Subscription?
+  /// Staff tier. Everybody is `USER`; the admin portal is the only thing that
+  /// reads it, and only `server/src/admin` may write it.
+  platformRole PlatformRole @default(USER) @map("platform_role")
+
+  /// Set when staff have suspended the account. The auth guard turns it into
+  /// 403 `USER_SUSPENDED` on the very next request, so a suspension bites
+  /// regardless of how long the Supabase session still has to run. Nullable
+  /// timestamp rather than a boolean so "since when" survives an unsuspend.
+  suspendedAt     DateTime? @map("suspended_at")
+  suspendedReason String?   @map("suspended_reason")
+
+  /// Last authenticated request, rounded down by the guard's one-hour write
+  /// threshold. Feeds DAU/WAU/MAU on the admin overview; it is deliberately
+  /// coarse because the alternative is a write on every single request.
+  lastSeenAt DateTime? @map("last_seen_at")
+
+  preferences      UserPreferences?
+  folders          Folder[]
+  drawings         Drawing[]
+  shareLinks       ShareLink[]
+  sharesCreated    Share[]          @relation("ShareCreator")
+  feedback         Feedback[]
+  feedbackAssigned Feedback[]       @relation("FeedbackAssignee")
+  notifications    Notification[]
+  memberships      OrgMembership[]
+  orgsCreated      Organization[]   @relation("OrgCreator")
+  invitesSent      OrgInvite[]      @relation("OrgInviteCreator")
+  subscription     Subscription?
+  auditEntries     AuditLog[]       @relation("AuditActor")
+  flagsUpdated     FeatureFlag[]    @relation("FlagEditor")
+  announcements    Announcement[]   @relation("AnnouncementAuthor")
 
   @@index([email])
+  @@index([platformRole])
+  @@index([lastSeenAt])
   @@map("users")
 }
 
@@ -178,13 +231,13 @@ model Organization {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  memberships OrgMembership[]
-  invites     OrgInvite[]
-  folders     Folder[]
-  drawings    Drawing[]
+  memberships    OrgMembership[]
+  invites        OrgInvite[]
+  folders        Folder[]
+  drawings       Drawing[]
   // Shares pointing AT this org: someone else's drawing or folder made visible
   // to every member of it (see the `Share` model).
-  sharesReceived Share[] @relation("ShareTargetOrg")
+  sharesReceived Share[]         @relation("ShareTargetOrg")
 
   @@map("organizations")
 }
@@ -245,11 +298,11 @@ model UserPreferences {
   // Settings should still hear that something was shared with them.
   // Organization INVITATIONS are deliberately not gated by either; see
   // MailService's JSDoc for why.
-  emailOnShare        Boolean   @default(true) @map("email_on_share")
-  emailOnOrgActivity  Boolean   @default(true) @map("email_on_org_activity")
+  emailOnShare       Boolean @default(true) @map("email_on_share")
+  emailOnOrgActivity Boolean @default(true) @map("email_on_org_activity")
 
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("user_preferences")
 }
@@ -422,7 +475,6 @@ model ShareLink {
   @@map("share_links")
 }
 
-
 // ---------------------------------------------------------------------------
 // Feedback / notifications
 // ---------------------------------------------------------------------------
@@ -443,7 +495,21 @@ model Feedback {
   context   Json?
   createdAt DateTime     @default(now()) @map("created_at")
 
+  // --- Triage (admin portal) -------------------------------------------------
+  // Written only by staff. The submitter sees `status` and `repliedAt`; the
+  // internal note is never returned on any user-facing route.
+  status       FeedbackStatus @default(NEW)
+  assigneeId   String?        @map("assignee_id")
+  assignee     User?          @relation("FeedbackAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  internalNote String?        @map("internal_note")
+  resolvedAt   DateTime?      @map("resolved_at")
+  /// When staff last emailed this submitter back, so the dashboard can say
+  /// "replied" and a second reply is a deliberate act rather than an accident.
+  repliedAt    DateTime?      @map("replied_at")
+
   @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([assigneeId, status])
   @@map("feedback")
 }
 
@@ -486,7 +552,7 @@ model Subscription {
   /// Dodo's customer id (`cus_…`). Survives the subscription: it is what the
   /// customer-portal link and any future purchase is created against, so it is
   /// kept even after a cancellation.
-  dodoCustomerId String  @map("dodo_customer_id")
+  dodoCustomerId     String  @map("dodo_customer_id")
   /// Dodo's subscription id (`sub_…`). Null between signing up for a customer
   /// record and completing a first checkout.
   dodoSubscriptionId String? @unique @map("dodo_subscription_id")
@@ -498,12 +564,12 @@ model Subscription {
 
   /// End of the paid period. Access to a paid plan is granted while `status`
   /// allows it; this is what the UI shows as "renews on" / "access until".
-  currentPeriodEnd DateTime? @map("current_period_end")
+  currentPeriodEnd  DateTime? @map("current_period_end")
   /// Set when the customer has asked to cancel but the period has not lapsed.
   /// They keep access until `currentPeriodEnd`, which is what they paid for.
-  cancelAtPeriodEnd Boolean @default(false) @map("cancel_at_period_end")
+  cancelAtPeriodEnd Boolean   @default(false) @map("cancel_at_period_end")
   /// When a trial ends. Null when the subscription never had one.
-  trialEndsAt DateTime? @map("trial_ends_at")
+  trialEndsAt       DateTime? @map("trial_ends_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -527,19 +593,125 @@ model WebhookEvent {
 
   /// Event name, e.g. `subscription.active`. Not an enum: Dodo documents 47
   /// types and adds more, and an unknown one must still be recorded.
-  type String
+  type        String
   /// The verified payload, kept whole for replay and for answering "what did
   /// they actually send us".
-  payload Json
+  payload     Json
   /// Null until handled. A row with a null `processedAt` and a `error` is a
   /// delivery worth investigating.
   processedAt DateTime? @map("processed_at")
   /// Message from the last failed attempt, for triage.
-  error String?
+  error       String?
 
   receivedAt DateTime @default(now()) @map("received_at")
 
   @@index([type, receivedAt])
   @@index([processedAt])
   @@map("webhook_events")
+}
+
+// ---------------------------------------------------------------------------
+// Admin portal — staff-facing tables. Nothing here is readable by a normal
+// user: every route that touches them sits behind `AdminGuard`
+// (`src/admin/admin.guard.ts`), and `feature_flags` is the one exception,
+// exposed read-only and filtered through `GET /flags`.
+// ---------------------------------------------------------------------------
+
+/// Append-only record of every state-changing action staff took in the portal.
+///
+/// Written by `AuditInterceptor` around each non-GET admin handler, so a new
+/// endpoint is audited by existing in the module rather than by remembering to
+/// log. Reads are NOT recorded — they would drown the useful rows — with the
+/// single exception of a drawing download, which is a privacy event in its own
+/// right.
+///
+/// `actorEmail` is denormalised on purpose: the trail has to stay readable
+/// after the staff account is renamed or deleted, and a join that can return
+/// nothing makes an audit log useless exactly when it matters.
+model AuditLog {
+  id String @id @default(cuid())
+
+  actorId    String @map("actor_id")
+  actor      User   @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+  actorEmail String @map("actor_email")
+
+  /// Dotted verb, e.g. `user.suspend`, `flag.set`, `feedback.reply`.
+  action     String
+  /// `user` | `org` | `drawing` | `feedback` | `flag` | `announcement` | `staff`.
+  targetType String  @map("target_type")
+  targetId   String? @map("target_id")
+
+  /// Snapshot of the affected fields before and after. Both nullable: a create
+  /// has no `before`, a delete no meaningful `after`.
+  before Json?
+  after  Json?
+
+  /// Free text the actor typed. Required by the destructive endpoints (suspend,
+  /// delete, purge) so the trail says *why*, not just what.
+  reason String?
+
+  ip        String?
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+/// Runtime override of one flag declared in `src/admin/flags/flag-registry.ts`.
+///
+/// The registry in code is the source of truth for which keys exist and what
+/// they default to; this table only records the deviations. That is why `key`
+/// is the primary key and there is no `name` or `description` column — a flag
+/// nobody has touched simply has no row, and an unknown key is rejected on the
+/// way in rather than stored and puzzled over later.
+model FeatureFlag {
+  key String @id
+
+  enabled Boolean
+  /// Optional structured value, e.g. `{ "text": "...", "level": "warn" }` for
+  /// the maintenance banner. Shape is the registry entry's business.
+  payload Json?
+
+  updatedById String   @map("updated_by_id")
+  updatedBy   User     @relation("FlagEditor", fields: [updatedById], references: [id], onDelete: Cascade)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flags")
+}
+
+/// A product message staff schedule for users: a banner, and optionally a row
+/// in everybody's in-app inbox.
+///
+/// `publishedAt` is separate from `startsAt` so a draft can be written and
+/// scheduled without going live by accident: nothing is shown until it is
+/// published, and then the window decides.
+model Announcement {
+  id String @id @default(cuid())
+
+  title   String
+  body    String
+  kind    NotificationKind @default(SYSTEM)
+  linkUrl String?          @map("link_url")
+
+  startsAt DateTime  @default(now()) @map("starts_at")
+  endsAt   DateTime? @map("ends_at")
+
+  /// `{ plans?: BillingPlan[], orgIds?: string[] }`; null means everybody.
+  audience Json?
+
+  /// When true, publishing also inserts a `notifications` row per matching
+  /// user. The banner alone needs no fan-out, so this is off by default.
+  pushToInbox Boolean   @default(false) @map("push_to_inbox")
+  publishedAt DateTime? @map("published_at")
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation("AnnouncementAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([publishedAt, startsAt, endsAt])
+  @@map("announcements")
 }

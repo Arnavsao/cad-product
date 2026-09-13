@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
+import { AdminModule } from './admin/admin.module';
+import { FlagsModule } from './admin/flags/flags.module';
 import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
@@ -27,6 +29,14 @@ import { SharingModule } from './sharing/sharing.module';
  * (see the note on those in `env.schema.ts` — the e2e harness raises them).
  */
 const DEFAULT_THROTTLE_NAME = 'default';
+
+/**
+ * Separate budget for `/admin`. A staff member makes a handful of requests a
+ * minute; anything well above that on a staff-only surface is worth limiting
+ * regardless of whose token it carries, and it must not consume the site-wide
+ * allowance that real users share.
+ */
+const ADMIN_THROTTLE_NAME = 'admin';
 
 /** Flattens class-validator errors (incl. nested) to `{ field, message }[]`. */
 function flattenValidationErrors(errors: ValidationError[], parent = ''): { field: string; message: string }[] {
@@ -80,6 +90,11 @@ function flattenValidationErrors(errors: ValidationError[], parent = ''): { fiel
             ttl: config.get('RATE_LIMIT_TTL_MS', { infer: true }),
             limit: config.get('RATE_LIMIT_LIMIT', { infer: true }),
           },
+          {
+            name: ADMIN_THROTTLE_NAME,
+            ttl: config.get('RATE_LIMIT_TTL_MS', { infer: true }),
+            limit: config.get('ADMIN_RATE_LIMIT_LIMIT', { infer: true }),
+          },
         ],
       }),
     }),
@@ -93,6 +108,10 @@ function flattenValidationErrors(errors: ValidationError[], parent = ''): { fiel
     SharingModule,
     NotificationsModule,
     FeedbackModule,
+    // Flags are `@Global()` and must be available to UsersModule's provisioning
+    // path, so they are registered before the portal that edits them.
+    FlagsModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [

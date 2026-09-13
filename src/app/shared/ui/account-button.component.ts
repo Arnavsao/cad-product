@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoService } from '@jsverse/transloco';
 import { Router } from '@angular/router';
+import { MeService } from '../../core/api/me.service';
 import { ACCOUNT_URL, SupabaseAuthService } from '../../core/auth/supabase-auth.service';
 import { UiButtonDirective } from './button.directive';
 import { UiMenuTriggerDirective } from './menu/ui-menu-trigger.directive';
@@ -89,8 +90,21 @@ export class AccountButtonComponent {
   private readonly lang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
   protected readonly menu = computed<UiMenuItem[]>(() => {
     this.lang();
-    return MENU.map((item) => (item.label ? { ...item, label: this.transloco.translate(item.label) } : item));
+    const items = MENU.map((item) => (item.label ? { ...item, label: this.transloco.translate(item.label) } : item));
+
+    // Staff get a way into the portal from wherever they are. Untranslated on
+    // purpose: the portal itself is English-only for now, so a translated entry
+    // would promise a localised destination that does not exist.
+    if (this.me.me()?.user.platformRole !== 'user') {
+      items.unshift(
+        { id: 'admin', label: 'Admin portal', icon: 'shield' },
+        { id: 'admin-sep', label: '', separator: true },
+      );
+    }
+    return items;
   });
+
+  private readonly me = inject(MeService);
 
   protected readonly avatarUrl = computed(() => this.auth.userAvatarUrl());
 
@@ -111,6 +125,9 @@ export class AccountButtonComponent {
 
   protected onSelect(id: string): void {
     switch (id) {
+      case 'admin':
+        void this.router.navigateByUrl('/admin');
+        return;
       case 'profile':
         void this.router.navigateByUrl('/dashboard/profile');
         return;

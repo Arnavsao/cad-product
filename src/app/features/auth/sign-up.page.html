@@ -14,6 +14,21 @@
         <a uiButton variant="primary" routerLink="/editor">{{ t('auth.notConfigured.openEditor') }}</a>
       </div>
     </div>
+  } @else if (signupsClosed()) {
+    <!-- The `signups.enabled` flag is off. Shown instead of the form because the
+         API would refuse to provision the account anyway, and a form that always
+         fails is worse than a clear message. -->
+    <div class="auth-notice" role="status">
+      <ui-icon name="alert" [size]="18" />
+      <div>
+        <strong>Sign-ups are paused</strong>
+        <p>
+          We are working through the current beta group. Existing accounts are unaffected — if you
+          already have one, sign in as usual.
+        </p>
+        <a uiButton variant="primary" routerLink="/sign-in">Sign in</a>
+      </div>
+    </div>
   } @else if (auth.loadError(); as err) {
     <div class="auth-notice auth-notice--error" role="alert">
       <ui-icon name="alert" [size]="18" />

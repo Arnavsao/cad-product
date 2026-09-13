@@ -6,6 +6,48 @@ DXF import fidelity. An imported drawing now renders as AutoCAD renders it: corr
 values, decoded text, per-style fonts and real lineweights.
 
 ### Added
+* **A staff admin portal, at `/admin`.** Until now every operational question — who signed up, why
+  an account is broken, how to stop an abusive user, how to turn something off — had to be answered
+  with Prisma Studio and the Supabase and Dodo dashboards. None of those leave a trail, none know
+  about the others, and none can be handed to a second person safely. The portal is one place for
+  all of it, built for the open beta and designed to carry through to the launch.
+
+  **Platform roles.** A new `platformRole` on `users` — `USER`, `SUPPORT`, `ADMIN`, `OWNER` —
+  deliberately separate from `OrgRole` (which scopes one organization) and from the profession
+  captured at onboarding. Support reads the portal and triages; admin changes accounts and flags;
+  owner manages staff. The first owner comes from `ADMIN_BOOTSTRAP_EMAILS`, because nobody can grant
+  a tier until somebody can already open the portal. Enforcement is entirely server-side in
+  `AdminGuard`: the Angular guard only decides whether to render, and a refusal answers 403 with
+  `{ required, actual }` — the same shape `common/access.ts` already uses for row-level refusals.
+
+  **Suspension that bites immediately.** `suspendedAt` is checked in the auth guard, so a suspended
+  account is refused on its very next request rather than whenever its Supabase session happens to
+  expire. The reason staff type is stored, shown to the user, and recorded. Deletion is a soft
+  delete: drawings and objects survive, so it is reversible while the beta runs.
+
+  **Feature flags, without a deploy.** A typed registry in code is the source of truth for which
+  flags exist and what they default to; the `feature_flags` table records only the deviations, so a
+  typo cannot invent a switch nothing reads. `GET /flags` is public — the sign-up page must know
+  whether registration is open before anyone has a session. `signups.enabled` refuses to provision
+  new local users while leaving existing ones untouched, and `ai.enabled` closes the assistant panel.
+  Changes reach every replica within a minute.
+
+  **An audit trail that cannot be half-written.** One `AuditInterceptor` wraps every non-GET admin
+  handler, so an endpoint is audited by existing in the module rather than by somebody remembering
+  to log; a handler that throws writes nothing. Each row carries the actor, their typed reason, the
+  before and after snapshots, the IP and the user agent. `actorEmail` is denormalised on purpose —
+  a trail that goes blank when a staff account is renamed is useless exactly when it matters.
+
+  **The pages.** Overview (users, active counts from a new `lastSeenAt` that the guard touches at
+  most hourly, drawings, storage, open feedback, failed webhooks, each with a 30-day sparkline),
+  Users (search, status filters, detail, suspend/delete/message), Feature flags, Staff, Audit log,
+  and System — which answers "what is this deployment actually configured to do" in modes and
+  booleans, never secrets. Two new design-system primitives, `ui-badge` and `ui-stat-tile`, and a
+  page for suspended accounts and closed sign-ups so neither state loops through sign-in.
+
+  Staff cannot read customer drawings: admin drawing views are metadata only, and the one download
+  path is behind an owner-only flag that ships off. See [docs/ADMIN.md](docs/ADMIN.md).
+
 * **The assistant can draw.** Until now the AI panel could only select, recolour, move, hide and
   insert canned components; anything new on the canvas had to come from a template. Three tools
   give it a pencil, all committing as one undo step through the same `validate → compile →

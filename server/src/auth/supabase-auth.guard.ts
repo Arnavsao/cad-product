@@ -46,7 +46,12 @@ export function supabaseVerifierFactory(config: ConfigService<Env, true>): Token
  *   targets people by address (`common/access.ts`) and re-reading the user row
  *   on every request to learn it would be wasteful.
  * - Soft-deleted users get 403 `USER_DELETED`, distinct from 401 so the client
- *   does not loop through sign-in.
+ *   does not loop through sign-in. A suspended account gets 403
+ *   `USER_SUSPENDED` for the same reason — and because the check lives here
+ *   rather than in the token, a suspension takes effect on the very next
+ *   request instead of whenever the Supabase session happens to expire.
+ * - `lastSeenAt` is touched at most once an hour, which is what makes the admin
+ *   overview's DAU/WAU/MAU possible without a write on every request.
  */
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
@@ -93,6 +98,16 @@ export class SupabaseAuthGuard implements CanActivate {
     if (user.deletedAt) {
       throw new ApiException(HttpStatus.FORBIDDEN, 'USER_DELETED', 'This account has been deleted');
     }
+    if (user.suspendedAt) {
+      throw new ApiException(HttpStatus.FORBIDDEN, 'USER_SUSPENDED', 'This account has been suspended', {
+        // The reason is the user's own — staff typed it knowing it would be
+        // shown — so returning it saves a support round trip.
+        reason: user.suspendedReason ?? null,
+      });
+    }
+
+    // Fire and forget: presence tracking must never delay or fail a request.
+    void this.users.touchLastSeen(user);
 
     req.user = {
       id: user.id,

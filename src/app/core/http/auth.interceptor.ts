@@ -13,6 +13,28 @@ export function isBackendRequest(url: string): boolean {
 
 const PUBLIC_SITE_PATHS = ['/product', '/features', '/use-cases', '/pricing', '/docs', '/about', '/contact', '/whats-new', '/terms', '/privacy'];
 
+/**
+ * 403 codes that describe the ACCOUNT rather than the request.
+ *
+ * They need their own handling because retrying, re-authenticating or showing
+ * a toast all fail the same way: every other route will answer 403 too, so the
+ * only useful response is a page that says what happened. Ordinary 403s (a
+ * staff tier too low, a drawing not shared) are left to the caller.
+ */
+const BLOCKED_CODES: Record<string, string> = {
+  USER_SUSPENDED: 'suspended',
+  SIGNUPS_CLOSED: 'closed',
+};
+
+/** Reads `{ code, reason }` off an error body without trusting its shape. */
+function blockedFrom(error: HttpErrorResponse): { kind: string; reason?: string } | null {
+  const body = error.error as { code?: unknown; reason?: unknown } | null;
+  const code = typeof body?.code === 'string' ? body.code : null;
+  const kind = code ? BLOCKED_CODES[code] : undefined;
+  if (!kind) return null;
+  return { kind, reason: typeof body?.reason === 'string' ? body.reason : undefined };
+}
+
 /** Routes that must never bounce to /sign-in on a 401 (they are reachable signed out). */
 function isPublicUrl(url: string): boolean {
   const path = url.split('?')[0].split('#')[0];
@@ -49,6 +71,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         const current = router.url;
         if (environment.supabaseUrl && environment.supabaseAnonKey && !isPublicUrl(current)) {
           void router.navigateByUrl(`/sign-in?redirect_url=${encodeURIComponent(current)}`);
+        }
+      } else if (error.status === 403) {
+        const blocked = blockedFrom(error);
+        if (blocked && !router.url.startsWith('/account-blocked')) {
+          const reason = blocked.reason ? `&reason=${encodeURIComponent(blocked.reason)}` : '';
+          void router.navigateByUrl(`/account-blocked?kind=${blocked.kind}${reason}`);
         }
       }
       return throwError(() => error);

@@ -7,6 +7,7 @@ import { ThemeService } from './features/cad-editor/core/services/theme.service'
 import { NotificationDisplayComponent } from './shared/components/notification-display/notification-display';
 import { RouteProgressComponent } from './shared/components/route-progress/route-progress.component';
 import { UiLogoLoaderComponent } from './shared/ui/logo-loader.component';
+import { FlagsService } from './core/flags/flags.service';
 
 @Component({
   selector: 'app-root',
@@ -56,5 +57,9 @@ export class App {
     // Start loading Supabase auth in the background. Never awaited here: the
     // landing page must paint immediately; guards await `load()` when they need it.
     void inject(SupabaseAuthService).load();
+    // Feature switches, also in the background: the endpoint is public and
+    // cached server-side, and every reader falls back to the shipped default
+    // until it answers, so nothing waits on it.
+    void inject(FlagsService).load();
   }
 }

@@ -1,5 +1,6 @@
 import { Routes, UrlMatchResult, UrlMatcher, UrlSegment } from '@angular/router';
 import { authGuard, guestGuard, notOnboardedGuard, onboardingGuard } from './core/auth/auth.guards';
+import { adminGuard } from './features/admin/admin.guards';
 import { unsavedChangesGuard } from './features/cad-editor/unsaved-changes.guard';
 
 /**
@@ -161,6 +162,41 @@ export const routes: Routes = [
       // existing links point there, so the page owns everything under `settings`.
       { matcher: prefixMatcher('settings'), title: 'app.title.settings',
         loadComponent: () => import('./features/dashboard/pages/settings.page').then((m) => m.SettingsPage) },
+    ],
+  },
+
+  // Suspended accounts and closed sign-ups land here from the auth interceptor.
+  // No guard: the whole point is that every guarded route would refuse them.
+  {
+    path: 'account-blocked',
+    title: 'app.title.signIn',
+    loadComponent: () =>
+      import('./features/account-blocked/account-blocked.page').then((m) => m.AccountBlockedPage),
+  },
+
+  // The staff admin portal. Same SPA, its own shell, and NOT preloaded: almost
+  // nobody signing in is staff, so the chunk is fetched on demand rather than
+  // added to every user's bundle. `adminGuard` only hides the UI — every route
+  // under `/api/v1/admin` re-checks the tier server-side.
+  {
+    path: 'admin',
+    canActivate: [authGuard, onboardingGuard, adminGuard],
+    loadComponent: () => import('./features/admin/admin-shell.component').then((m) => m.AdminShellComponent),
+    children: [
+      { path: '', pathMatch: 'full', title: 'Admin · Overview',
+        loadComponent: () => import('./features/admin/pages/overview.page').then((m) => m.AdminOverviewPage) },
+      { path: 'users', title: 'Admin · Users',
+        loadComponent: () => import('./features/admin/pages/users.page').then((m) => m.AdminUsersPage) },
+      { path: 'users/:id', title: 'Admin · Account',
+        loadComponent: () => import('./features/admin/pages/user-detail.page').then((m) => m.AdminUserDetailPage) },
+      { path: 'flags', title: 'Admin · Feature flags',
+        loadComponent: () => import('./features/admin/pages/flags.page').then((m) => m.AdminFlagsPage) },
+      { path: 'staff', title: 'Admin · Staff',
+        loadComponent: () => import('./features/admin/pages/staff.page').then((m) => m.AdminStaffPage) },
+      { path: 'audit', title: 'Admin · Audit log',
+        loadComponent: () => import('./features/admin/pages/audit.page').then((m) => m.AdminAuditPage) },
+      { path: 'system', title: 'Admin · System',
+        loadComponent: () => import('./features/admin/pages/system.page').then((m) => m.AdminSystemPage) },
     ],
   },
 

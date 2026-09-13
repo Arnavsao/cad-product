@@ -7,6 +7,9 @@ import type { OrganizationsService } from '../organizations/organizations.servic
 import type { PrismaService } from '../prisma/prisma.service';
 import { LOCALES, type UpdatePreferencesDto } from './dto/preferences.dto';
 import { UsersService } from './users.service';
+import { ConfigService } from '@nestjs/config';
+import { FlagsService } from '../admin/flags/flags.service';
+import type { Env } from '../config/env.schema';
 
 /**
  * Every field `UpdatePreferencesDto` accepts must reach the database.
@@ -53,6 +56,8 @@ describe('UsersService.updatePreferences', () => {
       mockDeep<NotificationsService>(),
       mockDeep<OrganizationsService>(),
       mockDeep<BillingService>(),
+      mockDeep<FlagsService>(),
+      mockDeep<ConfigService<Env, true>>(),
     );
   });
 

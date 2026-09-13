@@ -142,6 +142,32 @@ export const envSchema = z.object({
   DODO_PRODUCT_TEAM_MONTHLY: optionalString,
   DODO_PRODUCT_TEAM_ANNUAL: optionalString,
 
+  // --- Admin portal --------------------------------------------------------
+  /**
+   * Comma-separated emails promoted to `OWNER` on their next authenticated
+   * request (see `UsersService.applyBootstrapRole`).
+   *
+   * This is how the FIRST staff account comes into being: there is no way to
+   * grant a role through the portal until somebody can already open it, and
+   * seeding a role in a migration would mean committing a real address to the
+   * repository. Once an owner exists this key can be removed — it only ever
+   * promotes, never demotes, so leaving it set does not pin anyone in place.
+   */
+  ADMIN_BOOTSTRAP_EMAILS: z.preprocess(blankToUndefined, z.string().trim().optional()).transform((value) =>
+    value ? splitCsv(value).map((email) => email.toLowerCase()) : [],
+  ),
+  /**
+   * Per-IP budget for `/admin` routes. Lower than the site-wide default: a
+   * portal user makes a handful of requests a minute, and anything above that
+   * on a staff-only surface is worth rate-limiting regardless of who it is.
+   */
+  ADMIN_RATE_LIMIT_LIMIT: positiveInt(120),
+  /**
+   * Build identifier shown on the portal's System page, set from the image tag
+   * or commit SHA at build time. Optional: a local run reports "dev".
+   */
+  APP_VERSION: optionalString,
+
   // --- Limits -------------------------------------------------------------
   /**
    * Default per-IP request budget, in requests per `RATE_LIMIT_TTL_MS`.

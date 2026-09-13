@@ -1,3 +1,4 @@
+import type { PlatformRoleWire } from '../../admin/platform-role';
 import type { BillingStateDto } from '../../billing/dto/billing.dto';
 import type { OrgSummaryDto } from '../../organizations/dto/organization.dto';
 import type { PreferencesDto } from './preferences.dto';
@@ -11,6 +12,15 @@ export interface UserDto {
   lastName: string | null;
   imageUrl: string | null;
   createdAt: string;
+  /**
+   * Staff tier, or `'user'` for everybody else.
+   *
+   * On `/me` rather than behind its own request because the shell decides
+   * whether to render the "Admin portal" link on first paint, and a second
+   * round trip would make that link flicker in on every navigation. It is
+   * advisory: the API enforces the tier itself on every admin route.
+   */
+  platformRole: PlatformRoleWire;
 }
 
 /** Storage usage summary over non-deleted drawings. */

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { AFTER_SIGN_UP_URL, SupabaseAuthService } from '../../core/auth/supabase-auth.service';
+import { FlagsService } from '../../core/flags/flags.service';
 import { UiButtonDirective } from '../../shared/ui/button.directive';
 import { UiIconComponent } from '../../shared/ui/icon.component';
 import { UiInputDirective } from '../../shared/ui/input.directive';
@@ -44,6 +45,14 @@ const MIN_PASSWORD_LENGTH = 6;
 export class SignUpPage {
   protected readonly auth = inject(SupabaseAuthService);
   private readonly router = inject(Router);
+  private readonly flags = inject(FlagsService);
+
+  /**
+   * Whether registration is open. Defaults to open, so a slow or failed flags
+   * request never blocks a legitimate sign-up — the API refuses the provision
+   * if it really is closed.
+   */
+  protected readonly signupsClosed = computed(() => !this.flags.enabled('signups.enabled', true));
 
   protected readonly minPasswordLength = MIN_PASSWORD_LENGTH;
 

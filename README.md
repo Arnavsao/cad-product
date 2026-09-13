@@ -229,4 +229,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layering rules and the 
   app should consume this package going forward.
 * [docs/3D-MODELING-PLAN.md](docs/3D-MODELING-PLAN.md) — the phased plan for parametric 3D modeling (kernel choice,
   architecture, data model, backend changes, effort). Roadmap for after the 2D launch; nothing from it is implemented yet.
+* [docs/ADMIN.md](docs/ADMIN.md) — the staff admin portal: creating the first owner, the four tiers,
+  the feature flags and the runbooks for suspending an account or closing sign-ups.
+* [docs/ADMIN-PORTAL-PLAN.md](docs/ADMIN-PORTAL-PLAN.md) — the phased plan for the staff admin portal (platform roles,
+  audit log, feature flags, feedback triage, billing console) that ships with the beta and carries through to launch.
 * [CHANGELOG.md](CHANGELOG.md)

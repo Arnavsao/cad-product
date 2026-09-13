@@ -1,3 +1,4 @@
+import { platformRoleToWire } from '../admin/platform-role';
 import type { SupabaseSessionClaims } from '../auth/auth.types';
 import type { User, UserPreferences } from '../generated/prisma/client';
 import { Units, UserRole } from '../generated/prisma/client';
@@ -68,6 +69,7 @@ export function toUserDto(user: User): UserDto {
     lastName: user.lastName,
     imageUrl: user.imageUrl,
     createdAt: user.createdAt.toISOString(),
+    platformRole: platformRoleToWire(user.platformRole),
   };
 }
 

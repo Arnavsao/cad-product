@@ -1,9 +1,12 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { FlagsService } from '../admin/flags/flags.service';
 import type { SupabaseSessionClaims } from '../auth/auth.types';
 import { BillingService } from '../billing/billing.service';
 import { ApiException } from '../common/errors/api-error';
+import type { Env } from '../config/env.schema';
 import type { Units, User, UserPreferences, UserRole } from '../generated/prisma/client';
-import { Prisma } from '../generated/prisma/client';
+import { PlatformRole, Prisma } from '../generated/prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { isPrismaKnownError, PRISMA_ERROR, PrismaService } from '../prisma/prisma.service';
@@ -19,6 +22,13 @@ import {
   toPreferencesDto,
   unitsFromWire,
 } from './users.mapper';
+
+/**
+ * How stale `lastSeenAt` may get before the guard writes it again. One hour: it
+ * feeds day-granularity active-user counts, so a finer value would buy nothing
+ * and cost a write per request.
+ */
+const LAST_SEEN_THRESHOLD_MS = 60 * 60 * 1000;
 
 /** Either the root client or an interactive-transaction client. */
 export type DbClient = PrismaService | Prisma.TransactionClient;
@@ -60,6 +70,8 @@ export class UsersService {
     private readonly notifications: NotificationsService,
     private readonly organizations: OrganizationsService,
     private readonly billing: BillingService,
+    private readonly flags: FlagsService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -81,11 +93,19 @@ export class UsersService {
 
     const existing = await this.prisma.user.findUnique({ where: { authId } });
     if (existing) {
-      return this.refreshProfileIfStale(existing, profile);
+      return this.refreshProfileIfStale(await this.applyBootstrapRole(existing), profile);
     }
 
+    // Closing sign-ups can only be enforced here. Supabase owns registration and
+    // we do not drive its admin API, so the account may already exist upstream;
+    // what we control is whether it gets a local row — and without one, nothing
+    // in this product works. Existing users are untouched by design: the switch
+    // is "no new accounts", not "nobody may sign in".
+    await this.assertSignupsOpen(authId);
+
     try {
-      return await this.prisma.user.create({ data: profile });
+      const created = await this.prisma.user.create({ data: profile });
+      return await this.applyBootstrapRole(created);
     } catch (error) {
       // Two first-requests raced; the other one won — read it back.
       if (isPrismaKnownError(error, PRISMA_ERROR.UNIQUE_VIOLATION)) {
@@ -95,6 +115,76 @@ export class UsersService {
         }
       }
       throw error;
+    }
+  }
+
+  /**
+   * Refuses to provision a new local user while `signups.enabled` is off.
+   *
+   * A flag read failure resolves to the registry default (open), so a database
+   * blip cannot accidentally close registration — see `FlagsService.all`.
+   */
+  private async assertSignupsOpen(authId: string): Promise<void> {
+    if (await this.flags.enabled('signups.enabled')) {
+      return;
+    }
+    this.logger.warn(`Refused to provision ${authId}: sign-ups are closed`);
+    throw new ApiException(
+      HttpStatus.FORBIDDEN,
+      'SIGNUPS_CLOSED',
+      'CADO is not accepting new accounts right now',
+    );
+  }
+
+  /**
+   * Promotes an account listed in `ADMIN_BOOTSTRAP_EMAILS` to `OWNER`.
+   *
+   * Only ever raises the tier: the env list is how the first staff account
+   * exists at all, but once the portal is usable, roles are managed there, and
+   * a stale entry in the environment must not silently re-grant or claw back
+   * what an owner has since decided.
+   */
+  private async applyBootstrapRole(user: User): Promise<User> {
+    if (user.platformRole === PlatformRole.OWNER) {
+      return user;
+    }
+    const bootstrap = this.config.get('ADMIN_BOOTSTRAP_EMAILS', { infer: true });
+    if (!bootstrap.length || !bootstrap.includes(user.email.toLowerCase())) {
+      return user;
+    }
+    try {
+      const promoted = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { platformRole: PlatformRole.OWNER },
+      });
+      this.logger.log(`Bootstrapped ${user.email} to platform OWNER from ADMIN_BOOTSTRAP_EMAILS`);
+      return promoted;
+    } catch (error) {
+      this.logger.warn(`Could not bootstrap ${user.email}: ${(error as Error).message}`);
+      return user;
+    }
+  }
+
+  /**
+   * Records that this account was seen, at most once per hour.
+   *
+   * The threshold is the whole point: the admin overview needs daily/weekly/
+   * monthly active counts, and an exact `lastSeenAt` would mean an UPDATE on
+   * every authenticated request — a write amplification the product gains
+   * nothing from, since no question anyone asks of this column is finer-grained
+   * than a day.
+   *
+   * Never throws: presence tracking is not worth failing a request over.
+   */
+  async touchLastSeen(user: User): Promise<void> {
+    const now = Date.now();
+    if (user.lastSeenAt && now - user.lastSeenAt.getTime() < LAST_SEEN_THRESHOLD_MS) {
+      return;
+    }
+    try {
+      await this.prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date(now) } });
+    } catch (error) {
+      this.logger.debug(`Could not update lastSeenAt for ${user.id}: ${(error as Error).message}`);
     }
   }
 

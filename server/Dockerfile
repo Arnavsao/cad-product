@@ -21,6 +21,13 @@ RUN npx nest build
 
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
+
+# Build identity, shown on the admin portal's System page. Baked into the image
+# rather than set on the Container App, because the deploy workflow deliberately
+# never writes env vars (provision.sh owns configuration) — and a version string
+# that has to be remembered separately is a version string that goes stale.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force

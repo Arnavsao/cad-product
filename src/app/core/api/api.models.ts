@@ -314,6 +314,12 @@ export interface PreferencesDto {
   emailOnOrgActivity: boolean;
 }
 
+/**
+ * Platform staff tier. Distinct from `OrgRole` (which scopes one organization)
+ * and from `PreferencesDto.role` (which is a profession).
+ */
+export type PlatformRole = 'user' | 'support' | 'admin' | 'owner';
+
 export interface MeUserDto {
   id: string;
   authId: string;
@@ -322,6 +328,12 @@ export interface MeUserDto {
   lastName: string | null;
   imageUrl: string | null;
   createdAt: string;
+  /**
+   * Staff tier; `'user'` for everybody else. Only decides whether admin UI is
+   * *shown* — the API enforces it independently on every `/admin` route, so a
+   * tampered value here reveals nothing.
+   */
+  platformRole: PlatformRole;
 }
 
 export interface MeDto {

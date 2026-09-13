@@ -86,6 +86,7 @@ import { DxfImportService } from './core/services/dxf-import.service';
 import { ExportService } from './core/services/export.service';
 import { PlotDialogComponent } from './features/plot-dialog/plot-dialog.component';
 import { PlotDialogService } from './features/plot-dialog/plot-dialog.service';
+import { FlagsService } from '../../core/flags/flags.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { ExportManagerService } from './core/services/export/export-manager.service';
 import { SnappingService } from './core/services/snapping.service';
@@ -304,6 +305,8 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   protected get library() { return this.injector.get(LibraryService); }
   protected get fileImport() { return this.injector.get(FileImportService); }
   protected notify = inject(NotificationService);
+  /** Server-side feature switches; see `setActivePanel`. */
+  private readonly flags = inject(FlagsService);
   protected get drawingTransfer() { return this.injector.get(DrawingTransferService); }
   protected cmdRegistry = inject(CommandRegistryService);
   protected panelService = inject(WorkspacePanelService);
@@ -680,6 +683,13 @@ export class CadEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setActivePanel(panel: any): void {
+    // `ai.enabled` is the kill switch for the drafting assistant. Checked at the
+    // one place every entry point funnels through (ribbon, shortcut, command),
+    // so turning it off cannot be routed around by a stale toolbar.
+    if (panel === 'ai-agent' && !this.flags.enabled('ai.enabled', true)) {
+      this.notify.info('The AI assistant is temporarily unavailable.');
+      return;
+    }
     if (panel) this.panelService.open(panel);
     else this.panelService.close();
   }
