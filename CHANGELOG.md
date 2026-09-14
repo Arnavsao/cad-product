@@ -382,6 +382,34 @@ values, decoded text, per-style fonts and real lineweights.
   keeps whatever it had.
 
   The pattern picker lists every pattern and scrolls inside the menu.
+
+* **Hovering with the hatch tool over a real drawing crashed the tab ("Aw, Snap!", error
+  code 5).** Reproduced on the bridge GA drawing in `/public`: one hover over empty sheet space
+  blocked the page for 40 s, then the renderer ran out of memory and Chrome reloaded the tab
+  with the drawing gone. Cause: pick-point boundary detection asked the spatial index for the
+  entities *under* the cursor, found none (the cursor was in open space, the normal case), and
+  fell back to every entity within ±1 000 000 units — the whole drawing — tessellated arcs
+  32–64 ways and ran an all-pairs intersection over tens of thousands of edges; when that found
+  no face, the V1 solver repeated it over the whole drawing again. Every mousemove.
+
+  Boundary detection now follows AutoCAD's rules. The boundary set is the current view
+  (`TopologyService.findRegionForPick(x, y, { window })` — AutoCAD's default boundary set is
+  "current viewport", so off-screen geometry cannot form the boundary and zooming in is how an
+  over-complex pick is narrowed). Four axis rays from the pick point must each cross something
+  before any arrangement is built — a hover over nothing is now an O(n) scan. The set is the
+  connected component of the nearest crossings plus what lies within its extent (islands), and
+  it is refused over 8 000 tessellated edges (`MAX_BOUNDARY_EDGES`, the HPMAXLINES analogue)
+  rather than attempted; BHATCH is capped at 30 000. The all-pairs splitter in both solvers is
+  replaced by a uniform-grid broad phase (`topology/broad-phase.ts`) that visits only pairs
+  whose boxes overlap, and the hatch tool runs one search per animation frame and keeps the
+  previous region while the cursor stays inside it. Associative-hatch regeneration searches
+  within the hatch's own doubled extent instead of the drawing.
+
+  Measured on the same drawing and gesture: hover over empty space 17 ms (was 40 s + crash),
+  heap flat at 122 MB, hatch pick 0.4 s. `topology.service.spec.ts` pins the rejection
+  reasons, the window rule, islands, and a 192 000-edge refusal under 250 ms;
+  `broad-phase.spec.ts` checks the grid visits every overlapping pair exactly once and that a
+  30×30 line grid still yields 841 faces.
 * **Admin detail pages crashed instead of loading.** `/admin/users/:id` and
   `/admin/feedback/:id` read their required route input from the constructor, which runs
   *before* `withComponentInputBinding()` has set it — so both threw NG0950 and rendered a
