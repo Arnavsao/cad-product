@@ -20,8 +20,10 @@ import type { RegionResult } from '../../core/utils/region-topology';
  * Hatch tool — fill-bucket semantics.
  *
  * On click:
- *   1. Run the V2 topology solver (modular pipeline from core/services/topology/*).
- *      Falls back to V1 if V2 returns null — same coverage, different pipeline.
+ *   1. Run the V2 topology solver (modular pipeline from core/services/topology/*)
+ *      over the boundary set AutoCAD would use — the geometry in the current
+ *      view — via `TopologyService.findRegionForPick`, which only falls back
+ *      to V1 over that same set.
  *      The solver finds the smallest closed face containing the click, resolving
  *      every intersection so overlapping geometry produces correct sub-faces.
  *      Inner holes (islands) are detected and subtracted via even-odd fill.
@@ -52,8 +54,41 @@ export class HatchTool implements ITool {
   private get topology() { return this.injector.get(TopologyService) as TopologyService; }
   private get topoDebug() { return this.injector.get(TopologyDebugService) as TopologyDebugService; }
 
+  /** Pending animation frame for the hover search, 0 when none is scheduled. */
+  private hoverRaf = 0;
+  private hoverPending: { wx: number; wy: number; sx: number; sy: number } | null = null;
+  /** Content version the current preview was computed against. */
+  private hoverVersion = -1;
+
   onMouseMove(wx: number, wy: number, sx: number, sy: number, _e: MouseEvent): void {
     this.cur = { x: wx, y: wy };
+    // One boundary search per frame, not per mousemove event: the browser
+    // can deliver several moves between paints and each search is a planar
+    // arrangement of the visible geometry.
+    this.hoverPending = { wx, wy, sx, sy };
+    if (!this.hoverRaf) {
+      this.hoverRaf = requestAnimationFrame(() => {
+        this.hoverRaf = 0;
+        const p = this.hoverPending;
+        this.hoverPending = null;
+        if (p) this.updateHover(p.wx, p.wy, p.sx, p.sy);
+      });
+    }
+  }
+
+  private updateHover(wx: number, wy: number, sx: number, sy: number): void {
+    // Still inside the region we found last time and nothing has changed?
+    // Keep it — moving the cursor around inside a room is the common case.
+    const version = this.vm.version();
+    if (
+      this.previewRegion && version === this.hoverVersion &&
+      pointInPolygon(this.previewRegion, wx, wy) &&
+      !this.previewIslands.some((isl) => pointInPolygon(isl, wx, wy))
+    ) {
+      this.vm.markDirty();
+      return;
+    }
+    this.hoverVersion = version;
     this.previewRegion = null;
     this.previewIslands = [];
     this.previewEntity = null;
@@ -270,6 +305,10 @@ export class HatchTool implements ITool {
   }
 
   deactivate(): void {
+    if (this.hoverRaf) cancelAnimationFrame(this.hoverRaf);
+    this.hoverRaf = 0;
+    this.hoverPending = null;
+    this.hoverVersion = -1;
     this.previewRegion = null;
     this.previewIslands = [];
     this.previewEntity = null;
@@ -311,14 +350,21 @@ export class HatchTool implements ITool {
    * Try V2 pipeline first; fall back to V1 if V2 returns null.
    * Both return `RegionResult`-compatible objects.
    */
+  /**
+   * Pick-point region search with the visible world rectangle as the boundary
+   * set — AutoCAD's "current viewport" rule. Off-screen geometry cannot form
+   * the boundary, which is what keeps a hover on a 40 000-entity sheet from
+   * assembling the whole drawing; zooming in is how the user narrows an
+   * over-complex pick, as in AutoCAD.
+   */
   private _detectRegion(wx: number, wy: number): RegionResult | null {
-    const v2 = this.topology.findRegionAtWithIslandsV2(wx, wy);
-    if (v2) return v2;
-    this.topoDebug.log('_detectRegion: V2 returned null → trying V1 fallback');
-    const v1 = this.topology.findRegionAtWithIslands(wx, wy);
-    if (v1) this.topoDebug.log(`_detectRegion: V1 succeeded (ents=[${v1.entIds.join(',')}])`);
-    else this.topoDebug.log('_detectRegion: V1 also returned null');
-    return v1;
+    const window = typeof this.vm.visibleWorldRect === 'function' ? this.vm.visibleWorldRect() : null;
+    const r = this.topology.findRegionForPick(wx, wy, { window });
+    if (!r && this.topoDebug.enabled) {
+      const q = this.topology.lastQuery;
+      this.topoDebug.log(`_detectRegion: ${q.rejection} (${q.edgeCount} edges, ${q.candidateIds.length} candidates)`);
+    }
+    return r;
   }
 
   /* ─── Hatch placement ──────────────────────────────────────────────────── */

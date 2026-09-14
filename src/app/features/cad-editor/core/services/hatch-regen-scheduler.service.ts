@@ -110,9 +110,7 @@ export class HatchRegenScheduler {
         const isAssociativeRegion = hatch.boundarySpec.associative && hatch.boundarySpec.loops?.some(l => l.frozen?.length);
         if (isAssociativeRegion && hatch.boundarySpec.seedPoint) {
           const seed = hatch.boundarySpec.seedPoint;
-          const result =
-            this.topology.findRegionAtWithIslandsV2(seed.x, seed.y) ??
-            this.topology.findRegionAtWithIslands(seed.x, seed.y);
+          const result = this.topology.findRegionForPick(seed.x, seed.y, { window: regenWindow(hatch) });
           if (result && result.polygon.length >= 3) {
             const newSpec = buildFrozenSpecFromResult(result, seed, hatch.boundarySpec.tolerance, hatch.boundarySpec.revision + 1);
             newSpec.associative = true;
@@ -195,9 +193,7 @@ export class HatchRegenScheduler {
     const spec = hatch.boundarySpec!;
     const seed = spec.seedPoint;
 
-    const result =
-      this.topology.findRegionAtWithIslandsV2(seed.x, seed.y) ??
-      this.topology.findRegionAtWithIslands(seed.x, seed.y);
+    const result = this.topology.findRegionForPick(seed.x, seed.y, { window: regenWindow(hatch) });
 
     const oldSpec = spec;
     const oldAssociative = hatch.associative;
@@ -241,6 +237,20 @@ export class HatchRegenScheduler {
 }
 
 /* ─── Utilities ──────────────────────────────────────────────────────────── */
+
+/**
+ * Boundary set for re-detecting a hatch after its host geometry changed: the
+ * hatch's own extent, doubled. A hatch never grows past what it touched, so
+ * this is the equivalent of the "current viewport" window the interactive
+ * tool passes, and it keeps a regen on a 40 000-entity sheet from assembling
+ * the whole drawing.
+ */
+function regenWindow(hatch: HatchEntity): { x: number; y: number; w: number; h: number } | null {
+  const b = hatch.bbox();
+  if (!b || !Number.isFinite(b.w) || !Number.isFinite(b.h)) return null;
+  const pad = Math.max(b.w, b.h, 1);
+  return { x: b.x - pad, y: b.y - pad, w: b.w + 2 * pad, h: b.h + 2 * pad };
+}
 
 /**
  * Convert a topology polygon + islands back into the legacy `IHatchEdge[][]`
