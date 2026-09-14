@@ -1,4 +1,5 @@
-import type { IPoint, Entity } from '../models/entity.model';
+import type { IPoint, Entity, IBBox } from '../models/entity.model';
+import { forEachOverlappingPair } from '../services/topology/broad-phase';
 
 /**
  * Pick-point hatch region solver (planar arrangement / DCEL-style).
@@ -329,10 +330,18 @@ function lerp(a: IPoint, b: IPoint, t: number): IPoint {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
 
+function segBBox(s: Seg): IBBox {
+  const x = Math.min(s.a.x, s.b.x), y = Math.min(s.a.y, s.b.y);
+  return { x, y, w: Math.abs(s.b.x - s.a.x), h: Math.abs(s.b.y - s.a.y) };
+}
+
 function splitAtIntersections(segments: Seg[]): Seg[] {
   const splits: number[][] = segments.map(() => []);
-  for (let i = 0; i < segments.length; i++) {
-    for (let j = i + 1; j < segments.length; j++) {
+  // Grid broad phase instead of all pairs — see topology/broad-phase.ts for
+  // why (this loop, run over a whole drawing on hover, crashed the tab).
+  const boxes = segments.map(segBBox);
+  forEachOverlappingPair(segments.length, (i) => boxes[i], (i, j) => {
+    {
       const pt = segmentIntersection(segments[i], segments[j]);
       if (pt) {
         const ti = paramAlong(segments[i], pt);
@@ -355,7 +364,7 @@ function splitAtIntersections(segments: Seg[]): Seg[] {
       const b1 = pointOnSegParam(segments[j], segments[i].b);
       if (b1 !== null) splits[j].push(b1);
     }
-  }
+  });
   const out: Seg[] = [];
   for (let i = 0; i < segments.length; i++) {
     const params = [0, ...splits[i], 1].sort((a, b) => a - b);

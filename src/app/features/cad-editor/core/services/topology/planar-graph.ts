@@ -8,6 +8,7 @@ import type {
 } from './types';
 import { intersectEdges } from './intersection';
 import { quantKey, quantize, EPS_GEOM, QUANT_DECIMALS } from './tolerance';
+import { forEachOverlappingPair } from './broad-phase';
 
 /**
  * Build the planar arrangement from a flat edge list.
@@ -165,15 +166,17 @@ export function buildPlanarGraph(rawEdges: IEdge[]): IPlanarGraph {
  * sub-edge list. Each output edge preserves its parent's `IEdgeSource`,
  * with `t0` / `t1` narrowed to the surviving sub-range.
  *
- * Complexity is O(n²) in raw edge count (matches the current production
- * behavior). Phase 7 swaps in an R-tree pair-prune; the call shape doesn't
- * change.
+ * Pairs are enumerated by `forEachOverlappingPair`, a uniform-grid broad
+ * phase, so the cost is proportional to the number of edge pairs whose boxes
+ * actually overlap rather than to n². The per-pair work is unchanged and the
+ * split parameters are sorted per edge afterwards, so the output is identical
+ * to the old all-pairs loop.
  */
 function splitAtIntersections(edges: IEdge[]): IEdge[] {
   const splits: number[][] = edges.map(() => []);
 
-  for (let i = 0; i < edges.length; i++) {
-    for (let j = i + 1; j < edges.length; j++) {
+  forEachOverlappingPair(edges.length, (i) => edges[i].bbox, (i, j) => {
+    {
       const hits = intersectEdges(edges[i], edges[j]);
       for (const h of hits) {
         splits[i].push(h.tA);
@@ -200,7 +203,7 @@ function splitAtIntersections(edges: IEdge[]): IEdge[] {
       const b1 = endpointParamOnEdge(edges[j], edges[i].p1);
       if (b1 !== null) splits[j].push(b1);
     }
-  }
+  });
 
   const out: IEdge[] = [];
   for (let i = 0; i < edges.length; i++) {
