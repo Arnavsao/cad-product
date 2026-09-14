@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -8,6 +9,7 @@ import {
   RelativeTimePipe,
   UiBadgeComponent,
   UiEmptyStateComponent,
+  UiIconComponent,
   UiInputDirective,
   UiPaginatorComponent,
   UiSkeletonComponent,
@@ -28,7 +30,9 @@ const PAGE_SIZE = 25;
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DecimalPipe,
     RouterLink,
+    UiIconComponent,
     UiInputDirective,
     UiBadgeComponent,
     UiPaginatorComponent,
@@ -38,180 +42,102 @@ const PAGE_SIZE = 25;
     RelativeTimePipe,
   ],
   template: `
-    <div class="users">
-      <div class="users__filters">
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Users</h1>
+        <p class="adm-lede">Every account, what it is entitled to, and how recently it was seen.</p>
+      </div>
+      <div class="adm-actions">
+        @if (total() > 0) {
+          <span class="adm-muted">{{ total() | number }} {{ total() === 1 ? 'account' : 'accounts' }}</span>
+        }
+      </div>
+    </div>
+
+    <div class="adm-toolbar">
+      <div class="adm-search">
+        <ui-icon class="adm-search__icon" name="search" [size]="16" />
         <input
           uiInput
           id="admin-user-search"
           type="search"
-          class="users__search"
-          placeholder="Search email or name"
+          class="adm-search__input"
+          placeholder="Search by email or name"
           [value]="query()"
           (input)="onSearch($event)"
         />
-        <div class="users__chips" role="group" aria-label="Filter by status">
-          @for (option of statusOptions; track option.value) {
-            <button
-              type="button"
-              class="users__chip"
-              [class.users__chip--on]="status() === option.value"
-              (click)="setStatus(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          }
-        </div>
       </div>
+      <div class="adm-chips" role="group" aria-label="Filter by status">
+        @for (option of statusOptions; track option.value) {
+          <button type="button" class="adm-chip" [class.adm-chip--on]="status() === option.value" (click)="setStatus(option.value)">
+            {{ option.label }}
+          </button>
+        }
+      </div>
+    </div>
 
-      @if (error()) {
-        <p class="users__error">{{ error() }}</p>
-      }
+    @if (error(); as e) {
+      <div class="adm-note adm-note--danger" role="alert">
+        <ui-icon name="alert" [size]="18" />
+        <div><p class="adm-note__title">Accounts could not be loaded.</p><p class="adm-note__msg">{{ e }}</p></div>
+      </div>
+    }
 
+    <div class="adm-table us__table" role="table" aria-label="Accounts">
+      <div class="adm-th" role="row">
+        <span role="columnheader">Person</span>
+        <span role="columnheader">Status</span>
+        <span role="columnheader" class="adm-hide-sm">Plan</span>
+        <span role="columnheader" class="adm-cell--right adm-hide-md">Drawings</span>
+        <span role="columnheader" class="adm-cell--right adm-hide-md">Storage</span>
+        <span role="columnheader" class="adm-hide-lg">Last seen</span>
+      </div>
       @if (loading()) {
-        <ui-skeleton height="36px" [lines]="8" />
-      } @else if (rows().length === 0) {
-        <ui-empty-state heading="No accounts match" description="Try a different search or status filter." />
-      } @else {
-        <div class="users__table" role="table">
-          <div class="users__head" role="row">
-            <span role="columnheader">Person</span>
-            <span role="columnheader">Status</span>
-            <span role="columnheader">Plan</span>
-            <span role="columnheader">Drawings</span>
-            <span role="columnheader">Storage</span>
-            <span role="columnheader">Last seen</span>
+        @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+          <div class="adm-tr adm-tr--static" role="row" aria-hidden="true">
+            <span><ui-skeleton width="60%" height="14px" /></span>
+            <span><ui-skeleton width="64px" height="18px" radius="var(--ui-radius-full)" /></span>
+            <span class="adm-hide-sm"><ui-skeleton width="36px" height="14px" /></span>
+            <span class="adm-hide-md"><ui-skeleton width="24px" height="14px" /></span>
+            <span class="adm-hide-md"><ui-skeleton width="44px" height="14px" /></span>
+            <span class="adm-hide-lg"><ui-skeleton width="70px" height="14px" /></span>
           </div>
-          @for (row of rows(); track row.id) {
-            <a class="users__row" role="row" [routerLink]="['/admin/users', row.id]">
-              <span class="users__person" role="cell">
-                <span class="users__name">{{ fullName(row) }}</span>
-                <span class="users__email">{{ row.email }}</span>
-              </span>
-              <span role="cell">
-                <ui-badge [tone]="statusTone(row.status)">{{ row.status }}</ui-badge>
-                @if (row.platformRole !== 'user') {
-                  <ui-badge tone="info">{{ row.platformRole }}</ui-badge>
-                }
-              </span>
-              <span role="cell">{{ row.plan }}</span>
-              <span role="cell" class="users__num">{{ row.drawingCount }}</span>
-              <span role="cell" class="users__num">{{ row.bytesUsed | fileSize }}</span>
-              <span role="cell">{{ row.lastSeenAt ? (row.lastSeenAt | relativeTime) : 'never' }}</span>
-            </a>
-          }
-        </div>
-
-        <ui-paginator
-          [total]="total()"
-          [page]="page()"
-          [pageSize]="pageSize"
-          (pageChange)="setPage($event)"
-        />
+        }
+      } @else if (rows().length === 0) {
+        <ui-empty-state icon="users" heading="No accounts match" description="Try a different search or status filter." />
+      } @else {
+        @for (row of rows(); track row.id) {
+          <a class="adm-tr" role="row" [routerLink]="['/admin/users', row.id]">
+            <span class="adm-two" role="cell">
+              <span>{{ fullName(row) }}</span>
+              <span>{{ row.email }}</span>
+            </span>
+            <span class="adm-cell--wrap" role="cell">
+              <ui-badge [tone]="statusTone(row.status)">{{ row.status }}</ui-badge>
+              @if (row.platformRole !== 'user') {
+                <ui-badge tone="info">{{ row.platformRole }}</ui-badge>
+              }
+            </span>
+            <span class="adm-hide-sm" role="cell">{{ row.plan }}</span>
+            <span class="adm-cell--right adm-cell--dim adm-hide-md" role="cell">{{ row.drawingCount }}</span>
+            <span class="adm-cell--right adm-cell--dim adm-hide-md" role="cell">{{ row.bytesUsed | fileSize }}</span>
+            <span class="adm-cell--dim adm-hide-lg" role="cell">{{ row.lastSeenAt ? (row.lastSeenAt | relativeTime) : 'never' }}</span>
+          </a>
+        }
       }
     </div>
+
+    @if (!loading() && rows().length > 0) {
+      <ui-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" [showPageSize]="false" noun="account" (pageChange)="setPage($event)" />
+    }
   `,
   styles: [
     `
-      .users {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 1200px;
-      }
-      .users__filters {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--ui-space-3);
-      }
-      .users__search {
-        flex: 1 1 240px;
-        max-width: 360px;
-      }
-      .users__chips {
-        display: flex;
-        gap: var(--ui-space-1);
-      }
-      .users__chip {
-        border: 1px solid var(--ui-border);
-        background: var(--ui-surface);
-        color: var(--ui-text-dim);
-        border-radius: 999px;
-        padding: 4px 12px;
-        font-size: var(--ui-text-sm);
-        cursor: pointer;
-      }
-      .users__chip--on {
-        background: var(--ui-surface-2);
-        color: var(--ui-text);
-        border-color: var(--ui-accent);
-      }
-      .users__table {
-        display: flex;
-        flex-direction: column;
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        overflow: hidden;
-        background: var(--ui-surface);
-      }
-      .users__head,
-      .users__row {
-        display: grid;
-        grid-template-columns: minmax(200px, 2fr) 150px 80px 90px 100px 120px;
-        gap: var(--ui-space-3);
-        align-items: center;
-        padding: 10px var(--ui-space-4);
-      }
-      .users__head {
-        font-size: 11px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-        border-bottom: 1px solid var(--ui-border);
-        background: var(--ui-surface-2);
-      }
-      .users__row {
-        border-bottom: 1px solid var(--ui-border);
-        color: inherit;
-        text-decoration: none;
-        font-size: var(--ui-text-sm);
-      }
-      .users__row:last-child {
-        border-bottom: 0;
-      }
-      .users__row:hover {
-        background: var(--ui-surface-2);
-      }
-      .users__person {
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-      }
-      .users__name {
-        font-weight: 600;
-      }
-      .users__email,
-      .users__num {
-        color: var(--ui-text-dim);
-        font-variant-numeric: tabular-nums;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .users__error {
-        margin: 0;
-        color: var(--ui-danger, #f85149);
-        font-size: var(--ui-text-sm);
-      }
-      @media (max-width: 900px) {
-        .users__head,
-        .users__row {
-          grid-template-columns: minmax(160px, 2fr) 130px 90px;
-        }
-        .users__head span:nth-child(n + 4),
-        .users__row span:nth-child(n + 4) {
-          display: none;
-        }
-      }
+      :host { display: contents; }
+      .us__table { --adm-cols: minmax(200px, 2fr) 170px 70px 90px 100px 130px; }
+      @media (max-width: 1100px) { .us__table { --adm-cols: minmax(200px, 2fr) 170px 70px 90px 100px; } }
+      @media (max-width: 900px) { .us__table { --adm-cols: minmax(160px, 2fr) 170px 70px; } }
+      @media (max-width: 720px) { .us__table { --adm-cols: minmax(0, 1fr) 150px; } }
     `,
   ],
 })

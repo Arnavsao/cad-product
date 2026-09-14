@@ -11,6 +11,7 @@ import {
   UiButtonDirective,
   UiDialogService,
   UiEmptyStateComponent,
+  UiIconComponent,
   UiInputDirective,
   UiSkeletonComponent,
 } from '../../../shared/ui';
@@ -30,6 +31,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    UiIconComponent,
     UiInputDirective,
     UiButtonDirective,
     UiBadgeComponent,
@@ -39,199 +41,117 @@ import {
     RelativeTimePipe,
   ],
   template: `
-    <div class="orgs">
-      <input
-        uiInput
-        id="admin-org-search"
-        type="search"
-        class="orgs__search"
-        placeholder="Search name or slug"
-        (input)="onSearch($event)"
-      />
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Organizations</h1>
+        <p class="adm-lede">Shared workspaces, and the two things their own members cannot fix: a name, and an ownership with nowhere to go.</p>
+      </div>
+    </div>
 
+    <div class="adm-toolbar">
+      <div class="adm-search">
+        <ui-icon class="adm-search__icon" name="search" [size]="16" />
+        <input uiInput id="admin-org-search" type="search" class="adm-search__input" placeholder="Search by name or slug" (input)="onSearch($event)" />
+      </div>
+    </div>
+
+    <div class="adm-table og__table" role="table" aria-label="Organizations">
+      <div class="adm-th" role="row">
+        <span role="columnheader">Organization</span>
+        <span role="columnheader" class="adm-cell--right adm-hide-sm">Members</span>
+        <span role="columnheader" class="adm-cell--right adm-hide-md">Drawings</span>
+        <span role="columnheader" class="adm-cell--right adm-hide-md">Storage</span>
+        <span role="columnheader" class="adm-hide-lg">Owner</span>
+      </div>
       @if (loading()) {
-        <ui-skeleton height="44px" [lines]="6" />
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="adm-tr adm-tr--static" role="row" aria-hidden="true">
+            <span><ui-skeleton width="50%" height="14px" /></span>
+            <span class="adm-hide-sm"><ui-skeleton width="24px" height="14px" /></span>
+            <span class="adm-hide-md"><ui-skeleton width="24px" height="14px" /></span>
+            <span class="adm-hide-md"><ui-skeleton width="44px" height="14px" /></span>
+            <span class="adm-hide-lg"><ui-skeleton width="70%" height="14px" /></span>
+          </div>
+        }
       } @else if (rows().length === 0) {
-        <ui-empty-state heading="No organizations" description="Nobody has created a shared workspace yet." />
+        <ui-empty-state icon="building" heading="No organizations" description="Nobody has created a shared workspace yet." />
       } @else {
-        <div class="orgs__list">
-          @for (row of rows(); track row.id) {
-            <div class="orgs__row" [class.orgs__row--open]="openId() === row.id">
-              <button type="button" class="orgs__summary" (click)="toggle(row)">
-                <span class="orgs__name">
-                  {{ row.name }}
-                  <span class="orgs__slug">{{ row.slug }}</span>
-                </span>
-                <span class="orgs__stat">{{ row.memberCount }} {{ row.memberCount === 1 ? 'member' : 'members' }}</span>
-                <span class="orgs__stat">
-                  {{ row.drawingCount }} {{ row.drawingCount === 1 ? 'drawing' : 'drawings' }}
-                </span>
-                <span class="orgs__stat">{{ row.bytesUsed | fileSize }}</span>
-                <span class="orgs__owner">{{ row.ownerEmail ?? 'no owner' }}</span>
-              </button>
+        @for (row of rows(); track row.id) {
+          <button type="button" class="adm-tr" [class.adm-tr--open]="openId() === row.id" role="row" [attr.aria-expanded]="openId() === row.id" (click)="toggle(row)">
+            <span class="adm-two" role="cell">
+              <span>{{ row.name }}</span>
+              <span class="adm-mono">{{ row.slug }}</span>
+            </span>
+            <span class="adm-cell--right adm-cell--dim adm-hide-sm" role="cell">{{ row.memberCount }}</span>
+            <span class="adm-cell--right adm-cell--dim adm-hide-md" role="cell">{{ row.drawingCount }}</span>
+            <span class="adm-cell--right adm-cell--dim adm-hide-md" role="cell">{{ row.bytesUsed | fileSize }}</span>
+            <span class="adm-cell--dim adm-truncate adm-hide-lg" role="cell">{{ row.ownerEmail ?? 'no owner' }}</span>
+          </button>
 
-              @if (openId() === row.id) {
-                @if (detail(); as d) {
-                  <div class="orgs__detail">
-                    <div class="orgs__actions">
-                      @if (canManage()) {
-                        <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="rename(d)">
-                          Rename
-                        </button>
-                        <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="transfer(d)">
-                          Transfer ownership
-                        </button>
-                        <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="rotate(d)">
-                          Rotate join code
-                        </button>
-                      } @else {
-                        <span class="orgs__hint">Changing an organization needs the admin tier.</span>
+          @if (openId() === row.id) {
+            <div class="adm-detail">
+              @if (detail(); as d) {
+                <div class="adm-row adm-row--between">
+                  <dl class="adm-facts og__facts">
+                    <div><dt>Join code</dt><dd class="adm-mono">{{ d.joinCode }}</dd></div>
+                    <div><dt>Created</dt><dd>{{ d.createdAt | relativeTime }}</dd></div>
+                  </dl>
+                  @if (canManage()) {
+                    <div class="adm-actions">
+                      <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="rename(d)">Rename</button>
+                      <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="transfer(d)">Transfer ownership</button>
+                      <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="rotate(d)">Rotate join code</button>
+                    </div>
+                  } @else {
+                    <span class="adm-muted">Changing an organization needs the admin tier.</span>
+                  }
+                </div>
+
+                <div class="adm-grid-halves">
+                  <div class="adm-stack">
+                    <p class="adm-kicker">Members</p>
+                    <div class="adm-table adm-card--flush">
+                      @for (member of d.members; track member.userId) {
+                        <a class="adm-list__row adm-link--quiet" [routerLink]="['/admin/users', member.userId]" style="text-decoration:none">
+                          <span class="adm-two adm-grow"><span>{{ member.name || member.email }}</span><span>{{ member.email }}</span></span>
+                          <ui-badge [tone]="member.role === 'owner' ? 'info' : 'neutral'">{{ member.role }}</ui-badge>
+                          <span class="adm-muted">joined {{ member.joinedAt | relativeTime }}</span>
+                        </a>
                       }
                     </div>
-
-                    <h3 class="orgs__heading">Members</h3>
-                    <ul class="orgs__members">
-                      @for (member of d.members; track member.userId) {
-                        <li>
-                          <a [routerLink]="['/admin/users', member.userId]">{{ member.name || member.email }}</a>
-                          <ui-badge [tone]="member.role === 'owner' ? 'info' : 'neutral'">{{ member.role }}</ui-badge>
-                          <span class="orgs__joined">joined {{ member.joinedAt | relativeTime }}</span>
-                        </li>
-                      }
-                    </ul>
-
-                    @if (d.invites.length) {
-                      <h3 class="orgs__heading">Pending invites</h3>
-                      <ul class="orgs__members">
-                        @for (invite of d.invites; track invite.id) {
-                          <li>
-                            {{ invite.email }}
-                            <ui-badge>{{ invite.role }}</ui-badge>
-                            <span class="orgs__joined">expires {{ invite.expiresAt | relativeTime }}</span>
-                          </li>
-                        }
-                      </ul>
-                    }
                   </div>
-                } @else {
-                  <ui-skeleton height="24px" [lines]="3" />
-                }
+                  @if (d.invites.length) {
+                    <div class="adm-stack">
+                      <p class="adm-kicker">Pending invites</p>
+                      <div class="adm-table adm-card--flush">
+                        @for (invite of d.invites; track invite.id) {
+                          <div class="adm-list__row">
+                            <span class="adm-grow adm-truncate">{{ invite.email }}</span>
+                            <ui-badge>{{ invite.role }}</ui-badge>
+                            <span class="adm-muted">expires {{ invite.expiresAt | relativeTime }}</span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <ui-skeleton height="18px" [lines]="3" />
               }
             </div>
           }
-        </div>
+        }
       }
     </div>
   `,
   styles: [
     `
-      .orgs {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 1100px;
-      }
-      .orgs__search {
-        max-width: 320px;
-      }
-      .orgs__list {
-        display: flex;
-        flex-direction: column;
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-        overflow: hidden;
-      }
-      .orgs__row {
-        border-bottom: 1px solid var(--ui-border);
-      }
-      .orgs__row:last-child {
-        border-bottom: 0;
-      }
-      .orgs__summary {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 110px 110px 90px 200px;
-        gap: var(--ui-space-3);
-        align-items: center;
-        width: 100%;
-        padding: 10px var(--ui-space-4);
-        background: none;
-        border: 0;
-        color: inherit;
-        font: inherit;
-        font-size: var(--ui-text-sm);
-        text-align: left;
-        cursor: pointer;
-      }
-      .orgs__summary:hover {
-        background: var(--ui-surface-2);
-      }
-      .orgs__row--open .orgs__summary {
-        background: var(--ui-surface-2);
-      }
-      .orgs__name {
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-        font-weight: 600;
-      }
-      .orgs__slug,
-      .orgs__stat,
-      .orgs__owner,
-      .orgs__joined,
-      .orgs__hint {
-        color: var(--ui-text-dim);
-        font-weight: 400;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .orgs__detail {
-        padding: 0 var(--ui-space-4) var(--ui-space-4);
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-2);
-      }
-      .orgs__actions {
-        display: flex;
-        gap: var(--ui-space-2);
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      .orgs__heading {
-        margin: var(--ui-space-2) 0 0;
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-      }
-      .orgs__members {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-size: var(--ui-text-sm);
-      }
-      .orgs__members li {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        flex-wrap: wrap;
-      }
-      .orgs__members a {
-        color: inherit;
-      }
-      @media (max-width: 900px) {
-        .orgs__summary {
-          grid-template-columns: minmax(0, 1fr) 110px;
-        }
-        .orgs__summary .orgs__stat:nth-of-type(n + 2),
-        .orgs__owner {
-          display: none;
-        }
-      }
+      :host { display: contents; }
+      .og__table { --adm-cols: minmax(220px, 2fr) 90px 90px 100px 220px; }
+      @media (max-width: 1100px) { .og__table { --adm-cols: minmax(220px, 2fr) 90px 90px 100px; } }
+      @media (max-width: 900px) { .og__table { --adm-cols: minmax(180px, 2fr) 90px; } }
+      @media (max-width: 720px) { .og__table { --adm-cols: minmax(0, 1fr); } }
+      .og__facts { grid-template-columns: repeat(2, max-content); gap: var(--ui-space-2) var(--ui-space-8); }
     `,
   ],
 })

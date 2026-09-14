@@ -1,3 +1,9 @@
+/*
+ * Measurements are the dashboard shell's, not approximations of them: the same
+ * 290px rail, the same 48px header row (shared with the editor's header), the
+ * same content padding and the same link geometry. See
+ * `dashboard-shell.component.scss` — anything changed there should change here.
+ */
 :host {
   display: block;
   height: 100%;
@@ -5,11 +11,7 @@
 
 .adm {
   display: grid;
-  /* Narrower rail than the dashboard's 290px: this one carries six links and no
-     workspace switcher, so the extra width would be dead space. */
-  grid-template-columns: 232px minmax(0, 1fr);
-  /* 48px, the same header height as the dashboard and the editor, so moving
-     between them does not shift the page. */
+  grid-template-columns: 290px minmax(0, 1fr);
   grid-template-rows: 48px minmax(0, 1fr);
   height: 100vh;
   background: var(--ui-bg);
@@ -27,33 +29,6 @@
     background: var(--ui-surface);
   }
 
-  &__brandLink {
-    display: flex;
-    align-items: center;
-    gap: var(--ui-space-2);
-    color: inherit;
-    text-decoration: none;
-    min-width: 0;
-  }
-
-  &__brandName {
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  /* The one piece of chrome that differs from the dashboard, on purpose: a
-     screenshot of this portal must never be mistaken for the product. */
-  &__badge {
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 2px 6px;
-    border-radius: var(--ui-radius-sm);
-    background: var(--ui-accent);
-    color: var(--ui-accent-contrast, #fff);
-    font-weight: 600;
-  }
-
   &__top {
     grid-column: 2;
     grid-row: 1;
@@ -66,121 +41,147 @@
   }
 
   &__section {
+    margin: 0;
+    font-size: var(--ui-text-md);
     font-weight: 600;
-    font-size: var(--ui-text-sm);
+    color: var(--ui-text-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__actions {
     display: flex;
     align-items: center;
-    gap: var(--ui-space-3);
+    gap: var(--ui-space-2);
     margin-left: auto;
     flex-shrink: 0;
   }
 
   &__role {
-    font-size: 11px;
-    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-full);
+    font-size: var(--ui-text-xs);
+    font-weight: 600;
+    letter-spacing: .04em;
     text-transform: uppercase;
     color: var(--ui-text-dim);
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-sm);
-    padding: 2px 8px;
   }
 
-  &__action {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--ui-space-1);
-    font-size: var(--ui-text-sm);
-    color: var(--ui-text-dim);
-    text-decoration: none;
-    padding: 4px 8px;
-    border-radius: var(--ui-radius-sm);
+  &__back { color: var(--ui-text-dim); &:hover { color: var(--ui-text); } }
 
-    &:hover {
-      color: var(--ui-text);
-      background: var(--ui-surface-2);
-    }
-  }
-
+  /* ── rail ── */
   &__nav {
     grid-column: 1;
     grid-row: 2;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: var(--ui-space-3);
+    gap: var(--ui-space-5);
+    padding: var(--ui-space-4);
+    overflow-y: auto;
     border-right: 1px solid var(--ui-border);
     background: var(--ui-surface);
-    overflow-y: auto;
   }
 
-  &__navItem {
+  &__group { display: grid; gap: 4px; }
+
+  &__group-label {
+    margin: 0;
+    padding: 0 10px;
+    font-size: var(--ui-text-xs);
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ui-text-dim);
+    opacity: .8;
+  }
+
+  &__links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  /* Identical to `.dash__link`. */
+  &__link {
     display: flex;
     align-items: center;
-    gap: var(--ui-space-3);
+    gap: 10px;
     padding: 8px 10px;
-    border-radius: var(--ui-radius-sm);
+    border-radius: var(--ui-radius-md);
     color: var(--ui-text-dim);
     text-decoration: none;
-    font-size: var(--ui-text-sm);
+    font-size: var(--ui-text-md);
+    font-weight: 500;
+    transition: background var(--ui-dur-fast), color var(--ui-dur-fast);
 
-    &:hover {
-      background: var(--ui-surface-2);
-      color: var(--ui-text);
-    }
-
-    &--active {
-      background: var(--ui-surface-2);
-      color: var(--ui-text);
-      font-weight: 600;
-      /* The rail's only strong accent: it marks where you are, and nothing
-         else in the nav competes with it. */
-      box-shadow: inset 2px 0 0 var(--ui-accent);
-    }
+    &:hover { background: var(--ui-hover); color: var(--ui-text); }
+    &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+    &--on { background: var(--ui-active); color: var(--ui-accent); }
   }
 
+  /* ── content ── */
   &__content {
+    position: relative;
     grid-column: 2;
     grid-row: 2;
     overflow-y: auto;
-    padding: var(--ui-space-5);
+    padding: var(--ui-space-6) clamp(16px, 3vw, 32px) var(--ui-space-8);
   }
 }
 
-/* Phone: the rail becomes a scrolling strip above the content. */
-@media (max-width: 720px) {
-  .adm {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 48px auto minmax(0, 1fr);
+/* The brand, as the dashboard draws it, plus the one thing that differs. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--ui-text-strong);
+  text-decoration: none;
 
-    &__brand {
-      display: none;
-    }
-
-    &__top {
-      grid-column: 1;
-      grid-row: 1;
-    }
-
-    &__nav {
-      grid-column: 1;
-      grid-row: 2;
-      flex-direction: row;
-      overflow-x: auto;
-      border-right: 0;
-      border-bottom: 1px solid var(--ui-border);
-    }
-
-    &__navItem span {
-      white-space: nowrap;
-    }
-
-    &__content {
-      grid-column: 1;
-      grid-row: 3;
-      padding: var(--ui-space-4);
-    }
+  &__mark {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-accent);
+    color: #fff;
+    flex: 0 0 auto;
   }
+  &__name {
+    font-size: var(--ui-text-base);
+    font-weight: 700;
+    letter-spacing: -.01em;
+  }
+  &__badge {
+    padding: 1px 7px;
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-active);
+    color: var(--ui-accent);
+    font-size: var(--ui-text-xs);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+}
+
+/* Same breakpoints as the dashboard shell. */
+@media (max-width: 900px) {
+  .adm { grid-template-columns: 224px minmax(0, 1fr); }
+  .adm__content { padding: var(--ui-space-4) var(--ui-space-4) var(--ui-space-10); }
+  .adm__back-label { display: none; }
+}
+
+@media (max-width: 600px) {
+  .adm { grid-template-columns: 60px minmax(0, 1fr); }
+  .adm__brand { justify-content: center; padding: 0; }
+  .brand__name, .brand__badge, .adm__group-label, .adm__role { display: none; }
+  .adm__nav { padding: var(--ui-space-2); gap: var(--ui-space-3); }
+  /* Collapse links to their icon, as the dashboard does. */
+  .adm__link { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+  .adm__link-label { display: none; }
 }

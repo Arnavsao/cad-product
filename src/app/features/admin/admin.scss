@@ -1,0 +1,410 @@
+/**
+ * The admin portal's shared vocabulary.
+ *
+ * Global rather than per-component on purpose, and for the same reason
+ * `ui.scss` is: fourteen pages each carrying a private copy of "what a table
+ * row looks like" is how two areas of one product drift into two products. Every
+ * class here is a one-to-one counterpart of something the dashboard already
+ * does — `.adm-head` is `.pg__head`, `.adm-th` is the drawings table header,
+ * `.adm-card--hero` is `.rc__hero` — with the same tokens, paddings and radii,
+ * so a page built from them cannot help matching.
+ *
+ * Nothing here defines a colour of its own. Everything reads `--ui-*` tokens,
+ * which is what keeps the twelve themes working.
+ */
+
+/* ── page rhythm ─────────────────────────────────────────────────── */
+.adm-page {
+  display: grid;
+  gap: var(--ui-space-6);
+  /* The dashboard's pages fill the column; so do these. */
+  --ui-page-max: none;
+}
+
+.adm-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  flex-wrap: wrap;
+}
+.adm-title {
+  margin: 0;
+  font-size: var(--ui-text-xl);
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--ui-text-strong);
+}
+.adm-lede {
+  margin: 4px 0 0;
+  max-width: 68ch;
+  font-size: var(--ui-text-md);
+  line-height: var(--ui-leading);
+  color: var(--ui-text-dim);
+}
+.adm-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  flex-wrap: wrap;
+}
+
+/* A section heading inside a page — the dashboard's `.pg__subtitle`. */
+.adm-section {
+  display: grid;
+  gap: var(--ui-space-3);
+}
+.adm-section-title {
+  margin: 0;
+  font-size: var(--ui-text-base);
+  font-weight: 600;
+  color: var(--ui-text-dim);
+}
+/* Uppercase micro-heading, for a card's own title. Same spec as a table header cell. */
+.adm-kicker {
+  margin: 0;
+  font-size: var(--ui-text-xs);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ui-text-dim);
+}
+/* The accent eyebrow the Recent hero uses. */
+.adm-eyebrow {
+  margin: 0;
+  font-size: var(--ui-text-sm);
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ui-accent);
+}
+
+/* ── layout helpers ──────────────────────────────────────────────── */
+.adm-stack { display: grid; gap: var(--ui-space-2); }
+.adm-stack--lg { gap: var(--ui-space-4); }
+.adm-row { display: flex; align-items: center; gap: var(--ui-space-2); flex-wrap: wrap; }
+.adm-row--between { justify-content: space-between; }
+.adm-grow { flex: 1 1 auto; min-width: 0; }
+.adm-push { margin-left: auto; }
+
+.adm-grid-kpi {
+  display: grid;
+  gap: var(--ui-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.adm-grid-2 {
+  display: grid;
+  gap: var(--ui-space-4);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+}
+.adm-grid-halves {
+  display: grid;
+  gap: var(--ui-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: start;
+}
+
+/* ── cards ───────────────────────────────────────────────────────── */
+.adm-card {
+  display: grid;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-5);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  min-width: 0;
+}
+.adm-card--flush { padding: 0; gap: 0; overflow: hidden; }
+.adm-card--hero {
+  border-radius: var(--ui-radius-xl);
+  background: linear-gradient(120deg, var(--ui-accent-tint), transparent 60%), var(--ui-surface);
+}
+.adm-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  flex-wrap: wrap;
+}
+/* A flush card's header strip — same surface as the table header. */
+.adm-card__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  padding: 8px var(--ui-space-4);
+  background: var(--ui-surface-raised);
+  border-bottom: 1px solid var(--ui-border);
+}
+.adm-card__foot {
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-top: 1px solid var(--ui-border);
+  font-size: var(--ui-text-sm);
+  color: var(--ui-text-dim);
+}
+
+/* ── toolbar: search + filters + actions ─────────────────────────── */
+.adm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  flex-wrap: wrap;
+}
+.adm-search {
+  position: relative;
+  flex: 1 1 240px;
+  max-width: 380px;
+}
+.adm-search__icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ui-text-dim);
+  pointer-events: none;
+}
+.adm-search__input {
+  width: 100%;
+  padding-left: 36px !important;
+}
+.adm-search__input::-webkit-search-cancel-button { display: none; }
+
+.adm-chips {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-raised);
+}
+.adm-chip {
+  padding: 5px 11px;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text-dim);
+  font: 500 var(--ui-text-sm) / 1 var(--ui-font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--ui-dur-fast), color var(--ui-dur-fast);
+
+  &:hover { color: var(--ui-text); background: var(--ui-hover); }
+  &:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -1px; }
+  &--on { background: var(--ui-active); color: var(--ui-accent); }
+}
+
+/* ── tables ──────────────────────────────────────────────────────── *
+ * `--adm-cols` lives on `.adm-table`; header and rows both read it, so they
+ * cannot fall out of alignment — the same contract the drawings table keeps
+ * with `--dw-cols`. Pages override the variable per breakpoint and hide the
+ * matching cells with `.adm-hide-*`.
+ */
+.adm-table {
+  --adm-cols: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  overflow: hidden;
+}
+.adm-th,
+.adm-tr {
+  display: grid;
+  grid-template-columns: var(--adm-cols);
+  align-items: center;
+  gap: var(--ui-space-2);
+  padding: 0 var(--ui-space-2);
+}
+.adm-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ui-surface-raised);
+  border-bottom: 1px solid var(--ui-border);
+}
+.adm-th > * {
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: var(--ui-text-xs);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ui-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adm-tr {
+  border-bottom: 1px solid var(--ui-border);
+  color: var(--ui-text);
+  text-decoration: none;
+  font-size: var(--ui-text-md);
+  transition: background var(--ui-dur-fast);
+  &:last-child { border-bottom: 0; }
+  &:is(a, button):hover { background: var(--ui-hover); }
+  &:is(a, button):focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+}
+/* `button` rows need the browser chrome stripped. */
+button.adm-tr {
+  width: 100%;
+  border-inline: 0;
+  border-top: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.adm-tr > * { min-width: 0; padding: 9px 6px; }
+.adm-tr--open { background: var(--ui-active); }
+
+.adm-cell--right { text-align: right; font-variant-numeric: tabular-nums; }
+.adm-cell--num { font-variant-numeric: tabular-nums; }
+.adm-cell--dim { color: var(--ui-text-dim); }
+.adm-cell--strong { color: var(--ui-text-strong); font-weight: 600; }
+.adm-cell--wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.adm-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Primary + secondary line in one cell, like Person / email. */
+.adm-two { display: grid; gap: 1px; min-width: 0; }
+.adm-two > :first-child { color: var(--ui-text-strong); font-weight: 600; }
+.adm-two > :last-child { font-size: var(--ui-text-sm); color: var(--ui-text-dim); }
+.adm-two > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The expanded detail under an `.adm-tr--open` row. */
+.adm-detail {
+  display: grid;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4) var(--ui-space-5);
+  border-bottom: 1px solid var(--ui-border);
+  background: color-mix(in srgb, var(--ui-surface-raised) 60%, var(--ui-surface));
+}
+
+/* Simple stacked list inside a flush card (members, suppressions…). */
+.adm-list { display: flex; flex-direction: column; }
+.adm-list__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  flex-wrap: wrap;
+  padding: 10px var(--ui-space-4);
+  border-bottom: 1px solid var(--ui-border);
+  font-size: var(--ui-text-md);
+  &:last-child { border-bottom: 0; }
+}
+
+/* ── facts (dl) ──────────────────────────────────────────────────── */
+.adm-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--ui-space-4) var(--ui-space-5);
+  margin: 0;
+}
+.adm-facts dt {
+  font-size: var(--ui-text-xs);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ui-text-dim);
+}
+.adm-facts dd {
+  margin: 3px 0 0;
+  font-size: var(--ui-text-md);
+  color: var(--ui-text);
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  flex-wrap: wrap;
+  word-break: break-word;
+}
+
+/* ── notes & errors — the dashboard's `.pg__error`, in three tones ── */
+.adm-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-3);
+  padding: 14px 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface-raised);
+  font-size: var(--ui-text-md);
+  line-height: var(--ui-leading);
+  color: var(--ui-text);
+
+  > ui-icon { flex: 0 0 auto; margin-top: 2px; color: var(--ui-text-dim); }
+  > div { flex: 1; min-width: 0; }
+  p { margin: 0; }
+  &--accent { border-color: var(--ui-accent); background: var(--ui-accent-tint); > ui-icon { color: var(--ui-accent); } }
+  &--warn { border-color: var(--ui-warning); background: var(--ui-warning-tint); > ui-icon { color: var(--ui-warning); } }
+  &--danger { border-color: var(--ui-danger); background: var(--ui-danger-tint); > ui-icon { color: var(--ui-danger); } }
+}
+.adm-note__title { margin: 0; font-size: var(--ui-text-md); font-weight: 600; color: var(--ui-text-strong); }
+.adm-note__msg { margin: 2px 0 0; font-size: var(--ui-text-sm); color: var(--ui-text-dim); }
+
+/* ── text utilities ──────────────────────────────────────────────── */
+.adm-muted { font-size: var(--ui-text-sm); color: var(--ui-text-dim); margin: 0; }
+.adm-mono { font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); }
+.adm-link { color: var(--ui-accent); text-decoration: none; &:hover { text-decoration: underline; } }
+.adm-link--quiet { color: inherit; &:hover { color: var(--ui-accent); } }
+.adm-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  font-size: var(--ui-text-sm);
+  color: var(--ui-text-dim);
+  text-decoration: none;
+  &:hover { color: var(--ui-text); }
+}
+.adm-danger-text { color: var(--ui-danger); }
+.adm-warn-text { color: var(--ui-warning); }
+.adm-success-text { color: var(--ui-success); }
+
+/* ── forms ───────────────────────────────────────────────────────── */
+.adm-field { display: grid; gap: 6px; }
+.adm-label { font-size: var(--ui-text-sm); font-weight: 500; color: var(--ui-text-dim); }
+.adm-textarea { width: 100%; resize: vertical; font-family: inherit; line-height: var(--ui-leading); }
+.adm-check {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  font-size: var(--ui-text-md);
+  input { width: 15px; height: 15px; margin: 0; accent-color: var(--ui-accent); }
+}
+.adm-pre {
+  margin: 0;
+  padding: var(--ui-space-3);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  font: var(--ui-text-xs) / 1.5 var(--ui-font-mono);
+  color: var(--ui-text);
+  overflow-x: auto;
+}
+
+/* ── responsive column hiding (pair with a `--adm-cols` override) ── */
+@media (max-width: 1100px) { .adm-hide-lg { display: none !important; } }
+@media (max-width: 900px) {
+  .adm-hide-md { display: none !important; }
+  .adm-grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .adm-hide-sm { display: none !important; }
+  .adm-card { padding: var(--ui-space-4); }
+}
+
+/*
+ * A destructive action on every row of a long table is a wall of red before
+ * anyone has decided to do anything. Inside a table row the danger colour waits
+ * for the row to be hovered or the control focused; the action is still there
+ * and still red when it matters.
+ */
+.adm-tr .adm-danger-text:is(button, a) {
+  color: var(--ui-text-dim);
+  transition: color var(--ui-dur-fast);
+}
+.adm-tr:hover .adm-danger-text:is(button, a),
+.adm-tr .adm-danger-text:is(button, a):focus-visible,
+.adm-tr .adm-danger-text:is(button, a):hover {
+  color: var(--ui-danger);
+}

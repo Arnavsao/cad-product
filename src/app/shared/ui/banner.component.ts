@@ -33,14 +33,14 @@ export type UiBannerTone = 'info' | 'warning';
         align-items: center;
         gap: var(--ui-space-3);
         padding: 8px var(--ui-space-5);
-        background: var(--ui-surface-2);
+        background: var(--ui-surface-raised);
         border-bottom: 1px solid var(--ui-border);
         color: var(--ui-text);
         font-size: var(--ui-text-sm);
       }
       .banner--warning {
-        background: color-mix(in srgb, var(--ui-warning, #d29922) 16%, var(--ui-surface-2));
-        border-bottom-color: color-mix(in srgb, var(--ui-warning, #d29922) 45%, transparent);
+        background: var(--ui-warning-tint);
+        border-bottom-color: var(--ui-warning);
       }
       .banner__text {
         min-width: 0;

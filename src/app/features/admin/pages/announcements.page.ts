@@ -37,160 +37,85 @@ import {
     RelativeTimePipe,
   ],
   template: `
-    <div class="ann">
-      @if (canWrite()) {
-        <section class="ann__compose">
-          <h2 class="ann__heading">New announcement</h2>
-          <input uiInput id="ann-title" placeholder="Title" [(ngModel)]="title" [disabled]="busy()" />
-          <textarea
-            uiInput
-            id="ann-body"
-            class="ann__textarea"
-            rows="3"
-            placeholder="What you want people to know."
-            [(ngModel)]="body"
-            [disabled]="busy()"
-          ></textarea>
-          <input uiInput id="ann-link" placeholder="Link (optional)" [(ngModel)]="linkUrl" [disabled]="busy()" />
-          <label class="ann__check">
-            <input type="checkbox" id="ann-inbox" [(ngModel)]="pushToInbox" [disabled]="busy()" />
-            Also put it in everyone's inbox when published
-          </label>
-          <p class="ann__hint">
-            Saved as a draft. Nothing is shown to anyone until you publish it.
-            @if (pushToInbox) {
-              Inbox messages cannot be recalled.
-            }
-          </p>
-          <button uiButton variant="primary" [disabled]="busy() || !canCreate()" (click)="create()">
-            Save draft
-          </button>
-        </section>
-      }
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Announcements</h1>
+        <p class="adm-lede">A banner for signed-in users, and optionally a row in their inbox. Nothing is shown until you publish it.</p>
+      </div>
+    </div>
 
-      @if (loading()) {
-        <ui-skeleton height="60px" [lines]="3" />
-      } @else if (rows().length === 0) {
-        <ui-empty-state heading="Nothing announced" description="Drafts and published notices appear here." />
-      } @else {
-        <div class="ann__list">
+    <div class="adm-grid-2">
+      <div class="adm-stack adm-stack--lg">
+        @if (loading()) {
+          <ui-skeleton height="120px" radius="var(--ui-radius-lg)" [lines]="2" />
+        } @else if (rows().length === 0) {
+          <div class="adm-card adm-card--flush">
+            <ui-empty-state icon="bell" heading="Nothing announced" description="Drafts and published notices appear here." />
+          </div>
+        } @else {
           @for (row of rows(); track row.id) {
-            <article class="ann__item">
-              <header class="ann__itemHead">
-                <span class="ann__title">{{ row.title }}</span>
-                @if (row.live) {
-                  <ui-badge tone="success">live</ui-badge>
-                } @else if (row.publishedAt) {
-                  <ui-badge>ended</ui-badge>
-                } @else {
-                  <ui-badge tone="warning">draft</ui-badge>
-                }
-                @if (row.pushToInbox) {
-                  <ui-badge tone="info">inbox</ui-badge>
-                }
-                <span class="ann__when">{{ row.createdAt | relativeTime }}</span>
-              </header>
-              <p class="ann__body">{{ row.body }}</p>
+            <article class="adm-card" [class.an__live]="row.live">
+              <div class="adm-card__head">
+                <span class="adm-row">
+                  <span class="an__title">{{ row.title }}</span>
+                  @if (row.live) { <ui-badge tone="success">live</ui-badge> }
+                  @else if (row.publishedAt) { <ui-badge>ended</ui-badge> }
+                  @else { <ui-badge tone="warning">draft</ui-badge> }
+                  @if (row.pushToInbox) { <ui-badge tone="info">inbox</ui-badge> }
+                </span>
+                <span class="adm-muted">{{ row.createdAt | relativeTime }}</span>
+              </div>
+              <p class="an__body">{{ row.body }}</p>
               @if (canWrite()) {
-                <div class="ann__actions">
+                <div class="adm-actions">
                   @if (!row.publishedAt) {
-                    <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="publish(row)">
-                      Publish
-                    </button>
+                    <button uiButton variant="primary" size="sm" [disabled]="busy()" (click)="publish(row)">Publish</button>
                   }
-                  <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="remove(row)">Delete</button>
+                  <button uiButton variant="ghost" size="sm" class="adm-danger-text" [disabled]="busy()" (click)="remove(row)">Delete</button>
                 </div>
               }
             </article>
           }
-        </div>
+        }
+      </div>
+
+      @if (canWrite()) {
+        <section class="adm-card an__compose">
+          <p class="adm-kicker">New announcement</p>
+          <div class="adm-field">
+            <label class="adm-label" for="ann-title">Title</label>
+            <input uiInput id="ann-title" placeholder="Short and specific" [(ngModel)]="title" [disabled]="busy()" />
+          </div>
+          <div class="adm-field">
+            <label class="adm-label" for="ann-body">Message</label>
+            <textarea uiInput id="ann-body" class="adm-textarea" rows="4" placeholder="What you want people to know." [(ngModel)]="body" [disabled]="busy()"></textarea>
+          </div>
+          <div class="adm-field">
+            <label class="adm-label" for="ann-link">Link <span class="adm-muted">(optional)</span></label>
+            <input uiInput id="ann-link" placeholder="https://" [(ngModel)]="linkUrl" [disabled]="busy()" />
+          </div>
+          <label class="adm-check">
+            <input type="checkbox" id="ann-inbox" [(ngModel)]="pushToInbox" [disabled]="busy()" />
+            Also put it in everyone's inbox when published
+          </label>
+          <p class="adm-muted">
+            Saved as a draft.
+            @if (pushToInbox) { Inbox messages cannot be recalled once published. }
+          </p>
+          <button uiButton variant="secondary" [disabled]="busy() || !canCreate()" (click)="create()">Save draft</button>
+        </section>
       }
     </div>
   `,
   styles: [
     `
-      .ann {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 800px;
-      }
-      .ann__compose {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--ui-space-2);
-        padding: var(--ui-space-4);
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-      }
-      .ann__compose input[uiInput],
-      .ann__textarea {
-        width: 100%;
-      }
-      .ann__textarea {
-        resize: vertical;
-        font-family: inherit;
-      }
-      .ann__heading {
-        margin: 0;
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-      }
-      .ann__check {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        font-size: var(--ui-text-sm);
-      }
-      .ann__check input {
-        width: auto;
-      }
-      .ann__hint,
-      .ann__when {
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-        margin: 0;
-      }
-      .ann__list {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-3);
-      }
-      .ann__item {
-        padding: var(--ui-space-4);
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-2);
-      }
-      .ann__itemHead {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        flex-wrap: wrap;
-      }
-      .ann__title {
-        font-weight: 600;
-      }
-      .ann__when {
-        margin-left: auto;
-      }
-      .ann__body {
-        margin: 0;
-        white-space: pre-wrap;
-        line-height: 1.6;
-        font-size: var(--ui-text-sm);
-      }
-      .ann__actions {
-        display: flex;
-        gap: var(--ui-space-2);
-      }
+      :host { display: contents; }
+      .an__title { font-weight: 600; color: var(--ui-text-strong); }
+      .an__body { margin: 0; white-space: pre-wrap; line-height: var(--ui-leading); font-size: var(--ui-text-md); }
+      .an__live { border-color: var(--ui-success); }
+      .an__compose { align-content: start; justify-items: start; position: sticky; top: 0; }
+      .an__compose .adm-field { width: 100%; }
+      @media (max-width: 900px) { .an__compose { position: static; } }
     `,
   ],
 })

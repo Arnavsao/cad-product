@@ -30,114 +30,68 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [UiButtonDirective, UiBadgeComponent, UiSkeletonComponent, RelativeTimePipe],
   template: `
-    <div class="jobs">
-      <p class="jobs__lede">
-        These run on a schedule outside the app. The times below are suggestions for that scheduler,
-        not something this page enforces.
-      </p>
-
-      @if (loading()) {
-        <ui-skeleton height="64px" [lines]="5" />
-      } @else {
-        <div class="jobs__list">
-          @for (job of jobs(); track job.name) {
-            <article class="jobs__item">
-              <header class="jobs__head">
-                <span class="jobs__name">{{ job.name }}</span>
-                @if (job.destructive) {
-                  <ui-badge tone="warning">deletes data</ui-badge>
-                }
-                @if (job.lastRun; as run) {
-                  @if (run.stuck) {
-                    <ui-badge tone="danger">stuck</ui-badge>
-                  } @else {
-                    <ui-badge [tone]="tone(run.status)">{{ run.status }}</ui-badge>
-                  }
-                } @else {
-                  <ui-badge>never run</ui-badge>
-                }
-                <code class="jobs__cron">{{ job.suggestedCron }}</code>
-              </header>
-
-              <p class="jobs__desc">{{ job.description }}</p>
-
-              @if (job.lastRun; as run) {
-                <p class="jobs__meta">
-                  Last started {{ run.startedAt | relativeTime }}.
-                  @if (run.stuck) {
-                    It never finished — the process probably died mid-run.
-                  } @else if (run.error) {
-                    <span class="jobs__error">{{ run.error }}</span>
-                  } @else if (run.summary) {
-                    {{ summarise(run.summary) }}
-                  }
-                </p>
-              }
-
-              @if (isOwner()) {
-                <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="run(job)">
-                  Run now
-                </button>
-              }
-            </article>
-          }
-        </div>
-        @if (!isOwner()) {
-          <p class="jobs__lede">Running a job by hand needs the owner tier.</p>
-        }
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Scheduled jobs</h1>
+        <p class="adm-lede">Housekeeping that runs on a cron outside the app. The times shown are suggestions for that scheduler, not something this page enforces.</p>
+      </div>
+      @if (!isOwner()) {
+        <span class="adm-muted">Running a job by hand needs the owner tier.</span>
       }
     </div>
+
+    @if (loading()) {
+      <ui-skeleton height="64px" [lines]="5" />
+    } @else {
+      <div class="adm-table jb__table" role="table" aria-label="Scheduled jobs">
+        <div class="adm-th" role="row">
+          <span role="columnheader">Job</span>
+          <span role="columnheader">Last run</span>
+          <span role="columnheader" class="adm-hide-md">Result</span>
+          <span role="columnheader" class="adm-cell--right adm-hide-sm">Schedule</span>
+          @if (isOwner()) { <span role="columnheader"></span> }
+        </div>
+        @for (job of jobs(); track job.name) {
+          <div class="adm-tr adm-tr--static" role="row" [class.jb__stuck]="job.lastRun?.stuck">
+            <span class="adm-two" role="cell">
+              <span class="adm-row"><span class="adm-mono">{{ job.name }}</span>@if (job.destructive) { <ui-badge tone="warning">deletes data</ui-badge> }</span>
+              <span class="jb__desc">{{ job.description }}</span>
+            </span>
+            <span class="adm-cell--wrap" role="cell">
+              @if (job.lastRun; as run) {
+                @if (run.stuck) { <ui-badge tone="danger">stuck</ui-badge> } @else { <ui-badge [tone]="tone(run.status)">{{ run.status }}</ui-badge> }
+                <span class="adm-muted">{{ run.startedAt | relativeTime }}</span>
+              } @else {
+                <ui-badge>never run</ui-badge>
+              }
+            </span>
+            <span class="adm-cell--dim adm-truncate adm-hide-md" role="cell" [title]="job.lastRun?.error ?? summarise(job.lastRun?.summary)">
+              @if (job.lastRun; as run) {
+                @if (run.stuck) { <span class="adm-danger-text">Never finished — the process probably died mid-run.</span> }
+                @else if (run.error) { <span class="adm-danger-text">{{ run.error }}</span> }
+                @else { {{ summarise(run.summary) || '—' }} }
+              } @else { — }
+            </span>
+            <span class="adm-cell--right adm-mono adm-cell--dim adm-hide-sm" role="cell">{{ job.suggestedCron }}</span>
+            @if (isOwner()) {
+              <span class="jb__actions" role="cell">
+                <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="run(job)">Run now</button>
+              </span>
+            }
+          </div>
+        }
+      </div>
+    }
   `,
   styles: [
     `
-      .jobs {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 860px;
-      }
-      .jobs__lede,
-      .jobs__desc,
-      .jobs__meta {
-        margin: 0;
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-      }
-      .jobs__list {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-3);
-      }
-      .jobs__item {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--ui-space-2);
-        padding: var(--ui-space-4);
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-      }
-      .jobs__head {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        flex-wrap: wrap;
-        width: 100%;
-      }
-      .jobs__name {
-        font-family: var(--ui-font-mono, ui-monospace, monospace);
-        font-weight: 600;
-        font-size: var(--ui-text-sm);
-      }
-      .jobs__cron {
-        margin-left: auto;
-        font-size: 12px;
-        color: var(--ui-text-dim);
-      }
-      .jobs__error {
-        color: var(--ui-danger, #f85149);
-      }
+      :host { display: contents; }
+      .jb__table { --adm-cols: minmax(260px, 2fr) 170px minmax(160px, 1.4fr) 120px auto; }
+      @media (max-width: 900px) { .jb__table { --adm-cols: minmax(220px, 2fr) 170px 120px auto; } }
+      @media (max-width: 720px) { .jb__table { --adm-cols: minmax(0, 1fr) 150px auto; } }
+      .jb__desc { white-space: normal; }
+      .jb__actions { display: flex; justify-content: flex-end; }
+      .jb__stuck { background: var(--ui-danger-tint); }
     `,
   ],
 })

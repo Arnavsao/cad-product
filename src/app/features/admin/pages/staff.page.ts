@@ -9,6 +9,8 @@ import {
   UiBadgeComponent,
   UiButtonDirective,
   UiDialogService,
+  UiEmptyStateComponent,
+  UiIconComponent,
   UiSkeletonComponent,
 } from '../../../shared/ui';
 
@@ -31,123 +33,73 @@ const TIERS: { role: PlatformRole; label: string; blurb: string }[] = [
   selector: 'app-admin-staff',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiButtonDirective, UiBadgeComponent, UiSkeletonComponent],
+  imports: [RouterLink, UiButtonDirective, UiBadgeComponent, UiEmptyStateComponent, UiIconComponent, UiSkeletonComponent],
   template: `
-    <div class="staff">
-      <p class="staff__lede">
-        Staff are ordinary accounts with a tier. To add someone, have them sign up first, then promote
-        them here.
-      </p>
-
-      <ul class="staff__tiers">
-        @for (tier of tiers; track tier.role) {
-          <li><strong>{{ tier.label }}</strong> — {{ tier.blurb }}</li>
-        }
-      </ul>
-
-      @if (loading()) {
-        <ui-skeleton height="44px" [lines]="4" />
-      } @else {
-        <div class="staff__table">
-          @for (person of staff(); track person.id) {
-            <div class="staff__row">
-              <a class="staff__person" [routerLink]="['/admin/users', person.id]">
-                <span class="staff__name">{{ name(person) }}</span>
-                <span class="staff__email">{{ person.email }}</span>
-              </a>
-              <ui-badge tone="info">{{ person.platformRole }}</ui-badge>
-              @if (canManage() && person.id !== myId()) {
-                <div class="staff__actions">
-                  @for (tier of tiers; track tier.role) {
-                    @if (tier.role !== person.platformRole) {
-                      <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="setRole(person, tier.role)">
-                        Make {{ tier.label }}
-                      </button>
-                    }
-                  }
-                  <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="demote(person)">Remove</button>
-                </div>
-              } @else if (person.id === myId()) {
-                <span class="staff__you">You</span>
-              }
-            </div>
-          }
-        </div>
-
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Staff</h1>
+        <p class="adm-lede">Who can operate CADO. Staff are ordinary accounts with a tier: have someone sign up first, then promote them.</p>
+      </div>
+      <div class="adm-actions">
         @if (canManage()) {
-          <button uiButton variant="secondary" [disabled]="busy()" (click)="promote()">Promote by user id</button>
+          <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="promote()"><ui-icon name="user-plus" [size]="16" /> Promote by user id</button>
         } @else {
-          <p class="staff__lede">Only an owner can change staff tiers.</p>
+          <span class="adm-muted">Only an owner can change staff tiers.</span>
+        }
+      </div>
+    </div>
+
+    <div class="adm-grid-kpi st__tiers">
+      @for (tier of tiers; track tier.role) {
+        <div class="adm-card st__tier">
+          <ui-badge tone="info">{{ tier.label }}</ui-badge>
+          <p class="adm-muted">{{ tier.blurb }}</p>
+        </div>
+      }
+    </div>
+
+    <div class="adm-table" role="table" aria-label="Staff">
+      <div class="adm-th st__head" role="row">
+        <span role="columnheader">Person</span>
+        <span role="columnheader">Tier</span>
+        <span role="columnheader" class="adm-cell--right"></span>
+      </div>
+      @if (loading()) {
+        <ui-skeleton height="44px" [lines]="3" />
+      } @else {
+        @for (person of staff(); track person.id) {
+          <div class="adm-tr adm-tr--static st__row" role="row">
+            <a class="adm-two adm-link--quiet" role="cell" [routerLink]="['/admin/users', person.id]" style="text-decoration:none">
+              <span>{{ name(person) }}</span>
+              <span>{{ person.email }}</span>
+            </a>
+            <span role="cell"><ui-badge tone="info">{{ person.platformRole }}</ui-badge></span>
+            <span class="st__actions" role="cell">
+              @if (canManage() && person.id !== myId()) {
+                @for (tier of tiers; track tier.role) {
+                  @if (tier.role !== person.platformRole) {
+                    <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="setRole(person, tier.role)">Make {{ tier.label }}</button>
+                  }
+                }
+                <button uiButton variant="ghost" size="sm" class="adm-danger-text" [disabled]="busy()" (click)="demote(person)">Remove</button>
+              } @else if (person.id === myId()) {
+                <span class="adm-muted">You</span>
+              }
+            </span>
+          </div>
+        } @empty {
+          <ui-empty-state icon="shield" heading="No staff yet" description="Set ADMIN_BOOTSTRAP_EMAILS to create the first owner." />
         }
       }
     </div>
   `,
   styles: [
     `
-      .staff {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 900px;
-      }
-      .staff__lede {
-        margin: 0;
-        color: var(--ui-text-dim);
-        font-size: var(--ui-text-sm);
-      }
-      .staff__tiers {
-        margin: 0;
-        padding: var(--ui-space-3) var(--ui-space-4) var(--ui-space-3) 30px;
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-        font-size: var(--ui-text-sm);
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .staff__table {
-        display: flex;
-        flex-direction: column;
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-        overflow: hidden;
-      }
-      .staff__row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--ui-space-3);
-        padding: var(--ui-space-3) var(--ui-space-4);
-        border-bottom: 1px solid var(--ui-border);
-      }
-      .staff__row:last-child {
-        border-bottom: 0;
-      }
-      .staff__person {
-        display: flex;
-        flex-direction: column;
-        flex: 1 1 220px;
-        min-width: 0;
-        color: inherit;
-        text-decoration: none;
-      }
-      .staff__name {
-        font-weight: 600;
-        font-size: var(--ui-text-sm);
-      }
-      .staff__email,
-      .staff__you {
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-      }
-      .staff__actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--ui-space-1);
-        margin-left: auto;
-      }
+      :host { display: contents; }
+      .st__tiers { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+      .st__tier { gap: var(--ui-space-2); justify-items: start; }
+      .st__head, .st__row { --adm-cols: minmax(200px, 1fr) 110px auto; }
+      .st__actions { display: flex; justify-content: flex-end; gap: 2px; flex-wrap: wrap; }
     `,
   ],
 })

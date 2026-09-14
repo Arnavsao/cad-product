@@ -268,6 +268,32 @@ values, decoded text, per-style fonts and real lineweights.
   previous object is deleted best-effort.
 
 ### Changed
+* **The admin portal now looks like part of the product.** It shipped with its own 232px rail,
+  a solid accent badge, per-page private CSS, and — it turned out — references to a
+  `--ui-surface-2` token that does not exist, so several backgrounds were rendering
+  transparent. Every measurement now comes from the dashboard shell: the same 290px rail,
+  48px header, content padding, link geometry and active state, and the same tokens for
+  cards, table headers, badges and empty states.
+
+  The mechanism is a shared vocabulary rather than fourteen private copies: `admin.scss`
+  defines `.adm-*` classes that are one-to-one counterparts of what the dashboard already
+  does (`.adm-th` is the drawings table header, `.adm-card--hero` is the Recent hero,
+  `.adm-note--danger` is `.pg__error`), and every page is built from them. Column widths
+  live on the table container as `--adm-cols`, so header and rows cannot drift apart, and
+  the same breakpoints hide the same columns.
+
+  The overview became an analytics page rather than a grid of numbers: each headline tile
+  carries a change against the previous seven days, a single trend chart with a metric and
+  range switch replaces four sparklines, feedback and plans get part-to-whole breakdowns,
+  and the things that need a human are a sorted list with anything non-zero on top. The
+  chart is plain SVG with a crosshair tooltip and keyboard navigation; no charting library,
+  since the CSP is `script-src 'self'`.
+
+  Two smaller honesty fixes. The stat tile used to paint its sparkline across the hint text;
+  it now has a strip of its own. And a change pill on a base of three used to say "−33%",
+  which is noise dressed as a trend — below ten events it now shows the count, and every pill
+  names the period it compares.
+
 * **OpenRouter keeps its own key and accepts any slug.** The two free-tier models
   (`google/gemma-4-31b-it:free`, `qwen/qwen3-coder:free`) are gone; the menu offers Claude Sonnet 5
   and Opus 5 through OpenRouter plus a "Custom slug" entry whose model id is typed in settings, so

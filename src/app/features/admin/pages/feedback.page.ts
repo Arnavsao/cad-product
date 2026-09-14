@@ -10,7 +10,9 @@ import {
 import {
   RelativeTimePipe,
   UiBadgeComponent,
+  UiButtonDirective,
   UiEmptyStateComponent,
+  UiIconComponent,
   UiInputDirective,
   UiPaginatorComponent,
   UiSkeletonComponent,
@@ -53,6 +55,8 @@ export function statusLabel(status: FeedbackStatus): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    UiButtonDirective,
+    UiIconComponent,
     UiInputDirective,
     UiBadgeComponent,
     UiPaginatorComponent,
@@ -61,222 +65,120 @@ export function statusLabel(status: FeedbackStatus): string {
     RelativeTimePipe,
   ],
   template: `
-    <div class="fb">
-      <div class="fb__filters">
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Feedback</h1>
+        <p class="adm-lede">The beta's inbox. Opens on everything still waiting for someone.</p>
+      </div>
+      <div class="adm-actions">
+        <a uiButton variant="secondary" size="sm" [href]="exportUrl()" download>
+          <ui-icon name="download" [size]="16" /> Export CSV
+        </a>
+      </div>
+    </div>
+
+    <div class="adm-toolbar">
+      <div class="adm-search">
+        <ui-icon class="adm-search__icon" name="search" [size]="16" />
         <input
           uiInput
           id="admin-feedback-search"
           type="search"
-          class="fb__search"
+          class="adm-search__input"
           placeholder="Search reports and senders"
           [value]="query()"
           (input)="onSearch($event)"
         />
-        <div class="fb__chips" role="group" aria-label="Filter by status">
-          @for (option of statusOptions; track option.value) {
-            <button
-              type="button"
-              class="fb__chip"
-              [class.fb__chip--on]="status() === option.value"
-              (click)="setStatus(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          }
-        </div>
-        <div class="fb__chips" role="group" aria-label="Filter by kind">
-          @for (option of kindOptions; track option.value) {
-            <button
-              type="button"
-              class="fb__chip"
-              [class.fb__chip--on]="kind() === option.value"
-              (click)="setKind(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          }
-        </div>
-        <a class="fb__export" [href]="exportUrl()" download>Export CSV</a>
       </div>
+      <div class="adm-chips" role="group" aria-label="Filter by status">
+        @for (option of statusOptions; track option.value) {
+          <button type="button" class="adm-chip" [class.adm-chip--on]="status() === option.value" (click)="setStatus(option.value)">
+            {{ option.label }}
+          </button>
+        }
+      </div>
+      <div class="adm-chips" role="group" aria-label="Filter by kind">
+        @for (option of kindOptions; track option.value) {
+          <button type="button" class="adm-chip" [class.adm-chip--on]="kind() === option.value" (click)="setKind(option.value)">
+            {{ option.label }}
+          </button>
+        }
+      </div>
+    </div>
 
-      @if (appVersion(); as version) {
-        <p class="fb__scope">
-          Showing reports from build <strong>{{ version }}</strong>.
-          <button type="button" class="fb__clear" (click)="clearVersion()">Show all builds</button>
-        </p>
-      }
-
-      @if (loading()) {
-        <ui-skeleton height="44px" [lines]="8" />
-      } @else if (rows().length === 0) {
-        <ui-empty-state
-          heading="Nothing here"
-          description="No reports match these filters. Try widening the status or kind."
-        />
-      } @else {
-        <div class="fb__list">
-          @for (row of rows(); track row.id) {
-            <a class="fb__row" [routerLink]="['/admin/feedback', row.id]">
-              <span class="fb__badges">
-                <ui-badge [tone]="tone(row.status)">{{ label(row.status) }}</ui-badge>
-                <ui-badge>{{ row.kind }}</ui-badge>
-              </span>
-              <span class="fb__excerpt">{{ row.excerpt }}</span>
-              <span class="fb__from">
-                {{ row.fromName || row.fromEmail || 'anonymous' }}
-                @if (row.appVersion) {
-                  <button type="button" class="fb__version" (click)="filterVersion($event, row.appVersion)">
-                    {{ row.appVersion }}
-                  </button>
-                }
-              </span>
-              <span class="fb__meta">
-                @if (row.repliedAt) {
-                  <ui-badge tone="success">replied</ui-badge>
-                }
-                @if (row.assigneeEmail) {
-                  <span class="fb__assignee">{{ row.assigneeEmail }}</span>
-                }
-                <span>{{ row.createdAt | relativeTime }}</span>
-              </span>
-            </a>
-          }
+    @if (appVersion(); as version) {
+      <div class="adm-note adm-note--accent">
+        <ui-icon name="tag" [size]="18" />
+        <div>
+          <p class="adm-note__title">Showing reports from build {{ version }}</p>
+          <p class="adm-note__msg">Everything else that broke in this build, in one place.</p>
         </div>
+        <button uiButton variant="ghost" size="sm" (click)="clearVersion()">Show all builds</button>
+      </div>
+    }
 
-        <ui-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="setPage($event)" />
+    <div class="adm-table fb__table" role="table" aria-label="Feedback">
+      <div class="adm-th" role="row">
+        <span role="columnheader">Status</span>
+        <span role="columnheader">Report</span>
+        <span role="columnheader" class="adm-hide-md">From</span>
+        <span role="columnheader" class="adm-hide-lg">Assigned</span>
+        <span role="columnheader" class="adm-cell--right adm-hide-sm">Received</span>
+      </div>
+      @if (loading()) {
+        @for (i of [1, 2, 3, 4, 5]; track i) {
+          <div class="adm-tr adm-tr--static" role="row" aria-hidden="true">
+            <span><ui-skeleton width="90px" height="18px" radius="var(--ui-radius-full)" /></span>
+            <span><ui-skeleton width="75%" height="14px" /></span>
+            <span class="adm-hide-md"><ui-skeleton width="60%" height="14px" /></span>
+            <span class="adm-hide-lg"><ui-skeleton width="50%" height="14px" /></span>
+            <span class="adm-hide-sm"><ui-skeleton width="60px" height="14px" /></span>
+          </div>
+        }
+      } @else if (rows().length === 0) {
+        <ui-empty-state icon="message" heading="Nothing here" description="No reports match these filters. Try widening the status or kind." />
+      } @else {
+        @for (row of rows(); track row.id) {
+          <a class="adm-tr" role="row" [routerLink]="['/admin/feedback', row.id]">
+            <span class="adm-cell--wrap" role="cell">
+              <ui-badge [tone]="tone(row.status)">{{ label(row.status) }}</ui-badge>
+              @if (row.repliedAt) {
+                <ui-badge tone="success">replied</ui-badge>
+              }
+            </span>
+            <span class="adm-two" role="cell">
+              <span>{{ row.excerpt }}</span>
+              <span>
+                {{ row.kind }}
+                @if (row.appVersion) {
+                  · <button type="button" class="fb__version" (click)="filterVersion($event, row.appVersion)">{{ row.appVersion }}</button>
+                }
+              </span>
+            </span>
+            <span class="adm-cell--dim adm-truncate adm-hide-md" role="cell">{{ row.fromName || row.fromEmail || 'anonymous' }}</span>
+            <span class="adm-cell--dim adm-truncate adm-hide-lg" role="cell">{{ row.assigneeEmail ?? '—' }}</span>
+            <span class="adm-cell--right adm-cell--dim adm-hide-sm" role="cell">{{ row.createdAt | relativeTime }}</span>
+          </a>
+        }
       }
     </div>
+
+    @if (!loading() && rows().length > 0) {
+      <ui-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" [showPageSize]="false" noun="report" (pageChange)="setPage($event)" />
+    }
   `,
   styles: [
     `
-      .fb {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 1200px;
-      }
-      .fb__filters {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--ui-space-3);
-      }
-      .fb__search {
-        flex: 1 1 220px;
-        max-width: 320px;
-      }
-      .fb__chips {
-        display: flex;
-        gap: var(--ui-space-1);
-        flex-wrap: wrap;
-      }
-      .fb__chip {
-        border: 1px solid var(--ui-border);
-        background: var(--ui-surface);
-        color: var(--ui-text-dim);
-        border-radius: 999px;
-        padding: 4px 12px;
-        font-size: var(--ui-text-sm);
-        cursor: pointer;
-      }
-      .fb__chip--on {
-        background: var(--ui-surface-2);
-        color: var(--ui-text);
-        border-color: var(--ui-accent);
-      }
-      .fb__export {
-        margin-left: auto;
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-        text-decoration: none;
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-sm);
-        padding: 5px 12px;
-      }
-      .fb__export:hover {
-        color: var(--ui-text);
-        background: var(--ui-surface-2);
-      }
-      .fb__scope,
-      .fb__assignee {
-        margin: 0;
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-      }
-      .fb__clear,
+      :host { display: contents; }
+      .fb__table { --adm-cols: 150px minmax(240px, 2fr) 180px 180px 110px; }
+      @media (max-width: 1100px) { .fb__table { --adm-cols: 150px minmax(240px, 2fr) 180px 110px; } }
+      @media (max-width: 900px) { .fb__table { --adm-cols: 150px minmax(200px, 2fr) 110px; } }
+      @media (max-width: 720px) { .fb__table { --adm-cols: 130px minmax(0, 1fr); } }
       .fb__version {
-        background: none;
-        border: 0;
-        padding: 0;
-        color: var(--ui-accent);
-        font: inherit;
-        cursor: pointer;
-        text-decoration: underline;
+        padding: 0; border: 0; background: none; font: inherit; color: var(--ui-accent); cursor: pointer;
+        text-decoration: underline; text-decoration-color: transparent; transition: text-decoration-color var(--ui-dur-fast);
       }
-      .fb__version {
-        font-size: 11px;
-        margin-left: var(--ui-space-2);
-      }
-      .fb__list {
-        display: flex;
-        flex-direction: column;
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-        overflow: hidden;
-      }
-      .fb__row {
-        display: grid;
-        grid-template-columns: 150px minmax(0, 1fr) 200px 220px;
-        gap: var(--ui-space-3);
-        align-items: center;
-        padding: 10px var(--ui-space-4);
-        border-bottom: 1px solid var(--ui-border);
-        color: inherit;
-        text-decoration: none;
-        font-size: var(--ui-text-sm);
-      }
-      .fb__row:last-child {
-        border-bottom: 0;
-      }
-      .fb__row:hover {
-        background: var(--ui-surface-2);
-      }
-      .fb__badges {
-        display: flex;
-        gap: 4px;
-        flex-wrap: wrap;
-      }
-      .fb__excerpt {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .fb__from,
-      .fb__meta {
-        color: var(--ui-text-dim);
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        min-width: 0;
-      }
-      .fb__meta {
-        justify-content: flex-end;
-      }
-      .fb__from {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      @media (max-width: 980px) {
-        .fb__row {
-          grid-template-columns: 130px minmax(0, 1fr);
-        }
-        .fb__from,
-        .fb__meta {
-          display: none;
-        }
-      }
+      .fb__version:hover { text-decoration-color: currentColor; }
     `,
   ],
 })

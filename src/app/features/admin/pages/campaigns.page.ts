@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminApiService } from '../../../core/api/admin-api.service';
@@ -10,6 +11,7 @@ import {
   UiButtonDirective,
   UiDialogService,
   UiEmptyStateComponent,
+  UiIconComponent,
   UiInputDirective,
   UiSkeletonComponent,
   type UiBadgeTone,
@@ -28,7 +30,9 @@ import {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DecimalPipe,
     FormsModule,
+    UiIconComponent,
     UiInputDirective,
     UiButtonDirective,
     UiBadgeComponent,
@@ -37,199 +41,114 @@ import {
     RelativeTimePipe,
   ],
   template: `
-    <div class="cmp">
-      <section class="cmp__compose">
-        <h2 class="cmp__heading">New campaign</h2>
-        <input uiInput id="cmp-subject" placeholder="Subject" [(ngModel)]="subject" [disabled]="busy()" />
-        <textarea
-          uiInput
-          id="cmp-body"
-          class="cmp__textarea"
-          rows="5"
-          placeholder="Write it as you would an email. Blank lines become paragraphs."
-          [(ngModel)]="body"
-          [disabled]="busy()"
-        ></textarea>
-        <label class="cmp__check">
-          <input type="checkbox" id="cmp-active" [(ngModel)]="onlyActive" [disabled]="busy()" />
-          Only people seen in the last 30 days
-        </label>
-        <p class="cmp__hint">
-          Everyone who has not unsubscribed. An unsubscribe footer is added automatically.
-        </p>
-        <button uiButton variant="primary" [disabled]="busy() || !canCreate()" (click)="create()">
-          Save draft
-        </button>
-      </section>
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Campaigns</h1>
+        <p class="adm-lede">Bulk email. Write it, preview who it reaches, send yourself a test, and only then send — the irreversible step is deliberately fourth.</p>
+      </div>
+    </div>
 
-      @if (loading()) {
-        <ui-skeleton height="60px" [lines]="3" />
-      } @else if (rows().length === 0) {
-        <ui-empty-state heading="No campaigns" description="Drafts and sent campaigns appear here." />
-      } @else {
-        <div class="cmp__list">
+    <div class="adm-grid-2">
+      <div class="adm-stack adm-stack--lg">
+        @if (loading()) {
+          <ui-skeleton height="120px" radius="var(--ui-radius-lg)" [lines]="2" />
+        } @else if (rows().length === 0) {
+          <div class="adm-card adm-card--flush">
+            <ui-empty-state icon="mail" heading="No campaigns" description="Drafts and sent campaigns appear here." />
+          </div>
+        } @else {
           @for (row of rows(); track row.id) {
-            <article class="cmp__item">
-              <header class="cmp__itemHead">
-                <span class="cmp__subject">{{ row.subject }}</span>
-                <ui-badge [tone]="statusTone(row.status)">{{ row.status }}</ui-badge>
-                @if (row.status !== 'draft') {
-                  <span class="cmp__meta">{{ row.sent }} sent, {{ row.failed }} failed of {{ row.total }}</span>
-                }
-                <span class="cmp__when">{{ row.createdAt | relativeTime }}</span>
-              </header>
-              <p class="cmp__body">{{ row.bodyText }}</p>
+            <article class="adm-card">
+              <div class="adm-card__head">
+                <span class="adm-row">
+                  <span class="cp__subject">{{ row.subject }}</span>
+                  <ui-badge [tone]="statusTone(row.status)">{{ row.status }}</ui-badge>
+                </span>
+                <span class="adm-muted">{{ row.createdAt | relativeTime }}</span>
+              </div>
+              <p class="cp__body">{{ row.bodyText }}</p>
 
-              @if (row.status === 'draft') {
+              @if (row.status !== 'draft') {
+                <dl class="adm-facts cp__facts">
+                  <div><dt>Audience</dt><dd>{{ row.total | number }}</dd></div>
+                  <div><dt>Sent</dt><dd class="adm-success-text">{{ row.sent | number }}</dd></div>
+                  <div><dt>Failed</dt><dd [class.adm-danger-text]="row.failed > 0">{{ row.failed | number }}</dd></div>
+                  @if (row.finishedAt) { <div><dt>Finished</dt><dd>{{ row.finishedAt | relativeTime }}</dd></div> }
+                </dl>
+              } @else {
                 @if (preview()[row.id]; as p) {
-                  <p class="cmp__meta">
-                    Reaches {{ p.recipients }}
-                    {{ p.recipients === 1 ? 'person' : 'people' }}{{ p.suppressed ? ', skipping ' + p.suppressed + ' unsubscribed' : '' }}.
-                    @if (p.sample.length) {
-                      For example: {{ p.sample.join(', ') }}.
-                    }
-                  </p>
+                  <div class="adm-note adm-note--accent">
+                    <ui-icon name="users" [size]="18" />
+                    <div>
+                      <p class="adm-note__title">Reaches {{ p.recipients | number }} {{ p.recipients === 1 ? 'person' : 'people' }}{{ p.suppressed ? ', skipping ' + p.suppressed + ' unsubscribed' : '' }}.</p>
+                      @if (p.sample.length) { <p class="adm-note__msg">For example: {{ p.sample.join(', ') }}</p> }
+                    </div>
+                  </div>
                 }
-                <div class="cmp__actions">
-                  <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="doPreview(row)">
-                    Preview audience
-                  </button>
-                  <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="test(row)">
-                    Send me a test
-                  </button>
+                <div class="adm-actions">
+                  <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="doPreview(row)">Preview audience</button>
+                  <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="test(row)">Send me a test</button>
                   @if (isOwner()) {
-                    <button uiButton variant="danger" size="sm" [disabled]="busy()" (click)="send(row)">
-                      Send to everyone
-                    </button>
+                    <button uiButton variant="danger" size="sm" [disabled]="busy()" (click)="send(row)">Send to everyone</button>
                   } @else {
-                    <span class="cmp__meta">Sending needs the owner tier.</span>
+                    <span class="adm-muted">Sending needs the owner tier.</span>
                   }
                 </div>
               }
             </article>
           }
-        </div>
-      }
-
-      <section class="cmp__section">
-        <h2 class="cmp__heading">Unsubscribed</h2>
-        @if (suppressions().length === 0) {
-          <p class="cmp__hint">Nobody has unsubscribed.</p>
-        } @else {
-          <ul class="cmp__suppressions">
-            @for (row of suppressions(); track row.email) {
-              <li>
-                {{ row.email }}
-                <ui-badge>{{ row.reason }}</ui-badge>
-                <span class="cmp__meta">{{ row.createdAt | relativeTime }}</span>
-                @if (isOwner()) {
-                  <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="restore(row)">
-                    Remove
-                  </button>
-                }
-              </li>
-            }
-          </ul>
         }
+
+        <section class="adm-table adm-card--flush">
+          <div class="adm-card__bar">
+            <p class="adm-kicker">Unsubscribed</p>
+            <span class="adm-muted">{{ suppressions().length }}</span>
+          </div>
+          @if (suppressions().length === 0) {
+            <p class="adm-muted" style="padding: var(--ui-space-4)">Nobody has unsubscribed.</p>
+          } @else {
+            @for (row of suppressions(); track row.email) {
+              <div class="adm-list__row">
+                <span class="adm-grow adm-truncate">{{ row.email }}</span>
+                <ui-badge>{{ row.reason }}</ui-badge>
+                <span class="adm-muted">{{ row.createdAt | relativeTime }}</span>
+                @if (isOwner()) {
+                  <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="restore(row)">Remove</button>
+                }
+              </div>
+            }
+          }
+        </section>
+      </div>
+
+      <section class="adm-card cp__compose">
+        <p class="adm-kicker">New campaign</p>
+        <div class="adm-field">
+          <label class="adm-label" for="cmp-subject">Subject</label>
+          <input uiInput id="cmp-subject" [(ngModel)]="subject" [disabled]="busy()" />
+        </div>
+        <div class="adm-field">
+          <label class="adm-label" for="cmp-body">Message</label>
+          <textarea uiInput id="cmp-body" class="adm-textarea" rows="7" placeholder="Write it as you would an email. Blank lines become paragraphs." [(ngModel)]="body" [disabled]="busy()"></textarea>
+        </div>
+        <label class="adm-check">
+          <input type="checkbox" id="cmp-active" [(ngModel)]="onlyActive" [disabled]="busy()" />
+          Only people seen in the last 30 days
+        </label>
+        <p class="adm-muted">Goes to everyone who has not unsubscribed. An unsubscribe footer is added automatically.</p>
+        <button uiButton variant="secondary" [disabled]="busy() || !canCreate()" (click)="create()">Save draft</button>
       </section>
     </div>
   `,
   styles: [
     `
-      .cmp {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 860px;
-      }
-      .cmp__compose,
-      .cmp__item {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--ui-space-2);
-        padding: var(--ui-space-4);
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-      }
-      .cmp__compose input[uiInput],
-      .cmp__textarea {
-        width: 100%;
-      }
-      .cmp__textarea {
-        resize: vertical;
-        font-family: inherit;
-      }
-      .cmp__heading {
-        margin: 0;
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-      }
-      .cmp__check {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        font-size: var(--ui-text-sm);
-      }
-      .cmp__check input {
-        width: auto;
-      }
-      .cmp__hint,
-      .cmp__meta,
-      .cmp__when {
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-        margin: 0;
-      }
-      .cmp__list,
-      .cmp__section {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-3);
-      }
-      .cmp__itemHead {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        flex-wrap: wrap;
-        width: 100%;
-      }
-      .cmp__subject {
-        font-weight: 600;
-      }
-      .cmp__when {
-        margin-left: auto;
-      }
-      .cmp__body {
-        margin: 0;
-        white-space: pre-wrap;
-        font-size: var(--ui-text-sm);
-        line-height: 1.6;
-      }
-      .cmp__actions {
-        display: flex;
-        gap: var(--ui-space-2);
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      .cmp__suppressions {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-1);
-        font-size: var(--ui-text-sm);
-      }
-      .cmp__suppressions li {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        flex-wrap: wrap;
-      }
+      :host { display: contents; }
+      .cp__subject { font-weight: 600; color: var(--ui-text-strong); }
+      .cp__body { margin: 0; white-space: pre-wrap; line-height: var(--ui-leading); font-size: var(--ui-text-md); }
+      .cp__facts { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+      .cp__compose { align-content: start; justify-items: start; position: sticky; top: 0; }
+      .cp__compose .adm-field { width: 100%; }
+      @media (max-width: 900px) { .cp__compose { position: static; } }
     `,
   ],
 })

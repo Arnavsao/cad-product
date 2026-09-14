@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AdminApiService } from '../../../core/api/admin-api.service';
@@ -11,6 +12,7 @@ import {
   UiButtonDirective,
   UiDialogService,
   UiEmptyStateComponent,
+  UiIconComponent,
   UiInputDirective,
   UiPaginatorComponent,
   UiSkeletonComponent,
@@ -35,7 +37,9 @@ const PAGE_SIZE = 25;
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DecimalPipe,
     RouterLink,
+    UiIconComponent,
     UiInputDirective,
     UiButtonDirective,
     UiBadgeComponent,
@@ -46,221 +50,142 @@ const PAGE_SIZE = 25;
     RelativeTimePipe,
   ],
   template: `
-    <div class="dw">
-      <div class="dw__filters">
-        <input
-          uiInput
-          id="admin-drawing-search"
-          type="search"
-          class="dw__search"
-          placeholder="Search drawing names"
-          (input)="onSearch($event)"
-        />
-        <div class="dw__chips" role="group" aria-label="Filter by state">
-          @for (option of stateOptions; track option.value) {
-            <button
-              type="button"
-              class="dw__chip"
-              [class.dw__chip--on]="state() === option.value"
-              (click)="setState(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          }
-        </div>
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Drawings</h1>
+        <p class="adm-lede">Every drawing as metadata: what exists, who owns it, how big it is. Nothing here opens one.</p>
+      </div>
+      <div class="adm-actions">
         @if (isOwner()) {
-          <button uiButton variant="secondary" size="sm" class="dw__scan" [disabled]="scanning()" (click)="scan()">
-            {{ scanning() ? 'Scanning…' : 'Scan storage' }}
+          <button uiButton variant="secondary" size="sm" [loading]="scanning()" (click)="scan()">
+            <ui-icon name="cloud" [size]="16" /> Scan storage
           </button>
         }
       </div>
+    </div>
 
-      @if (report(); as r) {
-        <section class="dw__report">
-          <h2 class="dw__heading">Storage scan</h2>
-          <p class="dw__line">
-            Looked at {{ r.scannedObjects }} objects{{ r.truncated ? ' (capped — there may be more)' : '' }}.
-            Found {{ r.orphanedObjects.length }} orphaned
-            ({{ r.reclaimableBytes | fileSize }} reclaimable) and {{ r.brokenDrawings.length }} drawings whose
-            file is missing.
-          </p>
-          @if (r.brokenDrawings.length) {
-            <p class="dw__warn">
-              A missing file is not sweepable garbage — those drawings will fail to open for their owners.
-            </p>
-            <ul class="dw__broken">
-              @for (broken of r.brokenDrawings; track broken.id) {
-                <li>{{ broken.name }} — {{ broken.ownerEmail }}</li>
-              }
-            </ul>
-          }
-          @if (r.orphanedObjects.length) {
-            <button uiButton variant="danger" size="sm" [disabled]="scanning()" (click)="purgeOrphans()">
-              Delete {{ r.orphanedObjects.length }} orphaned objects
-            </button>
-          }
-        </section>
+    <div class="adm-toolbar">
+      <div class="adm-search">
+        <ui-icon class="adm-search__icon" name="search" [size]="16" />
+        <input uiInput id="admin-drawing-search" type="search" class="adm-search__input" placeholder="Search drawing names" (input)="onSearch($event)" />
+      </div>
+      <div class="adm-chips" role="group" aria-label="Filter by state">
+        @for (option of stateOptions; track option.value) {
+          <button type="button" class="adm-chip" [class.adm-chip--on]="state() === option.value" (click)="setState(option.value)">
+            {{ option.label }}
+          </button>
+        }
+      </div>
+      @if (total() > 0) {
+        <span class="adm-muted adm-push">{{ total() | number }} {{ total() === 1 ? 'drawing' : 'drawings' }}</span>
       }
+    </div>
 
+    @if (report(); as r) {
+      <section class="adm-card">
+        <div class="adm-card__head">
+          <p class="adm-kicker">Storage scan</p>
+          @if (r.truncated) {
+            <ui-badge tone="warning">capped — there may be more</ui-badge>
+          }
+        </div>
+        <dl class="adm-facts">
+          <div><dt>Objects looked at</dt><dd>{{ r.scannedObjects | number }}</dd></div>
+          <div><dt>Orphaned objects</dt><dd>{{ r.orphanedObjects.length | number }}</dd></div>
+          <div><dt>Reclaimable</dt><dd>{{ r.reclaimableBytes | fileSize }}</dd></div>
+          <div><dt>Drawings missing their file</dt><dd [class.adm-danger-text]="r.brokenDrawings.length > 0">{{ r.brokenDrawings.length | number }}</dd></div>
+        </dl>
+        @if (r.brokenDrawings.length) {
+          <div class="adm-note adm-note--danger">
+            <ui-icon name="alert" [size]="18" />
+            <div>
+              <p class="adm-note__title">These drawings will fail to open for their owners.</p>
+              <p class="adm-note__msg">A missing file is not sweepable garbage; the sweep leaves these alone.</p>
+              <ul class="dw__broken">
+                @for (broken of r.brokenDrawings; track broken.id) {
+                  <li>{{ broken.name }} <span class="adm-muted">— {{ broken.ownerEmail }}</span></li>
+                }
+              </ul>
+            </div>
+          </div>
+        }
+        @if (r.orphanedObjects.length) {
+          <div class="adm-actions">
+            <button uiButton variant="danger" size="sm" [loading]="scanning()" (click)="purgeOrphans()">
+              Delete {{ r.orphanedObjects.length }} orphaned {{ r.orphanedObjects.length === 1 ? 'object' : 'objects' }}
+            </button>
+            <span class="adm-muted">Storage is re-scanned first, so anything that became legitimate since is left alone.</span>
+          </div>
+        }
+      </section>
+    }
+
+    <div class="adm-table dw__table" role="table" aria-label="Drawings">
+      <div class="adm-th" role="row">
+        <span role="columnheader">Name</span>
+        <span role="columnheader" class="adm-hide-md">Owner</span>
+        <span role="columnheader" class="adm-hide-lg">Workspace</span>
+        <span role="columnheader" class="adm-cell--right adm-hide-sm">Size</span>
+        <span role="columnheader" class="adm-hide-lg">Updated</span>
+        @if (canManage()) {
+          <span role="columnheader"></span>
+        }
+      </div>
       @if (loading()) {
-        <ui-skeleton height="40px" [lines]="8" />
+        @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+          <div class="adm-tr adm-tr--static" role="row" aria-hidden="true">
+            <span><ui-skeleton width="55%" height="14px" /></span>
+            <span class="adm-hide-md"><ui-skeleton width="70%" height="14px" /></span>
+            <span class="adm-hide-lg"><ui-skeleton width="50%" height="14px" /></span>
+            <span class="adm-hide-sm"><ui-skeleton width="40px" height="14px" /></span>
+            <span class="adm-hide-lg"><ui-skeleton width="80px" height="14px" /></span>
+            @if (canManage()) { <span></span> }
+          </div>
+        }
       } @else if (rows().length === 0) {
-        <ui-empty-state heading="No drawings match" description="Try a different search or state filter." />
+        <ui-empty-state icon="file" heading="No drawings match" description="Try a different search or state filter." />
       } @else {
-        <div class="dw__list">
-          @for (row of rows(); track row.id) {
-            <div class="dw__row">
-              <span class="dw__name">
-                {{ row.name }}
+        @for (row of rows(); track row.id) {
+          <div class="adm-tr adm-tr--static" role="row">
+            <span class="adm-two" role="cell">
+              <span class="adm-cell--wrap">
+                <span class="adm-truncate">{{ row.name }}</span>
                 @if (row.deletedAt) {
                   <ui-badge tone="warning">in trash</ui-badge>
                 }
               </span>
-              <a class="dw__owner" [routerLink]="['/admin/users', row.ownerId]">{{ row.ownerEmail }}</a>
-              <span class="dw__meta">{{ row.organizationName ?? 'personal' }}</span>
-              <span class="dw__meta">{{ row.byteSize | fileSize }}</span>
-              <span class="dw__meta">v{{ row.currentVersion }} · {{ row.updatedAt | relativeTime }}</span>
-              @if (canManage()) {
-                <span class="dw__actions">
-                  @if (row.deletedAt) {
-                    <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="restore(row)">
-                      Restore
-                    </button>
-                  }
-                  <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="purge(row)">Purge</button>
-                </span>
-              }
-            </div>
-          }
-        </div>
-
-        <ui-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="setPage($event)" />
+              <span>{{ row.format }} · v{{ row.currentVersion }}</span>
+            </span>
+            <a class="adm-link adm-link--quiet adm-truncate adm-hide-md" role="cell" [routerLink]="['/admin/users', row.ownerId]">{{ row.ownerEmail }}</a>
+            <span class="adm-cell--dim adm-truncate adm-hide-lg" role="cell">{{ row.organizationName ?? 'Personal' }}</span>
+            <span class="adm-cell--right adm-cell--dim adm-hide-sm" role="cell">{{ row.byteSize | fileSize }}</span>
+            <span class="adm-cell--dim adm-hide-lg" role="cell">{{ row.updatedAt | relativeTime }}</span>
+            @if (canManage()) {
+              <span class="dw__actions" role="cell">
+                @if (row.deletedAt) {
+                  <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="restore(row)">Restore</button>
+                }
+                <button uiButton variant="ghost" size="sm" class="adm-danger-text" [disabled]="busy()" (click)="purge(row)">Purge</button>
+              </span>
+            }
+          </div>
+        }
       }
     </div>
+
+    @if (!loading() && rows().length > 0) {
+      <ui-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" [showPageSize]="false" noun="drawing" (pageChange)="setPage($event)" />
+    }
   `,
   styles: [
     `
-      .dw {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 1200px;
-      }
-      .dw__filters {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--ui-space-3);
-      }
-      .dw__search {
-        flex: 1 1 220px;
-        max-width: 320px;
-      }
-      .dw__chips {
-        display: flex;
-        gap: var(--ui-space-1);
-      }
-      .dw__chip {
-        border: 1px solid var(--ui-border);
-        background: var(--ui-surface);
-        color: var(--ui-text-dim);
-        border-radius: 999px;
-        padding: 4px 12px;
-        font-size: var(--ui-text-sm);
-        cursor: pointer;
-      }
-      .dw__chip--on {
-        background: var(--ui-surface-2);
-        color: var(--ui-text);
-        border-color: var(--ui-accent);
-      }
-      .dw__scan {
-        margin-left: auto;
-      }
-      .dw__report {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--ui-space-2);
-        padding: var(--ui-space-4);
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-      }
-      .dw__heading {
-        margin: 0;
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-      }
-      .dw__line,
-      .dw__meta,
-      .dw__owner {
-        margin: 0;
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-      }
-      .dw__warn {
-        margin: 0;
-        font-size: var(--ui-text-sm);
-        color: var(--ui-warning, #d29922);
-      }
-      .dw__broken {
-        margin: 0;
-        padding-left: 18px;
-        font-size: var(--ui-text-sm);
-      }
-      .dw__list {
-        display: flex;
-        flex-direction: column;
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-        overflow: hidden;
-      }
-      .dw__row {
-        display: grid;
-        grid-template-columns: minmax(0, 1.6fr) 180px 130px 90px 170px auto;
-        gap: var(--ui-space-3);
-        align-items: center;
-        padding: 8px var(--ui-space-4);
-        border-bottom: 1px solid var(--ui-border);
-        font-size: var(--ui-text-sm);
-      }
-      .dw__row:last-child {
-        border-bottom: 0;
-      }
-      .dw__name {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        font-weight: 600;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .dw__owner {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .dw__actions {
-        display: flex;
-        gap: var(--ui-space-1);
-        justify-content: flex-end;
-      }
-      @media (max-width: 1000px) {
-        .dw__row {
-          grid-template-columns: minmax(0, 1fr) 90px auto;
-        }
-        .dw__owner,
-        .dw__row .dw__meta:nth-of-type(1),
-        .dw__row .dw__meta:nth-of-type(3) {
-          display: none;
-        }
-      }
+      :host { display: contents; }
+      .dw__table { --adm-cols: minmax(220px, 2fr) 200px 140px 90px 130px auto; }
+      @media (max-width: 1100px) { .dw__table { --adm-cols: minmax(220px, 2fr) 200px 90px auto; } }
+      @media (max-width: 900px) { .dw__table { --adm-cols: minmax(180px, 2fr) 90px auto; } }
+      @media (max-width: 720px) { .dw__table { --adm-cols: minmax(0, 1fr) auto; } }
+      .dw__actions { display: flex; justify-content: flex-end; gap: 2px; }
+      .dw__broken { margin: var(--ui-space-2) 0 0; padding-left: 18px; font-size: var(--ui-text-sm); }
     `,
   ],
 })

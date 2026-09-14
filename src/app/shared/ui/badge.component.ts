@@ -19,39 +19,16 @@ export type UiBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
   styles: [
     `
       .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 1px 8px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        white-space: nowrap;
-        border: 1px solid var(--ui-border);
-        color: var(--ui-text-dim);
-        background: var(--ui-surface-2);
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 1px 8px; border-radius: var(--ui-radius-full);
+        font-size: var(--ui-text-xs); font-weight: 600; letter-spacing: .02em; line-height: 1.5;
+        white-space: nowrap; text-transform: lowercase;
+        border: 1px solid var(--ui-border); color: var(--ui-text-dim); background: var(--ui-surface-raised);
       }
-      .badge--info {
-        border-color: color-mix(in srgb, var(--ui-accent) 45%, transparent);
-        background: color-mix(in srgb, var(--ui-accent) 12%, transparent);
-        color: var(--ui-text);
-      }
-      .badge--success {
-        border-color: color-mix(in srgb, var(--ui-success, #3fb950) 45%, transparent);
-        background: color-mix(in srgb, var(--ui-success, #3fb950) 14%, transparent);
-        color: var(--ui-text);
-      }
-      .badge--warning {
-        border-color: color-mix(in srgb, var(--ui-warning, #d29922) 50%, transparent);
-        background: color-mix(in srgb, var(--ui-warning, #d29922) 16%, transparent);
-        color: var(--ui-text);
-      }
-      .badge--danger {
-        border-color: color-mix(in srgb, var(--ui-danger, #f85149) 50%, transparent);
-        background: color-mix(in srgb, var(--ui-danger, #f85149) 14%, transparent);
-        color: var(--ui-text);
-      }
+      .badge--info { border-color: transparent; background: var(--ui-active); color: var(--ui-accent); }
+      .badge--success { border-color: transparent; background: var(--ui-success-tint); color: var(--ui-success); }
+      .badge--warning { border-color: transparent; background: var(--ui-warning-tint); color: var(--ui-warning); }
+      .badge--danger { border-color: transparent; background: var(--ui-danger-tint); color: var(--ui-danger); }
     `,
   ],
 })

@@ -11,6 +11,7 @@ import {
   UiBadgeComponent,
   UiButtonDirective,
   UiDialogService,
+  UiIconComponent,
   UiSkeletonComponent,
   type UiBadgeTone,
 } from '../../../shared/ui';
@@ -31,200 +32,130 @@ import {
     DatePipe,
     RouterLink,
     UiButtonDirective,
+    UiIconComponent,
     UiBadgeComponent,
     UiSkeletonComponent,
     FileSizePipe,
     RelativeTimePipe,
   ],
   template: `
-    <div class="detail">
-      <a class="detail__back" routerLink="/admin/users">← All users</a>
+    <a class="adm-back" routerLink="/admin/users"><ui-icon name="back" [size]="14" /> All users</a>
 
-      @if (error()) {
-        <p class="detail__error">{{ error() }}</p>
-      }
+    @if (error(); as e) {
+      <div class="adm-note adm-note--danger" role="alert">
+        <ui-icon name="alert" [size]="18" />
+        <div><p class="adm-note__title">This account could not be loaded.</p><p class="adm-note__msg">{{ e }}</p></div>
+      </div>
+    }
 
-      @if (loading()) {
-        <ui-skeleton height="28px" [lines]="6" />
-      } @else if (user(); as u) {
-        <header class="detail__header">
-          <div>
-            <h1 class="detail__name">{{ fullName() }}</h1>
-            <p class="detail__email">{{ u.email }}</p>
+    @if (loading()) {
+      <ui-skeleton height="28px" [lines]="6" />
+    } @else if (user(); as u) {
+      <section class="adm-card adm-card--hero ud__hero">
+        <div class="ud__identity">
+          <div class="ud__avatar" aria-hidden="true">{{ initials() }}</div>
+          <div class="adm-stack" style="gap: 2px">
+            <h1 class="adm-title">{{ fullName() }}</h1>
+            <span class="adm-row">
+              <span class="adm-muted">{{ u.email }}</span>
+              <ui-badge [tone]="statusTone()">{{ u.status }}</ui-badge>
+              @if (u.platformRole !== 'user') { <ui-badge tone="info">{{ u.platformRole }}</ui-badge> }
+              <ui-badge>{{ u.plan }}</ui-badge>
+            </span>
           </div>
-          <div class="detail__badges">
-            <ui-badge [tone]="statusTone()">{{ u.status }}</ui-badge>
-            @if (u.platformRole !== 'user') {
-              <ui-badge tone="info">{{ u.platformRole }}</ui-badge>
-            }
-            <ui-badge>{{ u.plan }}</ui-badge>
-          </div>
-        </header>
-
-        @if (u.suspendedReason && u.status === 'suspended') {
-          <p class="detail__notice">Suspended: {{ u.suspendedReason }}</p>
-        }
-        @if (u.billing?.overridePlan; as granted) {
-          <p class="detail__notice">
-            Complimentary {{ granted }}{{ u.billing?.overrideUntil ? ' until ' + (u.billing?.overrideUntil | date) : ', no expiry' }}.
-            {{ u.billing?.overrideReason }}
-          </p>
-        }
-
-        <div class="detail__actions">
+        </div>
+        <div class="adm-actions">
           @if (u.status === 'active') {
-            <button uiButton variant="secondary" [disabled]="busy()" (click)="suspend()">Suspend</button>
+            <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="suspend()">Suspend</button>
           } @else if (u.status === 'suspended') {
-            <button uiButton variant="secondary" [disabled]="busy()" (click)="unsuspend()">Lift suspension</button>
+            <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="unsuspend()">Lift suspension</button>
           }
-          <button uiButton variant="secondary" [disabled]="busy()" (click)="message()">Send message</button>
+          <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="message()">Send message</button>
           @if (canGrant()) {
             @if (u.billing?.overridePlan) {
-              <button uiButton variant="secondary" [disabled]="busy()" (click)="revokePlan()">Revoke granted plan</button>
+              <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="revokePlan()">Revoke granted plan</button>
             } @else {
-              <button uiButton variant="secondary" [disabled]="busy()" (click)="grantPlan()">Grant a plan</button>
+              <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="grantPlan()">Grant a plan</button>
             }
-          }
-          @if (canGrant()) {
-            <button uiButton variant="ghost" [disabled]="busy()" (click)="exportData()">Export data</button>
+            <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="exportData()"><ui-icon name="download" [size]="16" /> Export data</button>
           }
           @if (u.status !== 'deleted') {
-            <button uiButton variant="danger" [disabled]="busy()" (click)="remove()">Delete account</button>
+            <button uiButton variant="ghost" size="sm" class="adm-danger-text" [disabled]="busy()" (click)="remove()">Delete account</button>
           }
         </div>
-        @if (isSelf()) {
-          <p class="detail__hint">This is your own account, so the actions above will be refused.</p>
-        }
+      </section>
 
-        <dl class="detail__facts">
-          <div><dt>Joined</dt><dd>{{ u.createdAt | relativeTime }}</dd></div>
-          <div><dt>Last seen</dt><dd>{{ u.lastSeenAt ? (u.lastSeenAt | relativeTime) : 'never' }}</dd></div>
-          <div><dt>Onboarded</dt><dd>{{ u.onboarded ? 'yes' : 'no' }}</dd></div>
-          <div><dt>Drawings</dt><dd>{{ u.drawingCount }}</dd></div>
-          <div><dt>Storage</dt><dd>{{ u.bytesUsed | fileSize }}</dd></div>
-          @if (u.preferences; as p) {
-            <div><dt>Language</dt><dd>{{ p.locale }}</dd></div>
-            <div><dt>Units</dt><dd>{{ p.units }}</dd></div>
-            <div><dt>Profession</dt><dd>{{ p.role ?? '—' }}</dd></div>
-          }
-          @if (u.billing; as b) {
-            <div><dt>Subscription</dt><dd>{{ b.plan }} · {{ b.status }}</dd></div>
-          }
-          <div><dt>Feedback</dt><dd><a [routerLink]="['/admin/feedback']" [queryParams]="{ q: u.email }">{{ u.feedbackCount }} {{ u.feedbackCount === 1 ? 'report' : 'reports' }}</a></dd></div>
-        </dl>
+      @if (isSelf()) {
+        <p class="adm-muted">This is your own account, so the actions above will be refused.</p>
+      }
+
+      @if (u.suspendedReason && u.status === 'suspended') {
+        <div class="adm-note adm-note--warn">
+          <ui-icon name="alert" [size]="18" />
+          <div><p class="adm-note__title">Suspended {{ u.suspendedAt | relativeTime }}</p><p class="adm-note__msg">{{ u.suspendedReason }}</p></div>
+        </div>
+      }
+      @if (u.billing?.overridePlan; as granted) {
+        <div class="adm-note adm-note--accent">
+          <ui-icon name="star" [size]="18" />
+          <div>
+            <p class="adm-note__title">Complimentary {{ granted }}{{ u.billing?.overrideUntil ? ' until ' + (u.billing?.overrideUntil | date) : ', no expiry' }}</p>
+            <p class="adm-note__msg">{{ u.billing?.overrideReason }}</p>
+          </div>
+        </div>
+      }
+
+      <div class="adm-grid-halves">
+        <section class="adm-card">
+          <p class="adm-kicker">Account</p>
+          <dl class="adm-facts">
+            <div><dt>Joined</dt><dd>{{ u.createdAt | relativeTime }}</dd></div>
+            <div><dt>Last seen</dt><dd>{{ u.lastSeenAt ? (u.lastSeenAt | relativeTime) : 'never' }}</dd></div>
+            <div><dt>Onboarded</dt><dd>{{ u.onboarded ? 'yes' : 'no' }}</dd></div>
+            @if (u.preferences; as p) {
+              <div><dt>Language</dt><dd>{{ p.locale }}</dd></div>
+              <div><dt>Units</dt><dd>{{ p.units }}</dd></div>
+              <div><dt>Profession</dt><dd>{{ p.role ?? '—' }}</dd></div>
+            }
+          </dl>
+        </section>
+
+        <section class="adm-card">
+          <p class="adm-kicker">Usage</p>
+          <dl class="adm-facts">
+            <div><dt>Drawings</dt><dd>{{ u.drawingCount }}</dd></div>
+            <div><dt>Storage</dt><dd>{{ u.bytesUsed | fileSize }}</dd></div>
+            <div><dt>Feedback</dt><dd><a class="adm-link" routerLink="/admin/feedback" [queryParams]="{ q: u.email }">{{ u.feedbackCount }} {{ u.feedbackCount === 1 ? 'report' : 'reports' }}</a></dd></div>
+            @if (u.billing; as b) {
+              <div><dt>Subscription</dt><dd>{{ b.plan }} · {{ b.status }}</dd></div>
+            }
+          </dl>
+        </section>
 
         @if (u.organizations.length) {
-          <section class="detail__section">
-            <h2 class="detail__heading">Organizations</h2>
-            <ul class="detail__list">
+          <section class="adm-card">
+            <p class="adm-kicker">Organizations</p>
+            <ul class="ud__orgs">
               @for (org of u.organizations; track org.id) {
-                <li>{{ org.name }} <ui-badge>{{ org.role }}</ui-badge></li>
+                <li class="adm-row"><span class="adm-cell--strong">{{ org.name }}</span> <ui-badge>{{ org.role }}</ui-badge></li>
               }
             </ul>
           </section>
         }
-      }
-    </div>
+      </div>
+    }
   `,
   styles: [
     `
-      .detail {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 820px;
+      :host { display: contents; }
+      .ud__hero { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-4); flex-wrap: wrap; }
+      .ud__identity { display: flex; align-items: center; gap: var(--ui-space-4); min-width: 0; }
+      .ud__avatar {
+        display: grid; place-items: center; flex: 0 0 auto; width: 52px; height: 52px;
+        border-radius: var(--ui-radius-full); background: var(--ui-accent); color: #fff;
+        font-size: var(--ui-text-lg); font-weight: 700; letter-spacing: .02em;
       }
-      .detail__back {
-        color: var(--ui-text-dim);
-        text-decoration: none;
-        font-size: var(--ui-text-sm);
-        width: fit-content;
-      }
-      .detail__back:hover {
-        color: var(--ui-text);
-      }
-      .detail__header {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: var(--ui-space-3);
-      }
-      .detail__name {
-        margin: 0;
-        font-size: 22px;
-      }
-      .detail__email {
-        margin: 2px 0 0;
-        color: var(--ui-text-dim);
-        font-size: var(--ui-text-sm);
-      }
-      .detail__badges {
-        display: flex;
-        gap: var(--ui-space-1);
-        flex-wrap: wrap;
-      }
-      .detail__notice {
-        margin: 0;
-        padding: var(--ui-space-3);
-        border-left: 3px solid var(--ui-warning, #d29922);
-        background: var(--ui-surface);
-        font-size: var(--ui-text-sm);
-      }
-      .detail__actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--ui-space-2);
-      }
-      .detail__hint,
-      .detail__error {
-        margin: 0;
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-      }
-      .detail__error {
-        color: var(--ui-danger, #f85149);
-      }
-      .detail__facts {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: var(--ui-space-3);
-        margin: 0;
-        padding: var(--ui-space-4);
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-      }
-      .detail__facts dt {
-        font-size: 11px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-      }
-      .detail__facts dd {
-        margin: 2px 0 0;
-        font-size: var(--ui-text-sm);
-      }
-      .detail__section {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-2);
-      }
-      .detail__heading {
-        margin: 0;
-        font-size: 12px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-      }
-      .detail__list {
-        margin: 0;
-        padding-left: 18px;
-        font-size: var(--ui-text-sm);
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
+      .ud__orgs { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ui-space-2); font-size: var(--ui-text-md); }
     `,
   ],
 })
@@ -249,6 +180,12 @@ export class AdminUserDetailPage {
   protected readonly canGrant = computed(() => {
     const role = this.me.me()?.user.platformRole;
     return role === 'admin' || role === 'owner';
+  });
+
+  protected readonly initials = computed(() => {
+    const u = this.user();
+    const letters = `${u?.firstName?.charAt(0) ?? ''}${u?.lastName?.charAt(0) ?? ''}`.trim();
+    return (letters || u?.email.charAt(0) || '?').toUpperCase();
   });
 
   protected readonly fullName = computed(() => {

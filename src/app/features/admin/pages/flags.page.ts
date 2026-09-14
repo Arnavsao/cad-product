@@ -4,7 +4,7 @@ import { AdminFlagDto } from '../../../core/api/admin.models';
 import { MeService } from '../../../core/api/me.service';
 import { FlagsService } from '../../../core/flags/flags.service';
 import { NotificationService } from '../../../core/services/notification.service';
-import { UiBadgeComponent, UiButtonDirective, UiSkeletonComponent } from '../../../shared/ui';
+import { RelativeTimePipe, UiBadgeComponent, UiButtonDirective, UiSkeletonComponent } from '../../../shared/ui';
 
 /**
  * The switches, grouped the way the registry groups them.
@@ -18,125 +18,57 @@ import { UiBadgeComponent, UiButtonDirective, UiSkeletonComponent } from '../../
   selector: 'app-admin-flags',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButtonDirective, UiBadgeComponent, UiSkeletonComponent],
+  imports: [UiButtonDirective, UiBadgeComponent, UiSkeletonComponent, RelativeTimePipe],
   template: `
-    <div class="flags">
-      <p class="flags__lede">
-        Changes take effect across the site within a minute. Nothing here needs a deploy.
-      </p>
-
-      @if (loading()) {
-        <ui-skeleton height="52px" [lines]="6" />
-      } @else {
-        @for (group of groups(); track group.name) {
-          <section class="flags__group">
-            <h2 class="flags__heading">{{ group.name }}</h2>
-            @for (flag of group.flags; track flag.key) {
-              <div class="flags__row">
-                <div class="flags__meta">
-                  <span class="flags__key">
-                    {{ flag.key }}
-                    @if (flag.overridden) {
-                      <ui-badge tone="info">overridden</ui-badge>
-                    }
-                  </span>
-                  <span class="flags__desc">{{ flag.description }}</span>
-                  @if (flag.updatedByEmail) {
-                    <span class="flags__by">Last changed by {{ flag.updatedByEmail }}</span>
-                  }
-                </div>
-                <div class="flags__controls">
-                  <ui-badge [tone]="flag.enabled ? 'success' : 'neutral'">{{ flag.enabled ? 'on' : 'off' }}</ui-badge>
-                  @if (canWrite()) {
-                    <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="toggle(flag)">
-                      Turn {{ flag.enabled ? 'off' : 'on' }}
-                    </button>
-                    @if (flag.overridden) {
-                      <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="reset(flag)">Reset</button>
-                    }
-                  }
-                </div>
-              </div>
-            }
-          </section>
-        }
-        @if (!canWrite()) {
-          <p class="flags__lede">Changing a flag needs the admin tier.</p>
-        }
+    <div class="adm-head">
+      <div>
+        <h1 class="adm-title">Feature flags</h1>
+        <p class="adm-lede">Switches that take effect across the site within a minute. Nothing here needs a deploy.</p>
+      </div>
+      @if (!canWrite()) {
+        <span class="adm-muted">Changing a flag needs the admin tier.</span>
       }
     </div>
+
+    @if (loading()) {
+      <ui-skeleton height="52px" [lines]="6" />
+    } @else {
+      @for (group of groups(); track group.name) {
+        <section class="adm-table adm-card--flush">
+          <div class="adm-card__bar"><p class="adm-kicker">{{ group.name }}</p></div>
+          @for (flag of group.flags; track flag.key) {
+            <div class="adm-list__row fl__row">
+              <div class="fl__meta">
+                <span class="adm-row">
+                  <span class="adm-mono adm-cell--strong">{{ flag.key }}</span>
+                  @if (flag.overridden) { <ui-badge tone="info">overridden</ui-badge> }
+                </span>
+                <span class="adm-muted">{{ flag.description }}</span>
+                @if (flag.updatedByEmail) {
+                  <span class="fl__by">Last changed by {{ flag.updatedByEmail }} · {{ flag.updatedAt | relativeTime }}</span>
+                }
+              </div>
+              <div class="adm-actions">
+                <ui-badge [tone]="flag.enabled ? 'success' : 'neutral'">{{ flag.enabled ? 'on' : 'off' }}</ui-badge>
+                @if (canWrite()) {
+                  <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="toggle(flag)">Turn {{ flag.enabled ? 'off' : 'on' }}</button>
+                  @if (flag.overridden) {
+                    <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="reset(flag)">Reset</button>
+                  }
+                }
+              </div>
+            </div>
+          }
+        </section>
+      }
+    }
   `,
   styles: [
     `
-      .flags {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-5);
-        max-width: 900px;
-      }
-      .flags__lede {
-        margin: 0;
-        color: var(--ui-text-dim);
-        font-size: var(--ui-text-sm);
-      }
-      .flags__group {
-        display: flex;
-        flex-direction: column;
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        overflow: hidden;
-        background: var(--ui-surface);
-      }
-      .flags__heading {
-        margin: 0;
-        padding: 8px var(--ui-space-4);
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-        background: var(--ui-surface-2);
-        border-bottom: 1px solid var(--ui-border);
-      }
-      .flags__row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--ui-space-3);
-        padding: var(--ui-space-3) var(--ui-space-4);
-        border-bottom: 1px solid var(--ui-border);
-      }
-      .flags__row:last-child {
-        border-bottom: 0;
-      }
-      .flags__meta {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 240px;
-        flex: 1 1 320px;
-      }
-      .flags__key {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        font-family: var(--ui-font-mono, ui-monospace, monospace);
-        font-size: var(--ui-text-sm);
-        font-weight: 600;
-      }
-      .flags__desc {
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-      }
-      .flags__by {
-        font-size: 11px;
-        color: var(--ui-text-dim);
-      }
-      .flags__controls {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-      }
+      :host { display: contents; }
+      .fl__row { justify-content: space-between; align-items: center; }
+      .fl__meta { display: grid; gap: 2px; flex: 1 1 320px; min-width: 240px; }
+      .fl__by { font-size: var(--ui-text-xs); color: var(--ui-text-dim); }
     `,
   ],
 })

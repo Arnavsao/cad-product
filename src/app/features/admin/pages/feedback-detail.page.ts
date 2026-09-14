@@ -9,6 +9,7 @@ import {
   RelativeTimePipe,
   UiBadgeComponent,
   UiButtonDirective,
+  UiIconComponent,
   UiInputDirective,
   UiSkeletonComponent,
 } from '../../../shared/ui';
@@ -32,225 +33,104 @@ const STATUSES: FeedbackStatus[] = ['new', 'triaged', 'in_progress', 'resolved',
     FormsModule,
     RouterLink,
     UiButtonDirective,
+    UiIconComponent,
     UiInputDirective,
     UiBadgeComponent,
     UiSkeletonComponent,
     RelativeTimePipe,
   ],
   template: `
-    <div class="fd">
-      <a class="fd__back" routerLink="/admin/feedback">← All feedback</a>
+    <a class="adm-back" routerLink="/admin/feedback"><ui-icon name="back" [size]="14" /> All feedback</a>
 
-      @if (loading()) {
-        <ui-skeleton height="28px" [lines]="8" />
-      } @else if (report(); as r) {
-        <header class="fd__header">
-          <div class="fd__badges">
-            <ui-badge [tone]="tone(r.status)">{{ label(r.status) }}</ui-badge>
-            <ui-badge>{{ r.kind }}</ui-badge>
-            @if (r.rating) {
-              <ui-badge>{{ r.rating }}/5</ui-badge>
+    @if (loading()) {
+      <ui-skeleton height="28px" [lines]="8" />
+    } @else if (report(); as r) {
+      <div class="adm-head">
+        <div class="adm-row">
+          <ui-badge [tone]="tone(r.status)">{{ label(r.status) }}</ui-badge>
+          <ui-badge>{{ r.kind }}</ui-badge>
+          @if (r.rating) { <ui-badge>{{ r.rating }}/5</ui-badge> }
+          @if (r.repliedAt) { <ui-badge tone="success">replied {{ r.repliedAt | relativeTime }}</ui-badge> }
+        </div>
+        <span class="adm-muted">received {{ r.createdAt | relativeTime }}</span>
+      </div>
+
+      <blockquote class="fd__message">{{ r.message }}</blockquote>
+
+      <div class="adm-grid-2">
+        <div class="adm-stack adm-stack--lg">
+          <section class="adm-card">
+            <p class="adm-kicker">Reply by email</p>
+            @if (r.replyable) {
+              <p class="adm-muted">Goes to {{ r.fromEmail }}. Replies come back to you, not to a no-reply address.</p>
+              <textarea uiInput id="fd-reply" class="adm-textarea" rows="7" placeholder="Write back in your own words." [(ngModel)]="replyBody" [disabled]="busy()"></textarea>
+              <div class="adm-actions">
+                <button uiButton variant="primary" [disabled]="busy() || !canSend()" (click)="sendReply()">Send reply</button>
+                @if (!canSend() && replyBody.trim().length > 0) { <span class="adm-muted">At least 10 characters.</span> }
+              </div>
+            } @else {
+              <div class="adm-note">
+                <ui-icon name="mail" [size]="18" />
+                <div><p class="adm-note__title">No address to answer.</p><p class="adm-note__msg">This was sent anonymously with no email address.</p></div>
+              </div>
             }
-            @if (r.repliedAt) {
-              <ui-badge tone="success">replied {{ r.repliedAt | relativeTime }}</ui-badge>
-            }
-          </div>
-          <span class="fd__when">{{ r.createdAt | relativeTime }}</span>
-        </header>
-
-        <blockquote class="fd__message">{{ r.message }}</blockquote>
-
-        <div class="fd__columns">
-          <section class="fd__panel">
-            <h2 class="fd__heading">Triage</h2>
-
-            <label class="fd__label" for="fd-status">Status</label>
-            <select uiInput id="fd-status" [ngModel]="r.status" (ngModelChange)="setStatus($event)" [disabled]="busy()">
-              @for (s of statuses; track s) {
-                <option [value]="s">{{ label(s) }}</option>
-              }
-            </select>
-
-            <label class="fd__label" for="fd-assignee">Assigned to</label>
-            <div class="fd__row">
-              <span class="fd__assignee">{{ r.assigneeEmail ?? 'nobody' }}</span>
-              @if (r.assigneeId !== myId()) {
-                <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="assignToMe()">Take it</button>
-              }
-              @if (r.assigneeId) {
-                <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="unassign()">Clear</button>
-              }
-            </div>
-
-            <label class="fd__label" for="fd-note">Internal note</label>
-            <textarea
-              uiInput
-              id="fd-note"
-              class="fd__textarea"
-              rows="3"
-              placeholder="Only staff see this."
-              [(ngModel)]="note"
-              [disabled]="busy()"
-            ></textarea>
-            <button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="saveNote()">Save note</button>
           </section>
 
-          <section class="fd__panel">
-            <h2 class="fd__heading">Sender</h2>
-            <dl class="fd__facts">
-              <div>
-                <dt>From</dt>
-                <dd>
-                  @if (r.fromUserId) {
-                    <a [routerLink]="['/admin/users', r.fromUserId]">{{ r.fromName || r.fromEmail }}</a>
-                  } @else {
-                    {{ r.fromEmail ?? 'anonymous' }}
-                  }
-                </dd>
-              </div>
-              @if (r.context?.appVersion) {
-                <div><dt>Build</dt><dd>{{ r.context?.appVersion }}</dd></div>
-              }
-              @if (r.context?.route) {
-                <div><dt>Page</dt><dd>{{ r.context?.route }}</dd></div>
-              }
-              @if (r.context?.userAgent) {
-                <div><dt>Browser</dt><dd class="fd__ua">{{ r.context?.userAgent }}</dd></div>
-              }
-            </dl>
+          <section class="adm-card">
+            <p class="adm-kicker">Internal note</p>
+            <textarea uiInput id="fd-note" class="adm-textarea" rows="3" placeholder="Only staff see this." [(ngModel)]="note" [disabled]="busy()"></textarea>
+            <div><button uiButton variant="secondary" size="sm" [disabled]="busy()" (click)="saveNote()">Save note</button></div>
           </section>
         </div>
 
-        <section class="fd__panel">
-          <h2 class="fd__heading">Reply by email</h2>
-          @if (r.replyable) {
-            <p class="fd__hint">
-              Goes to {{ r.fromEmail }}. Replies come back to you, not to a no-reply address.
-            </p>
-            <textarea
-              uiInput
-              id="fd-reply"
-              class="fd__textarea"
-              rows="6"
-              placeholder="Write back in your own words."
-              [(ngModel)]="replyBody"
-              [disabled]="busy()"
-            ></textarea>
-            <button uiButton variant="primary" [disabled]="busy() || !canSend()" (click)="sendReply()">
-              Send reply
-            </button>
-          } @else {
-            <p class="fd__hint">
-              This was sent anonymously with no email address, so there is nobody to answer.
-            </p>
-          }
-        </section>
-      }
-    </div>
+        <div class="adm-stack adm-stack--lg">
+          <section class="adm-card">
+            <p class="adm-kicker">Triage</p>
+            <div class="adm-field">
+              <label class="adm-label" for="fd-status">Status</label>
+              <select uiInput id="fd-status" [ngModel]="r.status" (ngModelChange)="setStatus($event)" [disabled]="busy()">
+                @for (s of statuses; track s) { <option [value]="s">{{ label(s) }}</option> }
+              </select>
+            </div>
+            <div class="adm-field">
+              <span class="adm-label">Assigned to</span>
+              <div class="adm-row">
+                <span>{{ r.assigneeEmail ?? 'nobody' }}</span>
+                @if (r.assigneeId !== myId()) { <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="assignToMe()">Take it</button> }
+                @if (r.assigneeId) { <button uiButton variant="ghost" size="sm" [disabled]="busy()" (click)="unassign()">Clear</button> }
+              </div>
+            </div>
+          </section>
+
+          <section class="adm-card">
+            <p class="adm-kicker">Sender</p>
+            <dl class="adm-facts fd__facts">
+              <div>
+                <dt>From</dt>
+                <dd>
+                  @if (r.fromUserId) { <a class="adm-link" [routerLink]="['/admin/users', r.fromUserId]">{{ r.fromName || r.fromEmail }}</a> }
+                  @else { {{ r.fromEmail ?? 'anonymous' }} }
+                </dd>
+              </div>
+              @if (r.context?.appVersion) { <div><dt>Build</dt><dd class="adm-mono">{{ r.context?.appVersion }}</dd></div> }
+              @if (r.context?.route) { <div><dt>Page</dt><dd class="adm-mono">{{ r.context?.route }}</dd></div> }
+              @if (r.context?.userAgent) { <div><dt>Browser</dt><dd class="adm-muted">{{ r.context?.userAgent }}</dd></div> }
+            </dl>
+          </section>
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
-      .fd {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-4);
-        max-width: 900px;
-      }
-      .fd__back {
-        color: var(--ui-text-dim);
-        text-decoration: none;
-        font-size: var(--ui-text-sm);
-        width: fit-content;
-      }
-      .fd__back:hover {
-        color: var(--ui-text);
-      }
-      .fd__header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--ui-space-3);
-        flex-wrap: wrap;
-      }
-      .fd__badges {
-        display: flex;
-        gap: var(--ui-space-1);
-        flex-wrap: wrap;
-      }
-      .fd__when,
-      .fd__hint,
-      .fd__assignee {
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-      }
+      :host { display: contents; }
       .fd__message {
-        margin: 0;
-        padding: var(--ui-space-4);
-        border-left: 3px solid var(--ui-accent);
-        background: var(--ui-surface);
-        white-space: pre-wrap;
-        line-height: 1.6;
+        margin: 0; padding: var(--ui-space-5);
+        border: 1px solid var(--ui-border); border-left: 3px solid var(--ui-accent); border-radius: var(--ui-radius-lg);
+        background: var(--ui-surface); color: var(--ui-text-strong);
+        white-space: pre-wrap; line-height: var(--ui-leading); font-size: var(--ui-text-base);
       }
-      .fd__columns {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: var(--ui-space-3);
-      }
-      .fd__panel {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-2);
-        align-items: flex-start;
-        padding: var(--ui-space-4);
-        border: 1px solid var(--ui-border);
-        border-radius: var(--ui-radius-md);
-        background: var(--ui-surface);
-      }
-      .fd__heading {
-        margin: 0 0 var(--ui-space-1);
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-      }
-      .fd__label {
-        font-size: var(--ui-text-sm);
-        color: var(--ui-text-dim);
-        margin-top: var(--ui-space-2);
-      }
-      .fd__row {
-        display: flex;
-        align-items: center;
-        gap: var(--ui-space-2);
-        flex-wrap: wrap;
-      }
-      .fd__textarea {
-        width: 100%;
-        resize: vertical;
-        font-family: inherit;
-      }
-      .fd__facts {
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: var(--ui-space-2);
-        width: 100%;
-      }
-      .fd__facts dt {
-        font-size: 11px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--ui-text-dim);
-      }
-      .fd__facts dd {
-        margin: 2px 0 0;
-        font-size: var(--ui-text-sm);
-        word-break: break-word;
-      }
-      .fd__ua {
-        font-size: 12px;
-        color: var(--ui-text-dim);
-      }
+      .fd__facts { grid-template-columns: 1fr; gap: var(--ui-space-3); }
     `,
   ],
 })
